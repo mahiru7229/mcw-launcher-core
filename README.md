@@ -1,57 +1,53 @@
-# MCW Core 1.0.0
+# MCW Core 1.0.0 — Full Bilingual Developer Documentation
 
-MCW Core is the headless runtime and service layer that powers MCW Launcher.
-It exposes a stable Python API for instance management, Java discovery,
-Minecraft launch orchestration, modpack workflows, backup/repair utilities,
-and content management without requiring the PySide6 GUI.
+This documentation bundle is generated from and checked against:
 
-## Highlights in 1.0.0
+- the uploaded MCW Core source repository;
+- the complete MCW Launcher 1.0.0 source tree;
+- the uploaded `mcw_core-1.0.0-py3-none-any.whl` distribution.
 
-- Stable public API surface under `mcw_core` and `mcw_core.api`.
-- Headless launch flow with progress callbacks.
-- Instance creation, loading, cloning, deletion, and status management.
-- Java scanning and installation helpers.
-- Modrinth, CurseForge, FTB, and portable package support through the public API.
-- Backup, repair, diagnostics, and security helpers.
-- LAN hosting helpers and managed content utilities.
+It is intended for developers who want to build another launcher, CLI, automation tool, or service on top of MCW Core without depending on the MCW Launcher GUI.
 
-## Install
+## English documentation
 
-```bash
-pip install mcw-core==1.0.0
-```
+1. [Complete Core Guide](docs/en/CORE_GUIDE.md)
+2. [API Reference](docs/en/API_REFERENCE.md)
+3. [Progress, Threads, Pause and Cancel](docs/en/PROGRESS_ASYNC.md)
+4. [Blueprint for Building a Launcher](docs/en/BUILD_A_LAUNCHER.md)
+5. [Packaging and Release Notes](docs/en/PACKAGING_RELEASE.md)
 
-## Quick example
+## Tài liệu tiếng Việt
+
+1. [Hướng dẫn Core đầy đủ](docs/vi/CORE_GUIDE.md)
+2. [Tham chiếu API](docs/vi/API_REFERENCE.md)
+3. [Progress, luồng, Pause và Cancel](docs/vi/PROGRESS_ASYNC.md)
+4. [Bản thiết kế để xây một launcher](docs/vi/BUILD_A_LAUNCHER.md)
+5. [Đóng gói và phát hành](docs/vi/PACKAGING_RELEASE.md)
+
+## Executable examples
+
+The `examples/` directory contains small, focused programs for:
+
+- configuring a portable data root;
+- bootstrapping the core;
+- listing versions and creating instances;
+- account management;
+- Java scanning and installation;
+- offline and account-based launch;
+- progress display and cooperative pause/cancel;
+- Modrinth, CurseForge and FTB workflows;
+- native modpack import and portable export;
+- content packs, repair, backup and diagnostics;
+- a minimal PySide6 task adapter.
+
+## Important API rule
+
+Third-party code should import only from:
 
 ```python
-from mcw_core import get_default_core, LaunchRequest
-from mcw_core.api.instance.instance_manager import InstanceManager
-
-core = get_default_core()
-instance = InstanceManager.load('My Instance')
-request = LaunchRequest(instance=instance, account=None, authentication=None)
-
-result = core.launch(request)
-print(result)
+import mcw_core
+from mcw_core import ...
+from mcw_core.api... import ...
 ```
 
-## Repository layout
-
-- `mcw_core/` — public package.
-- `docs/` — usage guides and release notes.
-- `LICENSE` — MIT license.
-
-## Documentation
-
-- `docs/QUICKSTART.md`
-- `docs/API_OVERVIEW.md`
-- `docs/USAGE.md`
-- `docs/MIGRATION.md`
-- `docs/CORE_ARCHITECTURE.md`
-- `docs/RELEASE-v1.0.0.md`
-
-## Notes
-
-This source bundle is intended for the public core repository snapshot.
-The runtime compatibility wheel used for the first 1.0.0 release may still bundle
-supporting compatibility modules required by the current launcher generation.
+Do not import `src.core`, `src.models`, `src.database`, or `src.gui` directly. The current wheel bundles compatibility implementation modules under `src`, but they are not the public contract.

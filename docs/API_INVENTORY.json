@@ -1,0 +1,4504 @@
+[
+  {
+    "api_module": "mcw_core.api.account.account_manager",
+    "implementation": "src/core/account/account_manager.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "AccountManager",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "create_offline_account",
+            "signature": "username: str",
+            "return": "Account",
+            "doc": ""
+          },
+          {
+            "name": "create_microsoft_account",
+            "signature": "cancel_event: Event | None=None",
+            "return": "Account",
+            "doc": ""
+          },
+          {
+            "name": "list_accounts",
+            "signature": "",
+            "return": "list[Account]",
+            "doc": ""
+          },
+          {
+            "name": "get_account",
+            "signature": "account_id: str",
+            "return": "Account | None",
+            "doc": ""
+          },
+          {
+            "name": "get_selected_account",
+            "signature": "",
+            "return": "Account | None",
+            "doc": ""
+          },
+          {
+            "name": "set_selected_account",
+            "signature": "account_id: str",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "synchronize_microsoft_profile",
+            "signature": "account_id: str",
+            "return": "Account",
+            "doc": ""
+          },
+          {
+            "name": "remove_account",
+            "signature": "account_id: str",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "is_account_exist",
+            "signature": "username: str",
+            "return": "bool",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.account.account_skin_manager",
+    "implementation": "src/core/account/account_skin_manager.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "AccountSkinManager",
+        "signature": "",
+        "return": "",
+        "doc": "Cache Minecraft skin textures without making the GUI depend on network APIs.",
+        "methods": [
+          {
+            "name": "cache_profile",
+            "signature": "cls, profile: MinecraftProfile",
+            "return": "Path | None",
+            "doc": ""
+          },
+          {
+            "name": "cache_account",
+            "signature": "cls, account: Account",
+            "return": "Path | None",
+            "doc": ""
+          },
+          {
+            "name": "cache_texture",
+            "signature": "cls, profile_uuid: str, skin_url: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "cached_texture",
+            "signature": "cls, account_or_uuid: Account | str",
+            "return": "Path | None",
+            "doc": ""
+          },
+          {
+            "name": "remove_cached_texture",
+            "signature": "cls, account_or_uuid: Account | str",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "texture_path",
+            "signature": "profile_uuid: str",
+            "return": "Path",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.auth.microsoft.microsoft_auth_gate",
+    "implementation": "src/core/auth/microsoft/microsoft_auth_gate.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "MicrosoftAuthenticationLockedError",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "MicrosoftAuthenticationAvailability",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "MicrosoftAuthenticationGate",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "availability",
+            "signature": "",
+            "return": "MicrosoftAuthenticationAvailability",
+            "doc": ""
+          },
+          {
+            "name": "require_enabled",
+            "signature": "",
+            "return": "None",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.auth.microsoft.oauth_callback_server",
+    "implementation": "src/core/auth/microsoft/oauth_callback_server.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "MicrosoftAuthorizationCancelledError",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "OAuthCallbackHandler",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "do_GET",
+            "signature": "self",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "log_message",
+            "signature": "self, format: str, *args",
+            "return": "None",
+            "doc": ""
+          }
+        ]
+      },
+      {
+        "kind": "class",
+        "name": "ReusableOAuthHTTPServer",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "OAuthCallbackServer",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "wait_for_callback",
+            "signature": "timeout: float=180.0, cancel_event: Event | None=None",
+            "return": "tuple[str, str]",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.backup.instance_backup_manager",
+    "implementation": "src/core/backup/instance_backup_manager.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "InstanceBackupManager",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "create",
+            "signature": "instance: Instance, scope: str=SCOPE_FULL, reason: str='manual', destination: Path | None=None",
+            "return": "InstanceBackupResult",
+            "doc": ""
+          },
+          {
+            "name": "inspect",
+            "signature": "path: Path",
+            "return": "InstanceBackupInfo",
+            "doc": ""
+          },
+          {
+            "name": "list_backups",
+            "signature": "instance: Instance",
+            "return": "list[InstanceBackupInfo]",
+            "doc": ""
+          },
+          {
+            "name": "restore",
+            "signature": "instance: Instance, backup_path: Path, create_safety_backup: bool=True",
+            "return": "InstanceRestoreResult",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.bootstrap",
+    "implementation": "src/core/bootstrap.py",
+    "members": [
+      {
+        "kind": "function",
+        "name": "initialize_application",
+        "signature": "progress_callback: BootstrapProgressCallback | None=None",
+        "return": "dict[str, Any]",
+        "doc": "Prepare persistent application resources and report startup progress when requested.",
+        "methods": []
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.config.curseforge_config_manager",
+    "implementation": "src/core/config/curseforge_config_manager.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "CurseForgeConfigManager",
+        "signature": "",
+        "return": "",
+        "doc": "Loads CurseForge gateway endpoints with safe local overrides.",
+        "methods": [
+          {
+            "name": "path",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "legacy_path",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "gateway_urls",
+            "signature": "cls",
+            "return": "tuple[str, ...]",
+            "doc": ""
+          },
+          {
+            "name": "gateway_url",
+            "signature": "cls",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "client_token",
+            "signature": "cls",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "is_configured",
+            "signature": "cls",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "save_local",
+            "signature": "cls, gateway_urls: Iterable[str] | str, client_token: str | None=None",
+            "return": "Path",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.config.launcher_settings_manager",
+    "implementation": "src/core/config/launcher_settings_manager.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "LauncherSettingsManager",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "initialize",
+            "signature": "self",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "load",
+            "signature": "self",
+            "return": "dict[str, Any]",
+            "doc": ""
+          },
+          {
+            "name": "save",
+            "signature": "self, settings: dict[str, Any]",
+            "return": "dict[str, Any]",
+            "doc": ""
+          },
+          {
+            "name": "update_section",
+            "signature": "self, section: str, values: dict[str, Any]",
+            "return": "dict[str, Any]",
+            "doc": ""
+          },
+          {
+            "name": "reset",
+            "signature": "self",
+            "return": "dict[str, Any]",
+            "doc": ""
+          },
+          {
+            "name": "load_window_geometry",
+            "signature": "self",
+            "return": "bytes | None",
+            "doc": ""
+          },
+          {
+            "name": "save_window_geometry",
+            "signature": "self, geometry: bytes | bytearray | memoryview",
+            "return": "None",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.config.managed_content_policy",
+    "implementation": "src/core/config/managed_content_policy.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "ManagedContentPolicy",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "normalize_instance",
+            "signature": "cls, value: object, default: str=INHERIT",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "normalize_global",
+            "signature": "cls, value: object, default: str=BLOCK",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "from_legacy_bool",
+            "signature": "cls, value: object, default: bool=True",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "resolve",
+            "signature": "cls, instance_settings: object, launcher_settings: dict[str, Any], provider: str",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "blocks_launch",
+            "signature": "cls, instance_settings: object, launcher_settings: dict[str, Any], provider: str",
+            "return": "bool",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.content.content_pack_manager",
+    "implementation": "src/core/content/content_pack_manager.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "ContentPackManager",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "list_entries",
+            "signature": "cls, instance: Instance, content_type: str=''",
+            "return": "list[ContentPackEntry]",
+            "doc": ""
+          },
+          {
+            "name": "install_modrinth",
+            "signature": "cls, instance: Instance, content_type: str, version_id: str, reporter: ProgressReporter | None=None",
+            "return": "ContentPackInstallResult",
+            "doc": ""
+          },
+          {
+            "name": "install_curseforge",
+            "signature": "cls, instance: Instance, content_type: str, file: CurseForgeFile, project_name: str='', project_url: str='', reporter: ProgressReporter | None=None",
+            "return": "ContentPackInstallResult",
+            "doc": ""
+          },
+          {
+            "name": "import_local",
+            "signature": "cls, instance: Instance, content_type: str, source: Path",
+            "return": "ContentPackInstallResult",
+            "doc": ""
+          },
+          {
+            "name": "set_enabled",
+            "signature": "cls, instance: Instance, entry_id: str, enabled: bool",
+            "return": "ContentPackEntry",
+            "doc": ""
+          },
+          {
+            "name": "remove",
+            "signature": "cls, instance: Instance, entry_id: str",
+            "return": "ContentPackEntry",
+            "doc": ""
+          },
+          {
+            "name": "destination_dir",
+            "signature": "cls, instance: Instance, content_type: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "validate_archive",
+            "signature": "cls, source: Path, content_type: str",
+            "return": "dict[str, object]",
+            "doc": ""
+          },
+          {
+            "name": "normalize_type",
+            "signature": "cls, value: str",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "display_name",
+            "signature": "cls, content_type: str",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "curseforge_project_url",
+            "signature": "cls, content_type: str, project_id: int | str",
+            "return": "str",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.content.content_pack_registry",
+    "implementation": "src/core/content/content_pack_registry.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "ContentPackRegistry",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "path",
+            "signature": "cls, instance: Instance",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "load",
+            "signature": "cls, instance: Instance",
+            "return": "dict",
+            "doc": ""
+          },
+          {
+            "name": "save",
+            "signature": "cls, instance: Instance, payload: dict",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "entries",
+            "signature": "cls, instance: Instance, content_type: str=''",
+            "return": "list[ContentPackEntry]",
+            "doc": ""
+          },
+          {
+            "name": "upsert",
+            "signature": "cls, instance: Instance, entry: ContentPackEntry",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "remove",
+            "signature": "cls, instance: Instance, entry_id: str",
+            "return": "ContentPackEntry | None",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.content.installed_content_library",
+    "implementation": "src/core/content/installed_content_library.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "InstalledContentLibraryManager",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "scan",
+            "signature": "cls, instance: Instance",
+            "return": "InstalledContentLibrary",
+            "doc": ""
+          },
+          {
+            "name": "set_enabled",
+            "signature": "cls, instance: Instance, item_ids: list[str] | tuple[str, ...], enabled: bool",
+            "return": "tuple[str, ...]",
+            "doc": ""
+          },
+          {
+            "name": "remove",
+            "signature": "cls, instance: Instance, item_ids: list[str] | tuple[str, ...]",
+            "return": "tuple[str, ...]",
+            "doc": ""
+          },
+          {
+            "name": "set_pinned",
+            "signature": "instance: Instance, item_ids: list[str] | tuple[str, ...], pinned: bool",
+            "return": "tuple[str, ...]",
+            "doc": ""
+          },
+          {
+            "name": "set_ignored_update",
+            "signature": "instance: Instance, item_ids: list[str] | tuple[str, ...], ignored: bool",
+            "return": "tuple[str, ...]",
+            "doc": ""
+          },
+          {
+            "name": "destination_folder",
+            "signature": "cls, instance: Instance, content_type: str",
+            "return": "Path",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.curseforge.curseforge_client",
+    "implementation": "src/core/curseforge/curseforge_client.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "CurseForgeClient",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "is_available",
+            "signature": "",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "gateway_urls",
+            "signature": "",
+            "return": "tuple[str, ...]",
+            "doc": ""
+          },
+          {
+            "name": "gateway_url",
+            "signature": "",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "cache_status",
+            "signature": "",
+            "return": "CurseForgeCacheInfo",
+            "doc": ""
+          },
+          {
+            "name": "clear_cache",
+            "signature": "",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "manual_refresh_remaining_seconds",
+            "signature": "",
+            "return": "int",
+            "doc": ""
+          },
+          {
+            "name": "search_projects",
+            "signature": "project_type: str, query: str='', game_version: str='', loader: str='forge', index: int=0, page_size: int=25, sort: str='popularity', force_refresh: bool=False, manual_refresh: bool=False",
+            "return": "CurseForgeSearchResult",
+            "doc": ""
+          },
+          {
+            "name": "get_project",
+            "signature": "project_id: int | str, force_refresh: bool=False",
+            "return": "CurseForgeProject",
+            "doc": ""
+          },
+          {
+            "name": "get_project_details",
+            "signature": "project_id: int | str, force_refresh: bool=False",
+            "return": "CurseForgeProject",
+            "doc": ""
+          },
+          {
+            "name": "get_projects_batch",
+            "signature": "project_ids: list[int] | tuple[int, ...] | set[int]",
+            "return": "dict[int, CurseForgeProject]",
+            "doc": ""
+          },
+          {
+            "name": "list_files_result",
+            "signature": "project_id: int | str, game_version: str='', loader: str='forge', release_types: tuple[str, ...] | list[str] | set[str] | None=None, page_size: int=50, force_refresh: bool=False, manual_refresh: bool=False",
+            "return": "CurseForgeFileListResult",
+            "doc": ""
+          },
+          {
+            "name": "list_files",
+            "signature": "project_id: int | str, game_version: str='', loader: str='forge', release_types: tuple[str, ...] | list[str] | set[str] | None=None, page_size: int=50, force_refresh: bool=False",
+            "return": "list[CurseForgeFile]",
+            "doc": ""
+          },
+          {
+            "name": "get_file",
+            "signature": "project_id: int | str, file_id: int | str, force_refresh: bool=False",
+            "return": "CurseForgeFile",
+            "doc": ""
+          },
+          {
+            "name": "get_files_batch",
+            "signature": "file_ids: list[int] | tuple[int, ...] | set[int]",
+            "return": "dict[int, CurseForgeFile]",
+            "doc": ""
+          },
+          {
+            "name": "get_download_url",
+            "signature": "project_id: int | str, file_id: int | str, force_refresh: bool=False",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "latest_compatible_file",
+            "signature": "project_id: int | str, game_version: str, loader: str='forge', release_types: tuple[str, ...] | list[str] | set[str] | None=None",
+            "return": "CurseForgeFile",
+            "doc": ""
+          },
+          {
+            "name": "normalize_loader",
+            "signature": "loader: str",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "loader_compatibility",
+            "signature": "file: CurseForgeFile, loader: str",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "is_permanent_error",
+            "signature": "error: BaseException",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "normalize_release_types",
+            "signature": "release_types: tuple[str, ...] | list[str] | set[str] | None=None",
+            "return": "tuple[str, ...]",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.curseforge.curseforge_errors",
+    "implementation": "src/core/curseforge/curseforge_errors.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "CurseForgeManagedFilesRequired",
+        "signature": "",
+        "return": "",
+        "doc": "Raised when managed CurseForge files require user-assisted recovery.",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "CurseForgeModpackManualDownloadRequired",
+        "signature": "",
+        "return": "",
+        "doc": "Raised when a CurseForge modpack archive must be downloaded manually.",
+        "methods": []
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.curseforge.curseforge_manual_installer",
+    "implementation": "src/core/curseforge/curseforge_manual_installer.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "CurseForgeManualInstaller",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "install",
+            "signature": "instance: Instance, requirement: CurseForgeManualDownload, source: Path",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "install_many",
+            "signature": "instance: Instance, requirements: tuple[CurseForgeManualDownload, ...] | list[CurseForgeManualDownload], sources: tuple[Path, ...] | list[Path]",
+            "return": "CurseForgeManualImportResult",
+            "doc": ""
+          },
+          {
+            "name": "copy_to_cache",
+            "signature": "source: Path, destination: Path",
+            "return": "Path",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.curseforge.curseforge_mod_installer",
+    "implementation": "src/core/curseforge/curseforge_mod_installer.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "CurseForgeModInstaller",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "install",
+            "signature": "instance: Instance, project_id: int, file_id: int, install_dependencies: bool=True, allowed_release_types: tuple[str, ...] | list[str] | set[str] | None=None, reporter: ProgressReporter | None=None, allow_unverified: bool=False",
+            "return": "CurseForgeModInstallResult",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.curseforge.curseforge_pack_installer",
+    "implementation": "src/core/curseforge/curseforge_pack_installer.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "CurseForgePackInstaller",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "install",
+            "signature": "project_id: int, file_id: int, instance_name: str, install_optional_files: bool=True, allowed_release_types: tuple[str, ...] | list[str] | set[str] | None=None, reporter: ProgressReporter | None=None, expected_loader: str='', settings_override: dict | None=None",
+            "return": "CurseForgeModpackInstallResult",
+            "doc": ""
+          },
+          {
+            "name": "install_local_archive",
+            "signature": "pack_path: Path, instance_name: str='', install_optional_files: bool=True, reporter: ProgressReporter | None=None, settings_override: dict | None=None",
+            "return": "CurseForgeModpackInstallResult",
+            "doc": ""
+          },
+          {
+            "name": "install_manual_archive",
+            "signature": "request: CurseForgeModpackManualDownloadRequired, source: Path, reporter: ProgressReporter | None=None",
+            "return": "CurseForgeModpackInstallResult",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.curseforge.curseforge_registry",
+    "implementation": "src/core/curseforge/curseforge_registry.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "CurseForgeRegistry",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "empty",
+            "signature": "",
+            "return": "dict",
+            "doc": ""
+          },
+          {
+            "name": "load",
+            "signature": "instance: Instance",
+            "return": "dict",
+            "doc": ""
+          },
+          {
+            "name": "save",
+            "signature": "instance: Instance, data: dict",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "remove_by_filenames",
+            "signature": "instance: Instance, filenames: list[str] | tuple[str, ...] | set[str]",
+            "return": "tuple[str, ...]",
+            "doc": ""
+          },
+          {
+            "name": "safe_tracked_path",
+            "signature": "instance: Instance, filename: str",
+            "return": "Path | None",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.diagnostics.diagnostics_manager",
+    "implementation": "src/core/diagnostics/diagnostics_manager.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "DiagnosticsManager",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "build_report",
+            "signature": "cls, launcher_version: str, settings: dict[str, Any] | None=None, activity_log: str=''",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "write_report",
+            "signature": "cls, path: Path, launcher_version: str, settings: dict[str, Any] | None=None, activity_log: str=''",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "write_bundle",
+            "signature": "cls, path: Path, launcher_version: str, settings: dict[str, Any] | None=None, activity_log: str=''",
+            "return": "Path",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.fs.paths",
+    "implementation": "src/core/fs/paths.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "Paths",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "initialize",
+            "signature": "",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "backups_root",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "instance_backups_dir",
+            "signature": "instance: Instance",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "backup_staging_root",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "theme_asset",
+            "signature": "theme: str, *paths: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "theme_dir",
+            "signature": "name: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "root",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "snapshot",
+            "signature": "",
+            "return": "dict[str, Path]",
+            "doc": ""
+          },
+          {
+            "name": "restore",
+            "signature": "snapshot: dict[str, Path], initialize: bool=False",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "configure",
+            "signature": "root: Path | str | None=None, *, cache_root: Path | str | None=None, instances_root: Path | str | None=None, accounts_root: Path | str | None=None, config_root: Path | str | None=None, logs_root: Path | str | None=None, backups_root: Path | str | None=None, theme_root: Path | str | None=None, runtimes_root: Path | str | None=None, initialize: bool=True",
+            "return": "dict[str, Path]",
+            "doc": ""
+          },
+          {
+            "name": "configured",
+            "signature": "root: Path | str | None=None, **overrides: object",
+            "return": "Iterator[None]",
+            "doc": ""
+          },
+          {
+            "name": "microsoft_config_root",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "launcher_settings_path",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "logs_root",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "updater_log_path",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "diagnostics_default_path",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "download_journal_path",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "update_root",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "update_release_cache",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "update_download_path",
+            "signature": "tag_name: str, asset_name: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "update_staging_root",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "account_database_path",
+            "signature": "",
+            "return": "Any",
+            "doc": ""
+          },
+          {
+            "name": "account_skins_root",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "accounts_path",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "instance_metadata",
+            "signature": "instance_name: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "instance_settings_path",
+            "signature": "instance: Instance",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "instance_settings_create",
+            "signature": "instance: Instance",
+            "return": "Path",
+            "doc": "Default settings."
+          },
+          {
+            "name": "instances_root",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "instance_runtime_root",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "instance_operations_root",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "instance_staging_root",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "process_sessions_root",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "process_session_history_root",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "load_instance_dir",
+            "signature": "name: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "create_instance_dir",
+            "signature": "name: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "instance_data_path_create",
+            "signature": "",
+            "return": "Any",
+            "doc": ""
+          },
+          {
+            "name": "instance_data_path",
+            "signature": "",
+            "return": "Any",
+            "doc": ""
+          },
+          {
+            "name": "version_dir",
+            "signature": "version: Version",
+            "return": "Any",
+            "doc": ""
+          },
+          {
+            "name": "client",
+            "signature": "version: Version",
+            "return": "Any",
+            "doc": ""
+          },
+          {
+            "name": "fabric_version_dir",
+            "signature": "game_version: str, loader_version: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "fabric_version_json",
+            "signature": "game_version: str, loader_version: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "fabric_metadata_root",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "fabric_catalog_json",
+            "signature": "game_version: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "fabric_install_metadata_json",
+            "signature": "game_version: str, loader_version: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "fabric_profile_json",
+            "signature": "game_version: str, loader_version: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "quilt_version_dir",
+            "signature": "game_version: str, loader_version: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "quilt_version_json",
+            "signature": "game_version: str, loader_version: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "quilt_metadata_root",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "quilt_catalog_json",
+            "signature": "game_version: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "quilt_install_metadata_json",
+            "signature": "game_version: str, loader_version: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "quilt_profile_json",
+            "signature": "game_version: str, loader_version: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "neoforge_root",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "neoforge_version_dir",
+            "signature": "game_version: str, neoforge_version: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "neoforge_version_json",
+            "signature": "game_version: str, neoforge_version: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "neoforge_installer_path",
+            "signature": "game_version: str, neoforge_version: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "neoforge_staging_dir",
+            "signature": "game_version: str, neoforge_version: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "forge_root",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "forge_version_dir",
+            "signature": "game_version: str, forge_version: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "forge_version_json",
+            "signature": "game_version: str, forge_version: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "forge_installer_path",
+            "signature": "game_version: str, forge_version: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "forge_staging_dir",
+            "signature": "game_version: str, forge_version: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "forge_instance_root",
+            "signature": "instance: Instance",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "forge_rollback_path",
+            "signature": "instance: Instance",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "forge_instance_log_path",
+            "signature": "instance: Instance",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "forge_diagnostics_default_path",
+            "signature": "instance: Instance",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "ftb_root",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "ftb_file_cache",
+            "signature": "project_id: int | str, version_id: int | str, filename: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "ftb_pack_registry",
+            "signature": "instance: Instance",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "curseforge_root",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "curseforge_api_cache",
+            "signature": "cache_key: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "curseforge_file_cache",
+            "signature": "project_id: int | str, file_id: int | str, filename: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "curseforge_pack_cache",
+            "signature": "project_id: int | str, file_id: int | str, filename: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "instance_artwork_cache",
+            "signature": "provider: str, project_id: str, artwork_url: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "curseforge_instance_registry",
+            "signature": "instance: Instance",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "curseforge_instance_transaction_root",
+            "signature": "instance: Instance",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "curseforge_pack_registry",
+            "signature": "instance: Instance",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "instance_logs_dir",
+            "signature": "instance: Instance",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "instance_crash_reports_dir",
+            "signature": "instance: Instance",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "instance_runtime_history",
+            "signature": "instance: Instance",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "instance_repair_report",
+            "signature": "instance: Instance",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "instance_repair_cache",
+            "signature": "instance: Instance",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "instance_repair_scan_report",
+            "signature": "instance: Instance",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "instance_repair_execution_report",
+            "signature": "instance: Instance",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "instance_mods_dir",
+            "signature": "instance: Instance",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "mod_provenance_registry",
+            "signature": "instance: Instance",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "modrinth_root",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "modrinth_api_cache",
+            "signature": "cache_key: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "modrinth_file_cache",
+            "signature": "project_id: str, version_id: str, filename: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "modrinth_pack_cache",
+            "signature": "project_id: str, version_id: str, filename: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "modrinth_staging_root",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "modrinth_instance_registry",
+            "signature": "instance: Instance",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "libraries",
+            "signature": "",
+            "return": "Any",
+            "doc": ""
+          },
+          {
+            "name": "version_manifest",
+            "signature": "",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "version_json",
+            "signature": "version: Version",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "asset_index",
+            "signature": "version: Version",
+            "return": "Any",
+            "doc": ""
+          },
+          {
+            "name": "asset_index_dir",
+            "signature": "",
+            "return": "Any",
+            "doc": ""
+          },
+          {
+            "name": "asset_object",
+            "signature": "asset: DownloadAsset",
+            "return": "Any",
+            "doc": ""
+          },
+          {
+            "name": "assets_dir",
+            "signature": "",
+            "return": "Any",
+            "doc": ""
+          },
+          {
+            "name": "natives",
+            "signature": "version: Version",
+            "return": "Any",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.ftb.ftb_client",
+    "implementation": "src/core/ftb/ftb_client.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "FTBClient",
+        "signature": "",
+        "return": "",
+        "doc": "Small public FTB modpack API adapter.",
+        "methods": [
+          {
+            "name": "cache_status",
+            "signature": "",
+            "return": "FTBCacheInfo",
+            "doc": ""
+          },
+          {
+            "name": "clear_cache",
+            "signature": "",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "search_projects",
+            "signature": "query: str='', index: int=0, page_size: int=25, sort: str='popularity', force_refresh: bool=False",
+            "return": "FTBSearchResult",
+            "doc": ""
+          },
+          {
+            "name": "get_project",
+            "signature": "project_id: int | str, force_refresh: bool=False",
+            "return": "FTBProject",
+            "doc": ""
+          },
+          {
+            "name": "get_project_details",
+            "signature": "project_id: int | str, force_refresh: bool=False",
+            "return": "FTBProject",
+            "doc": ""
+          },
+          {
+            "name": "list_versions",
+            "signature": "project_id: int | str, release_types: Iterable[str] | None=None, force_refresh: bool=False",
+            "return": "tuple[FTBVersionSummary, ...]",
+            "doc": ""
+          },
+          {
+            "name": "get_version",
+            "signature": "project_id: int | str, version_id: int | str, force_refresh: bool=False",
+            "return": "FTBVersion",
+            "doc": ""
+          },
+          {
+            "name": "normalize_release_type",
+            "signature": "value: object",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "normalize_loader",
+            "signature": "value: object",
+            "return": "str",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.ftb.ftb_content_manager",
+    "implementation": "src/core/ftb/ftb_content_manager.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "FTBContentManager",
+        "signature": "",
+        "return": "",
+        "doc": "Materialize deferred FTB modpack files immediately before launch.",
+        "methods": [
+          {
+            "name": "ensure",
+            "signature": "instance: Instance, reporter: ProgressReporter | None=None, launch_lock_token: str | None=None",
+            "return": "tuple[str, ...]",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.ftb.ftb_pack_installer",
+    "implementation": "src/core/ftb/ftb_pack_installer.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "FTBPackInstaller",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "install",
+            "signature": "project_id: int, version_id: int, instance_name: str, install_optional_files: bool=True, allowed_release_types: tuple[str, ...] | list[str] | set[str] | None=None, reporter: ProgressReporter | None=None, settings_override: dict | None=None",
+            "return": "FTBModpackInstallResult",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.ftb.ftb_pack_registry",
+    "implementation": "src/core/ftb/ftb_pack_registry.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "FTBPackRegistry",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "load",
+            "signature": "instance: Instance | Path",
+            "return": "dict",
+            "doc": ""
+          },
+          {
+            "name": "save",
+            "signature": "instance: Instance | Path, data: dict",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "safe_relative_path",
+            "signature": "value: str, fallback_filename: str",
+            "return": "str",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.hardware.gpu_preference_manager",
+    "implementation": "src/core/hardware/gpu_preference_manager.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "GraphicsAdapter",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "GraphicsDetectionResult",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "dedicated_adapters",
+            "signature": "self",
+            "return": "tuple[GraphicsAdapter, ...]",
+            "doc": ""
+          },
+          {
+            "name": "has_dedicated_gpu",
+            "signature": "self",
+            "return": "bool",
+            "doc": ""
+          }
+        ]
+      },
+      {
+        "kind": "class",
+        "name": "GpuPreferenceManager",
+        "signature": "",
+        "return": "",
+        "doc": "Best-effort Windows graphics preference integration.",
+        "methods": [
+          {
+            "name": "detect",
+            "signature": "cls",
+            "return": "GraphicsDetectionResult",
+            "doc": ""
+          },
+          {
+            "name": "apply_for_executable",
+            "signature": "cls, executable: Path | str, enabled: bool",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "apply_to_java",
+            "signature": "cls, java_path: Path | str, enabled: bool",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "adapter_summary",
+            "signature": "cls, adapters: Iterable[GraphicsAdapter]",
+            "return": "str",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.instance.errors",
+    "implementation": "src/core/instance/errors.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "InstanceAlreadyRunningError",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "InstanceModChangeBlockedError",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "InstanceDeletionError",
+        "signature": "",
+        "return": "",
+        "doc": "Structured failure raised when an instance cannot be removed safely.",
+        "methods": []
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.instance.instance_health_manager",
+    "implementation": "src/core/instance/instance_health_manager.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "InstanceHealthManager",
+        "signature": "",
+        "return": "",
+        "doc": "Run a fast, non-networked health check suitable for launcher startup.",
+        "methods": [
+          {
+            "name": "scan",
+            "signature": "cls, instance: Instance",
+            "return": "InstanceHealthReport",
+            "doc": ""
+          },
+          {
+            "name": "list",
+            "signature": "cls, instances: list[Instance]",
+            "return": "list[InstanceHealthReport]",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.instance.instance_manager",
+    "implementation": "src/core/instance/instance_manager.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "InstanceManager",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "validate_name",
+            "signature": "value: str",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "list_instances",
+            "signature": "",
+            "return": "list[Instance]",
+            "doc": ""
+          },
+          {
+            "name": "clone",
+            "signature": "source_name: str, new_name: str, include_saves: bool=False",
+            "return": "Instance",
+            "doc": ""
+          },
+          {
+            "name": "export",
+            "signature": "instance_name: str, output_path: Path, include_saves: bool=False, on_progress: ProgressCallback | None=None",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "set_icon",
+            "signature": "instance_name: str, source_path: Path, origin: dict | None=None",
+            "return": "Instance",
+            "doc": ""
+          },
+          {
+            "name": "reset_icon",
+            "signature": "instance_name: str",
+            "return": "Instance",
+            "doc": ""
+          },
+          {
+            "name": "resolve_icon_path",
+            "signature": "instance: Instance",
+            "return": "Path | None",
+            "doc": ""
+          },
+          {
+            "name": "inspect_import",
+            "signature": "package_path: Path",
+            "return": "InstancePackagePreview",
+            "doc": ""
+          },
+          {
+            "name": "import_instance",
+            "signature": "package_path: Path, on_progress: ProgressCallback | None=None, settings_override: dict | InstanceSettings | None=None",
+            "return": "Instance",
+            "doc": ""
+          },
+          {
+            "name": "rename",
+            "signature": "instance_name: str, new_name: str",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "load",
+            "signature": "name: str",
+            "return": "Instance",
+            "doc": ""
+          },
+          {
+            "name": "create",
+            "signature": "name: str, version: Version, mod_loader=('vanilla', '-1'), settings: dict | InstanceSettings | None=None",
+            "return": "Instance",
+            "doc": ""
+          },
+          {
+            "name": "default_instance_settings",
+            "signature": "",
+            "return": "dict",
+            "doc": ""
+          },
+          {
+            "name": "set_runtime_profile",
+            "signature": "name: str, version: Version, mod_loader: tuple[str, str]",
+            "return": "Instance",
+            "doc": ""
+          },
+          {
+            "name": "set_mod_loader",
+            "signature": "name: str, mod_loader: tuple[str, str]",
+            "return": "Instance",
+            "doc": ""
+          },
+          {
+            "name": "delete_instance",
+            "signature": "name: str",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "reconcile_registry",
+            "signature": "",
+            "return": "dict",
+            "doc": ""
+          },
+          {
+            "name": "next_available_name",
+            "signature": "preferred_name: str",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "is_instance_exist",
+            "signature": "name: str",
+            "return": "bool",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.instance.instance_operation_journal",
+    "implementation": "src/core/instance/instance_operation_journal.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "InstanceRecoveryRecord",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "InstanceOperationJournal",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "begin",
+            "signature": "cls, operation: str, instance_name: str, *, source_path: Path | None=None, target_path: Path | None=None, staging_path: Path | None=None",
+            "return": "InstanceOperationJournal",
+            "doc": ""
+          },
+          {
+            "name": "update",
+            "signature": "self, phase: str, **updates: Any",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "complete",
+            "signature": "self",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "abandon",
+            "signature": "self",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "recover_all",
+            "signature": "cls",
+            "return": "tuple[InstanceRecoveryRecord, ...]",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.instance.instance_run_lock",
+    "implementation": "src/core/instance/instance_run_lock.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "RunningInstanceInfo",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "InstanceRunLock",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "acquire",
+            "signature": "cls, instance: Instance",
+            "return": "InstanceRunLock",
+            "doc": ""
+          },
+          {
+            "name": "track_process",
+            "signature": "self, process: Any",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "release",
+            "signature": "self",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "is_active",
+            "signature": "cls, instance: Instance",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "owns_preparing_lock",
+            "signature": "cls, instance: Instance, token: str | None",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "active_for",
+            "signature": "cls, instance: Instance",
+            "return": "RunningInstanceInfo | None",
+            "doc": ""
+          },
+          {
+            "name": "remove_for",
+            "signature": "cls, instance: Instance, force: bool=False",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "reconcile",
+            "signature": "cls",
+            "return": "tuple[str, ...]",
+            "doc": ""
+          },
+          {
+            "name": "list_active",
+            "signature": "cls",
+            "return": "list[RunningInstanceInfo]",
+            "doc": ""
+          },
+          {
+            "name": "lock_path_for",
+            "signature": "cls, instance: Instance",
+            "return": "Path",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.instance.settings_manager",
+    "implementation": "src/core/instance/settings_manager.py",
+    "members": [
+      {
+        "kind": "function",
+        "name": "default_instance_settings",
+        "signature": "",
+        "return": "dict[str, Any]",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "SettingsManager",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "load",
+            "signature": "instance: Instance",
+            "return": "InstanceSettings",
+            "doc": ""
+          },
+          {
+            "name": "save",
+            "signature": "instance: Instance, settings: InstanceSettings",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "save_default",
+            "signature": "instance: Instance",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "default_dict",
+            "signature": "cls",
+            "return": "dict[str, Any]",
+            "doc": ""
+          },
+          {
+            "name": "from_dict",
+            "signature": "data: dict[str, Any] | InstanceSettings | None",
+            "return": "InstanceSettings",
+            "doc": ""
+          },
+          {
+            "name": "to_dict",
+            "signature": "settings: InstanceSettings",
+            "return": "dict[str, Any]",
+            "doc": ""
+          },
+          {
+            "name": "normalize_dict",
+            "signature": "data: dict[str, Any] | InstanceSettings | None",
+            "return": "dict[str, Any]",
+            "doc": ""
+          },
+          {
+            "name": "save_dict",
+            "signature": "instance: Instance, data: dict[str, Any] | InstanceSettings | None",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "update_memory",
+            "signature": "instance: Instance, min_memory: int, max_memory: int",
+            "return": "InstanceSettings",
+            "doc": ""
+          },
+          {
+            "name": "update_java_path",
+            "signature": "instance: Instance, java_path: str",
+            "return": "InstanceSettings",
+            "doc": ""
+          },
+          {
+            "name": "update_window",
+            "signature": "instance: Instance, width: int, height: int, fullscreen: bool",
+            "return": "InstanceSettings",
+            "doc": ""
+          },
+          {
+            "name": "update_jvm_arguments",
+            "signature": "instance: Instance, arguments: list[str]",
+            "return": "InstanceSettings",
+            "doc": ""
+          },
+          {
+            "name": "update_game_arguments",
+            "signature": "instance: Instance, arguments: list[str]",
+            "return": "InstanceSettings",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.java.java_major_policy",
+    "implementation": "src/core/java/java_major_policy.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "JavaMajorPolicy",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "resolve",
+            "signature": "cls, required_major: int | None",
+            "return": "int",
+            "doc": ""
+          },
+          {
+            "name": "accepted_majors",
+            "signature": "cls, required_major: int | None",
+            "return": "tuple[int, ...]",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.lan.lan_agent_manager",
+    "implementation": "src/core/lan/lan_agent_manager.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "LanAgentInstallResult",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "LanAgentManager",
+        "signature": "",
+        "return": "",
+        "doc": "Install and attach the bundled host-side LAN agent.",
+        "methods": [
+          {
+            "name": "is_enabled",
+            "signature": "cls, auth_mode: object",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "install",
+            "signature": "cls",
+            "return": "LanAgentInstallResult",
+            "doc": ""
+          },
+          {
+            "name": "runtime_arguments",
+            "signature": "cls, version: Version, auth_mode: object, instance: Instance, reporter: ProgressReporter | None=None",
+            "return": "list[str]",
+            "doc": ""
+          },
+          {
+            "name": "log_path",
+            "signature": "cls, instance: Instance",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "prepare_log",
+            "signature": "cls, instance: Instance, auth_mode: object='unknown'",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "append_log",
+            "signature": "cls, instance: Instance, message: str",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "append_log_path",
+            "signature": "path: Path, message: str",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "read_log",
+            "signature": "cls, instance: Instance",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "sanitize_user_jvm_arguments",
+            "signature": "cls, arguments: list[str]",
+            "return": "list[str]",
+            "doc": ""
+          },
+          {
+            "name": "runtime_agent_path",
+            "signature": "cls",
+            "return": "Path",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.lan.lan_hosting_manager",
+    "implementation": "src/core/lan/lan_hosting_manager.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "LanHostingManager",
+        "signature": "",
+        "return": "",
+        "doc": "Prepare per-instance LAN hosting support.",
+        "methods": [
+          {
+            "name": "normalize_auth_mode",
+            "signature": "value: object",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "normalize_connection_provider",
+            "signature": "value: object",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "plan",
+            "signature": "instance: Instance, auth_mode: object, connection_provider: object",
+            "return": "LanHostingPlan",
+            "doc": ""
+          },
+          {
+            "name": "prepare",
+            "signature": "instance: Instance, auth_mode: object, connection_provider: object, reporter: ProgressReporter | None=None",
+            "return": "LanHostingPrepareResult",
+            "doc": ""
+          },
+          {
+            "name": "disable_legacy_auth_bridges",
+            "signature": "instance: Instance",
+            "return": "tuple[str, ...]",
+            "doc": "Disable auth-bridge mods installed by the superseded beta design."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.language.language_manager",
+    "implementation": "src/core/language/language_manager.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "LanguageInfo",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "LanguageManager",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "current_locale",
+            "signature": "self",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "language_dir",
+            "signature": "self",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "language_dirs",
+            "signature": "self",
+            "return": "tuple[Path, ...]",
+            "doc": ""
+          },
+          {
+            "name": "reload",
+            "signature": "self",
+            "return": "list[LanguageInfo]",
+            "doc": ""
+          },
+          {
+            "name": "available_languages",
+            "signature": "self",
+            "return": "list[LanguageInfo]",
+            "doc": ""
+          },
+          {
+            "name": "set_language",
+            "signature": "self, locale: str, notify: bool=True",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "resolve_key",
+            "signature": "self, key: str",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "translate",
+            "signature": "self, key: str, default: str | None=None, **values: object",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "has_key",
+            "signature": "self, key: str",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "missing_keys",
+            "signature": "self, locale: str | None=None",
+            "return": "list[str]",
+            "doc": ""
+          },
+          {
+            "name": "placeholder_mismatches",
+            "signature": "self, locale: str | None=None",
+            "return": "dict[str, tuple[set[str], set[str]]]",
+            "doc": ""
+          },
+          {
+            "name": "subscribe",
+            "signature": "self, listener: Callable[[str], None]",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "unsubscribe",
+            "signature": "self, listener: Callable[[str], None]",
+            "return": "None",
+            "doc": ""
+          }
+        ]
+      },
+      {
+        "kind": "function",
+        "name": "tr",
+        "signature": "key: str, default: str | None=None, **values: object",
+        "return": "str",
+        "doc": "",
+        "methods": []
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.minecraft.version_manifest_manager",
+    "implementation": "src/core/minecraft/version_manifest_manager.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "VersionManifestManager",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "get",
+            "signature": "",
+            "return": "list[VersionManifest]",
+            "doc": ""
+          },
+          {
+            "name": "latest_version",
+            "signature": "is_snapshot: bool=False",
+            "return": "str",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.mod.mod_compatibility_manager",
+    "implementation": "src/core/mod/mod_compatibility_manager.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "ModCompatibilityManager",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "scan",
+            "signature": "instance: Instance, mods: list[ModInfo] | None=None",
+            "return": "ModHealthReport",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.mod.mod_manager",
+    "implementation": "src/core/mod/mod_manager.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "ModManager",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "mods_dir",
+            "signature": "instance: Instance",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "list_mods",
+            "signature": "instance: Instance",
+            "return": "list[ModInfo]",
+            "doc": ""
+          },
+          {
+            "name": "add_mods",
+            "signature": "instance: Instance, source_paths: Iterable[Path], replace: bool=False, launch_lock_token: str | None=None, allow_unverified: bool=False",
+            "return": "list[ModInfo]",
+            "doc": ""
+          },
+          {
+            "name": "remove_mods",
+            "signature": "instance: Instance, paths: Iterable[Path]",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "set_enabled",
+            "signature": "instance: Instance, paths: Iterable[Path], enabled: bool",
+            "return": "list[ModInfo]",
+            "doc": ""
+          },
+          {
+            "name": "read_mod",
+            "signature": "path: Path, preferred_loader: str='', provider_version: str=''",
+            "return": "ModInfo",
+            "doc": ""
+          },
+          {
+            "name": "validate_mod_for_instance",
+            "signature": "instance: Instance, mod: ModInfo, allow_unverified: bool=False",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "compatibility_warning",
+            "signature": "instance: Instance, mod: ModInfo",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "ensure_modifiable",
+            "signature": "instance: Instance, launch_lock_token: str | None=None",
+            "return": "None",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.mod.mod_provenance_registry",
+    "implementation": "src/core/mod/mod_provenance_registry.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "ModProvenanceRegistry",
+        "signature": "",
+        "return": "",
+        "doc": "Unified source identity for installed and manifest-managed mod files.",
+        "methods": [
+          {
+            "name": "empty",
+            "signature": "",
+            "return": "dict",
+            "doc": ""
+          },
+          {
+            "name": "load",
+            "signature": "instance: Instance",
+            "return": "dict",
+            "doc": ""
+          },
+          {
+            "name": "save",
+            "signature": "instance: Instance, data: dict",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "synchronize",
+            "signature": "instance: Instance",
+            "return": "dict[str, dict]",
+            "doc": ""
+          },
+          {
+            "name": "entries_by_file",
+            "signature": "instance: Instance, synchronize: bool=True",
+            "return": "dict[str, dict]",
+            "doc": ""
+          },
+          {
+            "name": "entry_for_file",
+            "signature": "instance: Instance, filename: str",
+            "return": "dict | None",
+            "doc": ""
+          },
+          {
+            "name": "record_many",
+            "signature": "instance: Instance, entries: list[dict] | tuple[dict, ...]",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "remove_by_filenames",
+            "signature": "instance: Instance, filenames: list[str] | tuple[str, ...] | set[str]",
+            "return": "tuple[str, ...]",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.modloader.fabric.fabric_meta_client",
+    "implementation": "src/core/modloader/fabric/fabric_meta_client.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "FabricMetaClient",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "list_loader_versions",
+            "signature": "game_version: str, force_refresh: bool=False",
+            "return": "list[FabricLoaderVersion]",
+            "doc": ""
+          },
+          {
+            "name": "get_install_metadata",
+            "signature": "game_version: str, loader_version: str, force_refresh: bool=False",
+            "return": "FabricInstallMetadata",
+            "doc": ""
+          },
+          {
+            "name": "get_profile",
+            "signature": "game_version: str, loader_version: str, force_refresh: bool=False",
+            "return": "dict",
+            "doc": ""
+          },
+          {
+            "name": "clear_cached_install",
+            "signature": "game_version: str, loader_version: str",
+            "return": "None",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.modloader.forge.forge_metadata_client",
+    "implementation": "src/core/modloader/forge/forge_metadata_client.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "ForgeMetadataClient",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "list_versions",
+            "signature": "game_version: str, force_refresh: bool=False",
+            "return": "list[ForgeLoaderVersion]",
+            "doc": ""
+          },
+          {
+            "name": "recommended_version",
+            "signature": "game_version: str",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "installer_url",
+            "signature": "game_version: str, forge_version: str",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "installer_sha1",
+            "signature": "game_version: str, forge_version: str",
+            "return": "str",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.modloader.mod_loader_manager",
+    "implementation": "src/core/modloader/mod_loader_manager.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "ModLoaderManager",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "load",
+            "signature": "instance: Instance, reporter: ProgressReporter | None=None",
+            "return": "Version",
+            "doc": ""
+          },
+          {
+            "name": "prepare",
+            "signature": "version: Version, loader_name: str, loader_version: str, reporter: ProgressReporter | None=None",
+            "return": "Version",
+            "doc": ""
+          },
+          {
+            "name": "repair",
+            "signature": "instance: Instance, reporter: ProgressReporter | None=None",
+            "return": "Version",
+            "doc": ""
+          },
+          {
+            "name": "resolve",
+            "signature": "game_version: str, loader_name: str, loader_version: str=AUTO",
+            "return": "tuple[str, str]",
+            "doc": ""
+          },
+          {
+            "name": "normalize",
+            "signature": "mod_loader: object",
+            "return": "tuple[str, str]",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.modloader.neoforge.neoforge_metadata_client",
+    "implementation": "src/core/modloader/neoforge/neoforge_metadata_client.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "NeoForgeMetadataClient",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "list_versions",
+            "signature": "game_version: str, force_refresh: bool=False",
+            "return": "list[NeoForgeLoaderVersion]",
+            "doc": ""
+          },
+          {
+            "name": "recommended_version",
+            "signature": "game_version: str",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "coordinate",
+            "signature": "game_version: str, neoforge_version: str",
+            "return": "tuple[str, str]",
+            "doc": ""
+          },
+          {
+            "name": "installer_url",
+            "signature": "game_version: str, neoforge_version: str",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "installer_sha1",
+            "signature": "game_version: str, neoforge_version: str",
+            "return": "str",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.modloader.quilt.quilt_meta_client",
+    "implementation": "src/core/modloader/quilt/quilt_meta_client.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "QuiltMetaClient",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "list_loader_versions",
+            "signature": "game_version: str, force_refresh: bool=False",
+            "return": "list[QuiltLoaderVersion]",
+            "doc": ""
+          },
+          {
+            "name": "version_sort_key",
+            "signature": "version: str",
+            "return": "tuple",
+            "doc": ""
+          },
+          {
+            "name": "get_install_metadata",
+            "signature": "game_version: str, loader_version: str, force_refresh: bool=False",
+            "return": "QuiltInstallMetadata",
+            "doc": ""
+          },
+          {
+            "name": "get_profile",
+            "signature": "game_version: str, loader_version: str, force_refresh: bool=False",
+            "return": "dict",
+            "doc": ""
+          },
+          {
+            "name": "clear_cached_install",
+            "signature": "game_version: str, loader_version: str",
+            "return": "None",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.modrinth.modrinth_client",
+    "implementation": "src/core/modrinth/modrinth_client.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "ModrinthClient",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "search_projects",
+            "signature": "project_type: str, query: str='', game_version: str='', loader: str='fabric', index: str='relevance', offset: int=0, limit: int=25, force_refresh: bool=False",
+            "return": "ModrinthSearchResult",
+            "doc": ""
+          },
+          {
+            "name": "get_project",
+            "signature": "project_id: str, force_refresh: bool=False",
+            "return": "ModrinthProject",
+            "doc": ""
+          },
+          {
+            "name": "list_project_versions",
+            "signature": "project_id: str, loader: str='fabric', game_version: str='', version_types: tuple[str, ...] | list[str] | set[str] | None=None, force_refresh: bool=False",
+            "return": "list[ModrinthVersion]",
+            "doc": ""
+          },
+          {
+            "name": "get_version",
+            "signature": "version_id: str, force_refresh: bool=False",
+            "return": "ModrinthVersion",
+            "doc": ""
+          },
+          {
+            "name": "select_version",
+            "signature": "project_id: str, game_version: str, loader: str='fabric', version_types: tuple[str, ...] | list[str] | set[str] | None=None",
+            "return": "ModrinthVersion",
+            "doc": ""
+          },
+          {
+            "name": "compatible_loaders",
+            "signature": "loader: str",
+            "return": "tuple[str, ...]",
+            "doc": ""
+          },
+          {
+            "name": "normalize_version_types",
+            "signature": "version_types: tuple[str, ...] | list[str] | set[str] | None=None",
+            "return": "tuple[str, ...]",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.modrinth.modrinth_errors",
+    "implementation": "src/core/modrinth/modrinth_errors.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "ModrinthManagedFilesRequired",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "ModrinthModpackManualDownloadRequired",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.modrinth.modrinth_manual_installer",
+    "implementation": "src/core/modrinth/modrinth_manual_installer.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "ModrinthManualInstaller",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "install",
+            "signature": "instance: Instance, requirement: ModrinthManualDownload, source: Path",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "install_many",
+            "signature": "instance: Instance, requirements: tuple[ModrinthManualDownload, ...] | list[ModrinthManualDownload], sources: tuple[Path, ...] | list[Path]",
+            "return": "ModrinthManualImportResult",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.modrinth.modrinth_mod_installer",
+    "implementation": "src/core/modrinth/modrinth_mod_installer.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "ModrinthModInstaller",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "install",
+            "signature": "instance: Instance, version_id: str, install_dependencies: bool=True, allowed_version_types: tuple[str, ...] | list[str] | set[str] | None=None, reporter: ProgressReporter | None=None",
+            "return": "ModrinthModInstallResult",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.modrinth.modrinth_mod_update_manager",
+    "implementation": "src/core/modrinth/modrinth_mod_update_manager.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "ModrinthModUpdateManager",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "check",
+            "signature": "instance: Instance, allowed_version_types: tuple[str, ...] | list[str] | set[str] | None=None, force_refresh: bool=False, reporter: ProgressReporter | None=None",
+            "return": "ModrinthModUpdateReport",
+            "doc": ""
+          },
+          {
+            "name": "update",
+            "signature": "instance: Instance, project_ids: list[str] | tuple[str, ...] | set[str], allowed_version_types: tuple[str, ...] | list[str] | set[str] | None=None, reporter: ProgressReporter | None=None",
+            "return": "ModrinthModUpdateResult",
+            "doc": ""
+          },
+          {
+            "name": "update_all",
+            "signature": "instance: Instance, allowed_version_types: tuple[str, ...] | list[str] | set[str] | None=None, reporter: ProgressReporter | None=None",
+            "return": "ModrinthModUpdateResult",
+            "doc": ""
+          },
+          {
+            "name": "set_locked",
+            "signature": "instance: Instance, project_ids: list[str] | tuple[str, ...] | set[str], locked: bool",
+            "return": "tuple[str, ...]",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.modrinth.modrinth_pack_installer",
+    "implementation": "src/core/modrinth/modrinth_pack_installer.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "ModrinthPackInstaller",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "install",
+            "signature": "project_id: str, version_id: str, instance_name: str, install_optional_files: bool=True, allowed_version_types: tuple[str, ...] | list[str] | set[str] | None=None, reporter: ProgressReporter | None=None, expected_loader: str='', settings_override: dict | None=None",
+            "return": "ModrinthModpackInstallResult",
+            "doc": ""
+          },
+          {
+            "name": "install_local_archive",
+            "signature": "pack_path: Path, instance_name: str='', install_optional_files: bool=True, reporter: ProgressReporter | None=None, settings_override: dict | None=None",
+            "return": "ModrinthModpackInstallResult",
+            "doc": ""
+          },
+          {
+            "name": "install_manual_archive",
+            "signature": "request: ModrinthModpackManualDownloadRequired, source: Path, reporter: ProgressReporter | None=None",
+            "return": "ModrinthModpackInstallResult",
+            "doc": ""
+          },
+          {
+            "name": "inspect",
+            "signature": "pack_path: Path",
+            "return": "dict",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.modrinth.modrinth_pack_registry",
+    "implementation": "src/core/modrinth/modrinth_pack_registry.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "ModrinthPackRegistry",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "path",
+            "signature": "instance_dir: Path",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "load",
+            "signature": "instance: Instance",
+            "return": "dict",
+            "doc": ""
+          },
+          {
+            "name": "load_from_dir",
+            "signature": "instance_dir: Path",
+            "return": "dict",
+            "doc": ""
+          },
+          {
+            "name": "save",
+            "signature": "instance_dir: Path, data: dict",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "scan",
+            "signature": "instance: Instance, reporter: ProgressReporter | None=None, force_hash: bool=False",
+            "return": "ModrinthPackStateReport",
+            "doc": ""
+          },
+          {
+            "name": "verify_entry",
+            "signature": "instance_dir: Path, entry: dict, cache: dict | None=None, force_hash: bool=False",
+            "return": "tuple[bool, bool, int]",
+            "doc": ""
+          },
+          {
+            "name": "build_verification_cache",
+            "signature": "instance_dir: Path, managed_files: list[dict]",
+            "return": "dict",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.modrinth.modrinth_pack_repair_manager",
+    "implementation": "src/core/modrinth/modrinth_pack_repair_manager.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "ModrinthPackRepairManager",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "repair",
+            "signature": "instance: Instance, reporter: ProgressReporter | None=None",
+            "return": "ModrinthPackRepairResult",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.modrinth.modrinth_pack_update_manager",
+    "implementation": "src/core/modrinth/modrinth_pack_update_manager.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "ModrinthPackUpdateManager",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "check",
+            "signature": "instance: Instance, allowed_version_types: tuple[str, ...] | list[str] | set[str] | None=None, force_refresh: bool=False, reporter: ProgressReporter | None=None",
+            "return": "ModrinthPackUpdateInfo | None",
+            "doc": ""
+          },
+          {
+            "name": "preview",
+            "signature": "instance: Instance, target_version_id: str='', allowed_version_types: tuple[str, ...] | list[str] | set[str] | None=None, reporter: ProgressReporter | None=None",
+            "return": "ModrinthPackUpdatePlan",
+            "doc": ""
+          },
+          {
+            "name": "update",
+            "signature": "instance: Instance, target_version_id: str='', allowed_version_types: tuple[str, ...] | list[str] | set[str] | None=None, reporter: ProgressReporter | None=None",
+            "return": "ModrinthPackUpdateResult",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.modrinth.modrinth_registry",
+    "implementation": "src/core/modrinth/modrinth_registry.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "ModrinthRegistry",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "load",
+            "signature": "instance: Instance",
+            "return": "dict",
+            "doc": ""
+          },
+          {
+            "name": "empty",
+            "signature": "",
+            "return": "dict",
+            "doc": ""
+          },
+          {
+            "name": "save",
+            "signature": "instance: Instance, data: dict",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "set_locked",
+            "signature": "instance: Instance, project_ids: list[str] | tuple[str, ...] | set[str], locked: bool",
+            "return": "tuple[str, ...]",
+            "doc": ""
+          },
+          {
+            "name": "remove_by_filenames",
+            "signature": "instance: Instance, filenames: list[str] | tuple[str, ...] | set[str]",
+            "return": "tuple[str, ...]",
+            "doc": ""
+          },
+          {
+            "name": "entries_by_file",
+            "signature": "instance: Instance",
+            "return": "dict[str, dict]",
+            "doc": ""
+          },
+          {
+            "name": "safe_tracked_path",
+            "signature": "instance: Instance, filename: str",
+            "return": "Path | None",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.network.download_bandwidth_limiter",
+    "implementation": "src/core/network/download_bandwidth_limiter.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "DownloadBandwidthLimiter",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "limit_mbps",
+            "signature": "self",
+            "return": "float",
+            "doc": ""
+          },
+          {
+            "name": "is_enabled",
+            "signature": "self",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "configure_mbps",
+            "signature": "self, value: object",
+            "return": "float",
+            "doc": ""
+          },
+          {
+            "name": "throttle",
+            "signature": "self, byte_count: int",
+            "return": "None",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.network.download_manager",
+    "implementation": "src/core/network/download_manager.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "DownloadManager",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "max_concurrent_downloads",
+            "signature": "self",
+            "return": "int",
+            "doc": ""
+          },
+          {
+            "name": "per_host_limit",
+            "signature": "self",
+            "return": "int",
+            "doc": ""
+          },
+          {
+            "name": "configure",
+            "signature": "self, max_concurrent_downloads: object=DEFAULT_MAX_CONCURRENT_DOWNLOADS, per_host_limit: object | None=None",
+            "return": "tuple[int, int]",
+            "doc": ""
+          },
+          {
+            "name": "get_path_lock",
+            "signature": "self, path: Path",
+            "return": "RLock",
+            "doc": ""
+          },
+          {
+            "name": "download",
+            "signature": "self, request: DownloadRequest, reporter: ProgressReporter | None=None, progress_stage: ProgressStage | None=None, progress_message: str | None=None, client_provider=None",
+            "return": "DownloadResult",
+            "doc": ""
+          },
+          {
+            "name": "download_and_hash",
+            "signature": "self, url: str, path: Path, max_attempts: int=2, timeout: float=20.0, force: bool=False, reporter: ProgressReporter | None=None, progress_stage: ProgressStage | None=None, progress_message: str | None=None, client_provider=None",
+            "return": "tuple[Path, str, int]",
+            "doc": ""
+          },
+          {
+            "name": "verify",
+            "signature": "self, path: Path, expected_size: int, hashes: dict | object",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "calculate_hash",
+            "signature": "path: Path, algorithm: str",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "calculate_hashes",
+            "signature": "self, path: Path, expected: dict | object",
+            "return": "dict[str, str]",
+            "doc": ""
+          },
+          {
+            "name": "content_length",
+            "signature": "response: httpx.Response, fallback: int",
+            "return": "int",
+            "doc": ""
+          },
+          {
+            "name": "parse_content_range",
+            "signature": "response: httpx.Response",
+            "return": "tuple[int, int, int | None] | None",
+            "doc": ""
+          },
+          {
+            "name": "valid_content_range",
+            "signature": "cls, response: httpx.Response, expected_start: int, expected_size: int",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "content_range_total",
+            "signature": "cls, response: httpx.Response",
+            "return": "int",
+            "doc": ""
+          },
+          {
+            "name": "partial_size",
+            "signature": "cls, path: Path, expected_size: int",
+            "return": "int",
+            "doc": ""
+          },
+          {
+            "name": "delete_file",
+            "signature": "path: Path",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "describe_error",
+            "signature": "error: Exception | None",
+            "return": "str",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.network.download_pause",
+    "implementation": "src/core/network/download_pause.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "DownloadInterruptedError",
+        "signature": "",
+        "return": "",
+        "doc": "Base class for cooperative download interruption requests.",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "DownloadPausedError",
+        "signature": "",
+        "return": "",
+        "doc": "Legacy terminal pause error kept for compatibility with older callers.",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "DownloadCancelledError",
+        "signature": "",
+        "return": "",
+        "doc": "Raised when the user cancels the active launcher download session.",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "DownloadPauseController",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "is_active",
+            "signature": "self",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "is_pause_requested",
+            "signature": "self",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "is_paused",
+            "signature": "self",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "is_cancel_requested",
+            "signature": "self",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "begin",
+            "signature": "self",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "finish",
+            "signature": "self",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "request_pause",
+            "signature": "self",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "request_resume",
+            "signature": "self",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "request_cancel",
+            "signature": "self",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "raise_if_requested",
+            "signature": "self",
+            "return": "None",
+            "doc": "Block while paused and raise only when cancellation is requested."
+          },
+          {
+            "name": "wait",
+            "signature": "self, seconds: float",
+            "return": "None",
+            "doc": "Cooperative delay that respects pause, resume, and cancel requests."
+          }
+        ]
+      },
+      {
+        "kind": "function",
+        "name": "is_download_paused",
+        "signature": "error: BaseException | None",
+        "return": "bool",
+        "doc": "Compatibility helper; cancellation is also an interrupted download.",
+        "methods": []
+      },
+      {
+        "kind": "function",
+        "name": "is_download_cancelled",
+        "signature": "error: BaseException | None",
+        "return": "bool",
+        "doc": "",
+        "methods": []
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.network.network_session",
+    "implementation": "src/core/network/network_session.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "NetworkSession",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "max_concurrent_downloads",
+            "signature": "self",
+            "return": "int",
+            "doc": ""
+          },
+          {
+            "name": "configure",
+            "signature": "self, max_concurrent_downloads: object=DEFAULT_MAX_CONCURRENT_DOWNLOADS",
+            "return": "int",
+            "doc": ""
+          },
+          {
+            "name": "get_client",
+            "signature": "self",
+            "return": "httpx.Client",
+            "doc": ""
+          },
+          {
+            "name": "close",
+            "signature": "self",
+            "return": "None",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.package.portable_content_manager",
+    "implementation": "src/core/package/portable_content_manager.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "PortableManualDownloadRequired",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "PortableContentManager",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "ensure",
+            "signature": "instance: Instance",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "prefetch_referenced",
+            "signature": "instance: Instance, reporter: ProgressReporter | None=None",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "finalize_disabled",
+            "signature": "instance: Instance",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "install_many",
+            "signature": "instance: Instance, requirements: tuple[PortableManualDownload, ...] | list[PortableManualDownload], sources: tuple[Path, ...] | list[Path]",
+            "return": "tuple[str, ...]",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.progress.progress_reporter",
+    "implementation": "src/core/progress/progress_reporter.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "ProgressReporter",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "report",
+            "signature": "self, stage: ProgressStage, message: str, current: int | None=None, total: int | None=None, unit: ProgressUnit=ProgressUnit.NONE, bytes_per_second: float | None=None, state: ProgressState=ProgressState.RUNNING, detail: str=''",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "status",
+            "signature": "self, stage: ProgressStage, message: str",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "bytes",
+            "signature": "self, stage: ProgressStage, message: str, current: int, total: int, bytes_per_second: float | None=None",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "files",
+            "signature": "self, stage: ProgressStage, message: str, current: int, total: int, bytes_per_second: float | None=None",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "steps",
+            "signature": "self, stage: ProgressStage, message: str, current: int, total: int",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "succeeded",
+            "signature": "self, stage: ProgressStage, message: str, detail: str=''",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "failed",
+            "signature": "self, stage: ProgressStage, message: str, detail: str=''",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "cancelled",
+            "signature": "self, stage: ProgressStage, message: str, detail: str=''",
+            "return": "None",
+            "doc": ""
+          },
+          {
+            "name": "task",
+            "signature": "self, stage: ProgressStage, start_message: str, success_message: str, failure_message: str",
+            "return": "Iterator[None]",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.repair.repair_service",
+    "implementation": "src/core/repair/repair_service.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "RepairService",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "scan",
+            "signature": "cls, instance: Instance, mode: RepairMode | str=RepairMode.QUICK, components: Iterable[RepairComponent | str] | None=None, on_progress: ProgressCallback | None=None",
+            "return": "RepairReport",
+            "doc": ""
+          },
+          {
+            "name": "build_plan",
+            "signature": "cls, report: RepairReport, components: Iterable[RepairComponent | str] | None=None",
+            "return": "RepairPlan",
+            "doc": ""
+          },
+          {
+            "name": "repair",
+            "signature": "cls, instance: Instance, plan: RepairPlan, on_progress: ProgressCallback | None=None",
+            "return": "RepairExecutionResult",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.runtime.game_runtime_manager",
+    "implementation": "src/core/runtime/game_runtime_manager.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "GameRuntimeManager",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "watch",
+            "signature": "cls, process: object, instance: Instance, minecraft_version: str, started_at: datetime, on_exit: GameExitCallback | None=None, session_id: str | None=None, crash_report_snapshot: Mapping[str, tuple[int, int]] | None=None",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "stop",
+            "signature": "cls, instance: Instance, graceful_timeout: float=2.5",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "latest_game_log",
+            "signature": "instance: Instance",
+            "return": "Path | None",
+            "doc": ""
+          },
+          {
+            "name": "crash_report_snapshot",
+            "signature": "instance: Instance",
+            "return": "dict[str, tuple[int, int]]",
+            "doc": ""
+          },
+          {
+            "name": "latest_crash_report",
+            "signature": "instance: Instance, since: datetime | None=None, previous: Mapping[str, tuple[int, int]] | None=None",
+            "return": "Path | None",
+            "doc": ""
+          },
+          {
+            "name": "record_start",
+            "signature": "cls, instance: Instance, started_at: datetime, session_id: str | None",
+            "return": "None",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.runtime.process_supervisor",
+    "implementation": "src/core/runtime/process_supervisor.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "ProcessSupervisor",
+        "signature": "",
+        "return": "",
+        "doc": "Persist and supervise Minecraft process sessions without touching unrelated Java processes.",
+        "methods": [
+          {
+            "name": "begin",
+            "signature": "cls, instance: Instance",
+            "return": "ProcessSession",
+            "doc": ""
+          },
+          {
+            "name": "attach",
+            "signature": "cls, session_id: str, process: object",
+            "return": "ProcessSession",
+            "doc": ""
+          },
+          {
+            "name": "register_child",
+            "signature": "cls, session_id: str, pid: int",
+            "return": "ProcessSession",
+            "doc": ""
+          },
+          {
+            "name": "finish",
+            "signature": "cls, session_id: str, exit_code: int, crashed: bool, detail: str=''",
+            "return": "ProcessSession | None",
+            "doc": ""
+          },
+          {
+            "name": "abort",
+            "signature": "cls, session_id: str, detail: str=''",
+            "return": "ProcessSession | None",
+            "doc": ""
+          },
+          {
+            "name": "stop_requested",
+            "signature": "cls, session_id: str | None",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "active_for",
+            "signature": "cls, instance: Instance",
+            "return": "ProcessSession | None",
+            "doc": ""
+          },
+          {
+            "name": "list_active",
+            "signature": "cls",
+            "return": "tuple[ProcessSession, ...]",
+            "doc": ""
+          },
+          {
+            "name": "stop_process",
+            "signature": "cls, process: object, graceful_timeout: float=2.5",
+            "return": "bool",
+            "doc": "Stop a process object already created by MCW without inspecting unrelated system processes."
+          },
+          {
+            "name": "stop_instance",
+            "signature": "cls, instance: Instance, graceful_timeout: float=2.5",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "reconcile",
+            "signature": "cls",
+            "return": "tuple[str, ...]",
+            "doc": ""
+          },
+          {
+            "name": "load",
+            "signature": "cls, session_id: str",
+            "return": "ProcessSession",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.runtime.startup_recovery_manager",
+    "implementation": "src/core/runtime/startup_recovery_manager.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "StartupRecoveryReport",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "recovered_item_count",
+            "signature": "self",
+            "return": "int",
+            "doc": ""
+          }
+        ]
+      },
+      {
+        "kind": "class",
+        "name": "StartupRecoveryManager",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "reconcile",
+            "signature": "",
+            "return": "StartupRecoveryReport",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.security.account_security_manager",
+    "implementation": "src/core/security/account_security_manager.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "AccountSecurityManager",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "audit",
+            "signature": "cls",
+            "return": "AccountSecurityReport",
+            "doc": ""
+          },
+          {
+            "name": "migrate_if_needed",
+            "signature": "cls",
+            "return": "AccountSecurityReport",
+            "doc": ""
+          },
+          {
+            "name": "migrate_and_reprotect",
+            "signature": "cls",
+            "return": "AccountSecurityReport",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.security.sensitive_data_redactor",
+    "implementation": "src/core/security/sensitive_data_redactor.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "SensitiveDataRedactor",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "redact_text",
+            "signature": "cls, value: object",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "redact_value",
+            "signature": "cls, value: Any, key: str=''",
+            "return": "Any",
+            "doc": ""
+          },
+          {
+            "name": "redact_json",
+            "signature": "cls, value: Any",
+            "return": "str",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.startup_runner",
+    "implementation": "src/core/startup_runner.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "StartupTimeoutError",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "StartupWorkerError",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "function",
+        "name": "run_startup_task",
+        "signature": "task: StartupTask, on_progress: StartupProgressHandler, pump_events: EventPump, timeout_seconds: float=45.0",
+        "return": "Any",
+        "doc": "Run blocking startup I/O away from the Qt thread while keeping the splash responsive.",
+        "methods": []
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.system.memory",
+    "implementation": "src/core/system/memory.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "SystemMemory",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "total_physical_memory_mb",
+            "signature": "cls",
+            "return": "int",
+            "doc": ""
+          }
+        ]
+      },
+      {
+        "kind": "class",
+        "name": "MemoryAllocationPolicy",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "physical_limit_mb",
+            "signature": "cls, total_memory_mb: int | None=None",
+            "return": "int",
+            "doc": ""
+          },
+          {
+            "name": "normalize",
+            "signature": "cls, min_memory_mb: object, max_memory_mb: object, total_memory_mb: int | None=None",
+            "return": "tuple[int, int]",
+            "doc": ""
+          },
+          {
+            "name": "is_valid",
+            "signature": "cls, min_memory_mb: object, max_memory_mb: object, total_memory_mb: int | None=None",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "snap_mb",
+            "signature": "cls, memory_mb: object, upper_bound_mb: int",
+            "return": "int",
+            "doc": ""
+          },
+          {
+            "name": "format_mb",
+            "signature": "memory_mb: int",
+            "return": "str",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.theme.theme_animation",
+    "implementation": "src/core/theme/theme_animation.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "ThemeAnimationDefinition",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "rows",
+            "signature": "self",
+            "return": "int",
+            "doc": ""
+          }
+        ]
+      },
+      {
+        "kind": "class",
+        "name": "ResolvedThemeAnimation",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "key",
+            "signature": "self",
+            "return": "str",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.theme.theme_authoring",
+    "implementation": "src/core/theme/theme_authoring.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "ThemeAuthoringError",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "ThemeAuthoringService",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "validate",
+            "signature": "self, theme_id: str",
+            "return": "ThemeValidationReport",
+            "doc": ""
+          },
+          {
+            "name": "validate_directory",
+            "signature": "self, root: Path",
+            "return": "ThemeValidationReport",
+            "doc": ""
+          },
+          {
+            "name": "duplicate",
+            "signature": "self, theme_id: str, new_id: str, new_name: str | None=None",
+            "return": "ThemeDefinition",
+            "doc": ""
+          },
+          {
+            "name": "export",
+            "signature": "self, theme_id: str, destination: Path",
+            "return": "Path",
+            "doc": ""
+          },
+          {
+            "name": "import_archive",
+            "signature": "self, archive_path: Path, overwrite: bool=False",
+            "return": "ThemeDefinition",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.theme.theme_font",
+    "implementation": "src/core/theme/theme_font.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "ThemeFontDefinition",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "ResolvedThemeFont",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.theme.theme_manager",
+    "implementation": "src/core/theme/theme_manager.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "ThemeError",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "ThemeManifestError",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "ThemeAssetError",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "ThemeDefinition",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "ThemeManager",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "current",
+            "signature": "self",
+            "return": "ThemeDefinition",
+            "doc": ""
+          },
+          {
+            "name": "reload",
+            "signature": "self",
+            "return": "tuple[ThemeDefinition, ...]",
+            "doc": ""
+          },
+          {
+            "name": "available_themes",
+            "signature": "self",
+            "return": "tuple[ThemeDefinition, ...]",
+            "doc": ""
+          },
+          {
+            "name": "select",
+            "signature": "self, theme_id: str",
+            "return": "ThemeDefinition",
+            "doc": ""
+          },
+          {
+            "name": "resolve_asset",
+            "signature": "self, key: str, theme: ThemeDefinition | None=None, fallback_to_default: bool=False",
+            "return": "Path | None",
+            "doc": ""
+          },
+          {
+            "name": "resolve_text_asset",
+            "signature": "self, role: str, theme: ThemeDefinition | None=None, fallback_to_default: bool=False",
+            "return": "Path | None",
+            "doc": ""
+          },
+          {
+            "name": "resolve_animation",
+            "signature": "self, key: str, theme: ThemeDefinition | None=None, fallback_to_default: bool=True",
+            "return": "ResolvedThemeAnimation | None",
+            "doc": ""
+          },
+          {
+            "name": "resolve_animation_fallback",
+            "signature": "self, key: str, theme: ThemeDefinition | None=None, fallback_to_default: bool=True",
+            "return": "Path | None",
+            "doc": ""
+          },
+          {
+            "name": "resolve_font",
+            "signature": "self, theme: ThemeDefinition | None=None, fallback_to_default: bool=True",
+            "return": "ResolvedThemeFont | None",
+            "doc": ""
+          },
+          {
+            "name": "resolve_palette",
+            "signature": "self, theme: ThemeDefinition | None=None",
+            "return": "ThemePaletteDefinition",
+            "doc": ""
+          },
+          {
+            "name": "is_accent_asset",
+            "signature": "self, key: str, theme: ThemeDefinition | None=None",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "resolve_stylesheet",
+            "signature": "self, theme: ThemeDefinition | None=None",
+            "return": "str",
+            "doc": ""
+          },
+          {
+            "name": "asset_status",
+            "signature": "self, theme: ThemeDefinition | None=None",
+            "return": "dict[str, bool]",
+            "doc": ""
+          },
+          {
+            "name": "animation_status",
+            "signature": "self, theme: ThemeDefinition | None=None",
+            "return": "dict[str, bool]",
+            "doc": ""
+          },
+          {
+            "name": "font_status",
+            "signature": "self, theme: ThemeDefinition | None=None",
+            "return": "bool",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.theme.theme_motion",
+    "implementation": "src/core/theme/theme_motion.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "MotionTransitionDefinition",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "ButtonMotionDefinition",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "SidebarMotionDefinition",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "ToastMotionDefinition",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "MotionPerformanceDefinition",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "ThemeMotionDefinition",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.theme.theme_palette",
+    "implementation": "src/core/theme/theme_palette.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "ThemePaletteDefinition",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "to_dict",
+            "signature": "self",
+            "return": "dict[str, str]",
+            "doc": ""
+          }
+        ]
+      },
+      {
+        "kind": "function",
+        "name": "normalize_hex_color",
+        "signature": "value: object, label: str='color'",
+        "return": "str",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "function",
+        "name": "derive_custom_accent",
+        "signature": "theme_palette: ThemePaletteDefinition, accent: str",
+        "return": "ThemePaletteDefinition",
+        "doc": "",
+        "methods": []
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.update.update_applier",
+    "implementation": "src/core/update/update_applier.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "UpdateApplyRequest",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "load",
+            "signature": "cls, path: Path",
+            "return": "'UpdateApplyRequest'",
+            "doc": ""
+          },
+          {
+            "name": "validate",
+            "signature": "self",
+            "return": "None",
+            "doc": ""
+          }
+        ]
+      },
+      {
+        "kind": "class",
+        "name": "UpdateApplier",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "run",
+            "signature": "self",
+            "return": "int",
+            "doc": ""
+          }
+        ]
+      },
+      {
+        "kind": "function",
+        "name": "run_update_applier",
+        "signature": "request_path: Path",
+        "return": "int",
+        "doc": "",
+        "methods": []
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.update.update_cleanup",
+    "implementation": "src/core/update/update_cleanup.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "UpdateCleanupRequest",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "validate",
+            "signature": "self",
+            "return": "None",
+            "doc": ""
+          }
+        ]
+      },
+      {
+        "kind": "class",
+        "name": "UpdateCleanupWorker",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "start",
+            "signature": "self",
+            "return": "threading.Thread",
+            "doc": ""
+          },
+          {
+            "name": "run",
+            "signature": "self",
+            "return": "None",
+            "doc": ""
+          }
+        ]
+      },
+      {
+        "kind": "function",
+        "name": "consume_update_cleanup_arguments",
+        "signature": "arguments: list[str]",
+        "return": "tuple[list[str], UpdateCleanupRequest | None]",
+        "doc": "",
+        "methods": []
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.update.update_manager",
+    "implementation": "src/core/update/update_manager.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "UpdateManager",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "check_for_update",
+            "signature": "self, force_refresh: bool=False",
+            "return": "UpdateInfo | None",
+            "doc": ""
+          },
+          {
+            "name": "prepare_update",
+            "signature": "self, info: UpdateInfo, reporter: ProgressReporter | None=None",
+            "return": "PreparedUpdate",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "api_module": "mcw_core.api.update.windows_update_installer",
+    "implementation": "src/core/update/windows_update_installer.py",
+    "members": [
+      {
+        "kind": "class",
+        "name": "AutomaticUpdateUnsupportedError",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": []
+      },
+      {
+        "kind": "class",
+        "name": "WindowsUpdateInstaller",
+        "signature": "",
+        "return": "",
+        "doc": "",
+        "methods": [
+          {
+            "name": "is_supported",
+            "signature": "",
+            "return": "bool",
+            "doc": ""
+          },
+          {
+            "name": "launch",
+            "signature": "cls, prepared: PreparedUpdate, install_directory: Path | None=None, executable_path: Path | None=None, parent_pid: int | None=None, persistent_log_path: Path | None=None",
+            "return": "Path",
+            "doc": ""
+          }
+        ]
+      }
+    ]
+  }
+]
