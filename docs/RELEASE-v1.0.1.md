@@ -85,3 +85,11 @@ Các public import 1.0.0 vẫn hoạt động. Ứng dụng bên ngoài chỉ n�
 - Preserved `Instance` as a domain term through `navigation.instances` in every built-in locale.
 - Standardized the Vietnamese launcher settings label as `Cài đặt launcher`.
 - No public Python API signature changed in this rebuild.
+
+## Pytest collection hotfix
+
+- Renamed the standalone core public-API test from `test/test_public_api.py` to
+  `test/test_core_distribution_public_api.py`.
+- Prevents pytest `import file mismatch` errors when core tests and launcher tests are
+  available in the same workspace.
+- No runtime API, package version, or behavior changed.

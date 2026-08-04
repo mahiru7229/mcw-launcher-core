@@ -29,3 +29,4 @@ exclude = ["src.gui*", "test*"]
 
 [tool.pytest.ini_options]
 testpaths = ["test"]
+addopts = "--import-mode=importlib"

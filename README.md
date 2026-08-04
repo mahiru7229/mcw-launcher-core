@@ -120,3 +120,11 @@ MCW Core 1.0.1 không đóng gói sẵn CurseForge gateway mặc định. Ứng 
 The bundled language catalog now includes semantic navigation and restart-notification keys used by MCW Launcher 1.0.1. External applications should continue to call `tr("semantic.key")` and should not treat rendered English labels as stable API identifiers.
 
 The term `Instance` is intentionally preserved in both built-in locales through the semantic key `navigation.instances`. Vietnamese uses `navigation.launcher_settings = "Cài đặt launcher"`.
+
+## Pytest module-name compatibility hotfix
+
+The standalone core distribution test now uses the unique basename
+`test_core_distribution_public_api.py`. This prevents pytest import collisions when the
+core source tree is inspected beside MCW Launcher's existing
+`test/core_library/test_public_api.py` module. Clearing `__pycache__` is still recommended
+after moving or renaming test modules, but cache removal alone is not the permanent fix.
