@@ -15,6 +15,7 @@ FTB_USER_AGENT = MODRINTH_USER_AGENT
 # No CurseForge gateway is bundled by default. Users, launcher builds, or
 # managed deployments must provide their own HTTPS gateway through local
 # settings or the supported environment variables.
+# to create a API link, use mcw-curseforge-gateway-main.zip to get info. (Version 1.0.1 API)
 CURSEFORGE_DEFAULT_GATEWAY_URL = ""
 CURSEFORGE_CACHE_MAX_BYTES = 10 * 1024 * 1024
 CURSEFORGE_MANUAL_REFRESH_COOLDOWN_SECONDS = 60
