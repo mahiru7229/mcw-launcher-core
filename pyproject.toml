@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcw-core"
-version = "1.0.1"
+version = "1.0.2"
 description = "Headless Minecraft runtime, instance, loader, modpack, repair, and launch core used by MCW Launcher"
-readme = "README.md"
+readme = "docs/MCW_CORE_LIBRARY.md"
 requires-python = ">=3.12"
 license = {text = "MIT"}
 authors = [{name = "mahiru7229"}]
@@ -24,9 +24,9 @@ where = ["."]
 include = ["mcw_core*", "src", "src.core*", "src.models*", "src.database*"]
 exclude = ["src.gui*", "test*"]
 
-[tool.setuptools.package-data]
-"mcw_core.resources" = ["*.jar"]
-
 [tool.pytest.ini_options]
 testpaths = ["test"]
 addopts = "--import-mode=importlib"
+
+[tool.setuptools.package-data]
+"mcw_core.resources" = ["*.jar"]

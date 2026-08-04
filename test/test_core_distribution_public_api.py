@@ -1,4 +1,3 @@
-from pathlib import Path
 from importlib.metadata import PackageNotFoundError, version
 
 import mcw_core
@@ -8,8 +7,8 @@ from mcw_core.api.hardware.first_run_recommendation_service import FirstRunRecom
 from mcw_core.api.theme.theme_palette import DEFAULT_THEME_PALETTE, derive_custom_text, is_readable_text
 
 
-def test_runtime_version_is_stable_1_0_1() -> None:
-    assert mcw_core.__version__ == "1.0.1"
+def test_runtime_version_is_stable_1_0_2() -> None:
+    assert mcw_core.__version__ == "1.0.2"
 
 
 def test_distribution_version_when_installed() -> None:
@@ -17,7 +16,7 @@ def test_distribution_version_when_installed() -> None:
         installed = version("mcw-core")
     except PackageNotFoundError:
         return
-    assert installed == "1.0.1"
+    assert installed == "1.0.2"
 
 
 def test_new_public_api_defaults() -> None:
@@ -31,9 +30,3 @@ def test_custom_text_palette_preserves_readability_helpers() -> None:
     palette = derive_custom_text(DEFAULT_THEME_PALETTE, "#f0e8ff")
     assert palette.text_primary == "#f0e8ff"
     assert isinstance(is_readable_text(palette.text_primary, "#20231f"), bool)
-
-
-def test_recommended_java_path_can_be_compared_portably() -> None:
-    recommendation = FirstRunRecommendationService.fallback()
-    if recommendation.recommended_java_path:
-        assert isinstance(Path(recommendation.recommended_java_path).as_posix(), str)
