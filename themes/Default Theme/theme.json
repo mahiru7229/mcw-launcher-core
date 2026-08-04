@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "mcw-legacy-assets",
+  "name": "MCW Legacy Assets",
+  "author": "mahiru7229",
+  "description": "Compatibility theme for the original MCW PNG assets. The Launch artwork already contains its fixed label.",
+  "assets": {
+    "logo.main": "images/logo/main_launcher_logo.png",
+    "logo.sidebar": "images/logo/main_launcher_logo_ALT.png",
+    "button.launch": "images/launch_control/button/launch_button.png",
+    "surface.security_card": "surfaces/cards/security.png",
+    "icon.action.shield": "icons/actions/shield.png",
+    "icon.action.reprotect": "icons/actions/reprotect.png",
+    "button.cancel": "images/launch_control/button/cancel_button.png",
+    "button.cancel_hover": "images/launch_control/button/cancel_hover_button.png",
+    "button.cancel_pressed": "images/launch_control/button/cancel_pressed_button.png",
+    "button.cancel_disabled": "images/launch_control/button/cancel_disabled_button.png"
+  },
+  "text_assets": {
+    "control.launch": "button.launch",
+    "control.cancel": "button.cancel"
+  }
+}

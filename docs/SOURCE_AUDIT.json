@@ -1,0 +1,15 @@
+{
+  "complete_launcher_runtime_version": "1.0.0",
+  "uploaded_wheel_runtime_version": "1.0.0-rc.1",
+  "wheel_distribution_version": "1.0.0",
+  "public_import_boundary": [
+    "mcw_core",
+    "mcw_core.api.*"
+  ],
+  "forbidden_consumer_imports": [
+    "src.core.*",
+    "src.models.*",
+    "src.database.*",
+    "src.gui.*"
+  ]
+}
