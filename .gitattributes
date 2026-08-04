@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Theme contract hashes require byte-stable LF line endings on every platform.
+docs/schema/*.json text eol=lf

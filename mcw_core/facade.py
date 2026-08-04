@@ -47,6 +47,7 @@ class MCWCore:
                 debug_mode=request.debug_mode,
                 on_progress=request.on_progress,
                 on_exit=request.on_exit,
+                allow_compatibility_issues_once=request.allow_compatibility_issues_once,
             )
             return LaunchResult.from_legacy(result)
         finally:

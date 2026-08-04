@@ -1,53 +1,106 @@
-# MCW Core 1.0.0 — Full Bilingual Developer Documentation
+# MCW Core 1.0.1
 
-This documentation bundle is generated from and checked against:
+MCW Core is the headless runtime and service layer used by MCW Launcher. It provides a public Python API for building a Minecraft launcher without depending on the PySide6 GUI.
 
-- the uploaded MCW Core source repository;
-- the complete MCW Launcher 1.0.0 source tree;
-- the uploaded `mcw_core-1.0.0-py3-none-any.whl` distribution.
+## Install
 
-It is intended for developers who want to build another launcher, CLI, automation tool, or service on top of MCW Core without depending on the MCW Launcher GUI.
+```bash
+python -m pip install mcw_core-1.0.1-py3-none-any.whl
+```
 
-## English documentation
+Verify the release:
 
-1. [Complete Core Guide](docs/en/CORE_GUIDE.md)
-2. [API Reference](docs/en/API_REFERENCE.md)
-3. [Progress, Threads, Pause and Cancel](docs/en/PROGRESS_ASYNC.md)
-4. [Blueprint for Building a Launcher](docs/en/BUILD_A_LAUNCHER.md)
-5. [Packaging and Release Notes](docs/en/PACKAGING_RELEASE.md)
+```bash
+python -c "import mcw_core; print(mcw_core.__version__)"
+```
 
-## Tài liệu tiếng Việt
+Expected output:
 
-1. [Hướng dẫn Core đầy đủ](docs/vi/CORE_GUIDE.md)
-2. [Tham chiếu API](docs/vi/API_REFERENCE.md)
-3. [Progress, luồng, Pause và Cancel](docs/vi/PROGRESS_ASYNC.md)
-4. [Bản thiết kế để xây một launcher](docs/vi/BUILD_A_LAUNCHER.md)
-5. [Đóng gói và phát hành](docs/vi/PACKAGING_RELEASE.md)
+```text
+1.0.1
+```
 
-## Executable examples
+## Public API boundary
 
-The `examples/` directory contains small, focused programs for:
-
-- configuring a portable data root;
-- bootstrapping the core;
-- listing versions and creating instances;
-- account management;
-- Java scanning and installation;
-- offline and account-based launch;
-- progress display and cooperative pause/cancel;
-- Modrinth, CurseForge and FTB workflows;
-- native modpack import and portable export;
-- content packs, repair, backup and diagnostics;
-- a minimal PySide6 task adapter.
-
-## Important API rule
-
-Third-party code should import only from:
+External applications should import only from:
 
 ```python
 import mcw_core
-from mcw_core import ...
-from mcw_core.api... import ...
+from mcw_core.api.instance.instance_manager import InstanceManager
 ```
 
-Do not import `src.core`, `src.models`, `src.database`, or `src.gui` directly. The current wheel bundles compatibility implementation modules under `src`, but they are not the public contract.
+The bundled `src.*` packages are compatibility implementation details for the 1.0.x generation. They are shipped so the wheel is runnable, but they are not the stable API contract.
+
+## Quick launch example
+
+```python
+from mcw_core import LaunchRequest, ProgressEvent, get_default_core
+
+
+def on_progress(event: ProgressEvent) -> None:
+    percentage = "" if event.percentage is None else f" {event.percentage:.1f}%"
+    print(f"[{event.stage.value}]{percentage} {event.message}")
+
+
+core = get_default_core()
+result = core.launch(
+    LaunchRequest(
+        instance="My Instance",
+        offline_username="Player",
+        on_progress=on_progress,
+    )
+)
+print(result.minecraft_version, result.java_path)
+```
+
+`launch()` returns after the Minecraft process starts. Use `LaunchRequest.on_exit` to receive the final game exit result.
+
+## 1.0.1 highlights
+
+- Correct resource/shader pack roots and safe v1.0.0 migration.
+- Safe add-while-running policy for non-destructive content installation.
+- Newest-first FTB versions.
+- First-run Java/RAM recommendation service.
+- Ask/Block/Allow/Inherit compatibility policy and one-time confirmation retry.
+- Provider artwork fallback for imported modpacks.
+- Theme text-palette and contrast helpers.
+
+## Documentation
+
+### English
+
+- [`docs/en/CORE_GUIDE.md`](docs/en/CORE_GUIDE.md)
+- [`docs/en/API_REFERENCE.md`](docs/en/API_REFERENCE.md)
+- [`docs/en/PROGRESS_ASYNC.md`](docs/en/PROGRESS_ASYNC.md)
+- [`docs/en/BUILD_A_LAUNCHER.md`](docs/en/BUILD_A_LAUNCHER.md)
+- [`docs/en/V1_0_1_API_ADDITIONS.md`](docs/en/V1_0_1_API_ADDITIONS.md)
+
+### Tiếng Việt
+
+- [`docs/vi/CORE_GUIDE.md`](docs/vi/CORE_GUIDE.md)
+- [`docs/vi/API_REFERENCE.md`](docs/vi/API_REFERENCE.md)
+- [`docs/vi/PROGRESS_ASYNC.md`](docs/vi/PROGRESS_ASYNC.md)
+- [`docs/vi/BUILD_A_LAUNCHER.md`](docs/vi/BUILD_A_LAUNCHER.md)
+- [`docs/vi/V1_0_1_API_ADDITIONS.md`](docs/vi/V1_0_1_API_ADDITIONS.md)
+
+---
+
+# MCW Core 1.0.1 — Tiếng Việt
+
+MCW Core là lớp runtime và service headless đứng sau MCW Launcher. Thư viện cung cấp public API Python để xây một Minecraft launcher mà không phụ thuộc vào giao diện PySide6.
+
+## Nguyên tắc import
+
+Ứng dụng bên ngoài chỉ nên import từ `mcw_core` hoặc `mcw_core.api.*`. Các module `src.*` được đóng gói để tương thích với implementation 1.0.x, nhưng không phải public API ổn định.
+
+## Điểm mới trong 1.0.1
+
+- Sửa đúng đường dẫn resource pack/shader pack và migration dữ liệu 1.0.0.
+- Cho phép thêm gói tài nguyên mới khi game đang chạy nhưng chặn thao tác phá hủy.
+- Sắp xếp FTB mới nhất trước.
+- Service gợi ý Java/RAM cho First Run Setup.
+- Chính sách tương thích Hỏi/Chặn/Cho phép/Kế thừa và retry một lần có xác nhận.
+- Lấy icon provider theo cơ chế best-effort khi import modpack.
+- Helper màu chữ và kiểm tra độ tương phản cho theme.
+
+Xem [`docs/RELEASE-v1.0.1.md`](docs/RELEASE-v1.0.1.md) để đọc release notes đầy đủ.

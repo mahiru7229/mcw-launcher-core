@@ -12,6 +12,7 @@ from src.models.progress.progress_stage import ProgressStage
 from src.models.progress.progress_state import ProgressState
 from src.models.progress.progress_unit import ProgressUnit
 from src.core.instance.errors import InstanceDeletionError
+from src.core.modloader.forge.compatibility_confirmation import CompatibilityConfirmationRequired
 from src.core.network.download_pause import DownloadCancelledError, DownloadInterruptedError, is_download_cancelled, is_download_paused
 
 from mcw_core.facade import MCWCore, configure_default_core, get_default_core
@@ -24,6 +25,7 @@ __all__ = [
     "Account",
     "Authentication",
     "CorePaths",
+    "CompatibilityConfirmationRequired",
     "DownloadCancelledError",
     "DownloadInterruptedError",
     "Instance",

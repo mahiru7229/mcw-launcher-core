@@ -1,4 +1,4 @@
-# Tham chiếu API MCW Core 1.0.0
+# Tham chiếu API MCW Core 1.0.1
 
 Tài liệu này liệt kê public re-export modules và signature được đọc trực tiếp từ source/wheel. Kiểu trả về `Any` nghĩa là source không khai báo annotation rõ ràng.
 

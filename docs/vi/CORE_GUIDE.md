@@ -1,4 +1,4 @@
-# Hướng dẫn đầy đủ MCW Core 1.0.0
+# Hướng dẫn đầy đủ MCW Core 1.0.1
 
 ## 1. Mục tiêu của tài liệu
 
@@ -28,7 +28,7 @@ Tài liệu này giải thích cách sử dụng MCW Core để xây một launc
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-python -m pip install .\mcw_core-1.0.0-py3-none-any.whl
+python -m pip install .\mcw_core-1.0.1-py3-none-any.whl
 ```
 
 Kiểm tra:

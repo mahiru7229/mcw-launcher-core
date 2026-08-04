@@ -1,4 +1,4 @@
-# MCW Core 1.0.0 API Reference
+# MCW Core 1.0.1 API Reference
 
 This reference lists public re-export modules and signatures read directly from the supplied source/wheel. `Any` means the source does not provide an explicit return annotation.
 

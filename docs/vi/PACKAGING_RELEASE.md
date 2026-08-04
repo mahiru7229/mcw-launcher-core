@@ -1,4 +1,4 @@
-# Đóng gói và phát hành MCW Core 1.0.0
+# Đóng gói và phát hành MCW Core 1.0.1
 
 ## Kết quả audit từ file được cung cấp
 
@@ -31,7 +31,7 @@ Kiểm tra wheel trong môi trường sạch:
 ```powershell
 py -3.12 -m venv .venv-test
 .\.venv-test\Scripts\Activate.ps1
-python -m pip install dist\mcw_core-1.0.0-py3-none-any.whl
+python -m pip install dist\mcw_core-1.0.1-py3-none-any.whl
 python -c "import mcw_core; print(mcw_core.__version__)"
 python -c "import importlib.util; assert importlib.util.find_spec('PySide6') is None"
 ```

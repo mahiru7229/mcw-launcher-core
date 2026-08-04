@@ -1,4 +1,4 @@
-# Packaging and Releasing MCW Core 1.0.0
+# Packaging and Releasing MCW Core 1.0.1
 
 ## Audit findings from the supplied artifacts
 

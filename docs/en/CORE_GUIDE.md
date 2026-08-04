@@ -1,4 +1,4 @@
-# Complete MCW Core 1.0.0 Guide
+# Complete MCW Core 1.0.1 Guide
 
 ## 1. Purpose
 
@@ -10,7 +10,7 @@ This guide explains how to use MCW Core as the backend of an independent Minecra
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-python -m pip install .\mcw_core-1.0.0-py3-none-any.whl
+python -m pip install .\mcw_core-1.0.1-py3-none-any.whl
 python -c "import mcw_core; print(mcw_core.__version__)"
 ```
 
