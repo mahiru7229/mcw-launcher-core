@@ -12,10 +12,9 @@ MODRINTH_USER_AGENT = f"{DEVELOPER_NAME}/{LAUNCHER_SLUG}/{VERSION_ID} (https://g
 CURSEFORGE_USER_AGENT = MODRINTH_USER_AGENT
 FTB_USER_AGENT = MODRINTH_USER_AGENT
 
-# Public CurseForge gateway used by default on fresh installations. Custom
-# HTTPS gateways configured by the user or deployment environment still take
-# priority and the CurseForge API credential remains server-side.
-# to know how to create an API from CurseForge API key, use mcw-curseforge-gateway-main.zip. 
+# No CurseForge gateway is bundled by default. Users, launcher builds, or
+# managed deployments must provide their own HTTPS gateway through local
+# settings or the supported environment variables.
 CURSEFORGE_DEFAULT_GATEWAY_URL = ""
 CURSEFORGE_CACHE_MAX_BYTES = 10 * 1024 * 1024
 CURSEFORGE_MANUAL_REFRESH_COOLDOWN_SECONDS = 60

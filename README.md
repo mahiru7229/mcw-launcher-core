@@ -64,6 +64,7 @@ print(result.minecraft_version, result.java_path)
 - Ask/Block/Allow/Inherit compatibility policy and one-time confirmation retry.
 - Provider artwork fallback for imported modpacks.
 - Theme text-palette and contrast helpers.
+- Rendered-text and placeholder-aware language resolution for reliable live retranslation and localized progress messages.
 
 ## Documentation
 
@@ -102,5 +103,20 @@ MCW Core là lớp runtime và service headless đứng sau MCW Launcher. Thư v
 - Chính sách tương thích Hỏi/Chặn/Cho phép/Kế thừa và retry một lần có xác nhận.
 - Lấy icon provider theo cơ chế best-effort khi import modpack.
 - Helper màu chữ và kiểm tra độ tương phản cho theme.
+- Nhận diện lại semantic key từ chuỗi đã render, kể cả chuỗi có placeholder, để reload ngôn ngữ và dịch progress ổn định hơn.
 
 Xem [`docs/RELEASE-v1.0.1.md`](docs/RELEASE-v1.0.1.md) để đọc release notes đầy đủ.
+
+## CurseForge gateway configuration
+
+MCW Core 1.0.1 does not bundle a default CurseForge gateway URL. Applications must provide one through `CurseForgeConfigManager.save_local(...)` or the supported `MCW_CURSEFORGE_GATEWAY_URL*` environment variables. The CurseForge API remains available; only the built-in endpoint fallback has been removed.
+
+## Cấu hình CurseForge gateway
+
+MCW Core 1.0.1 không đóng gói sẵn CurseForge gateway mặc định. Ứng dụng cần tự cấu hình endpoint qua `CurseForgeConfigManager.save_local(...)` hoặc các biến môi trường `MCW_CURSEFORGE_GATEWAY_URL*`. CurseForge API vẫn được giữ nguyên; chỉ fallback endpoint mặc định đã bị loại bỏ.
+
+## Language catalog maintenance hotfix
+
+The bundled language catalog now includes semantic navigation and restart-notification keys used by MCW Launcher 1.0.1. External applications should continue to call `tr("semantic.key")` and should not treat rendered English labels as stable API identifiers.
+
+The term `Instance` is intentionally preserved in both built-in locales through the semantic key `navigation.instances`. Vietnamese uses `navigation.launcher_settings = "Cài đặt launcher"`.
