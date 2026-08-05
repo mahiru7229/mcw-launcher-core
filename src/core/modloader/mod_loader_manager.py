@@ -1,3 +1,4 @@
+from src.core.instance.settings_manager import SettingsManager
 from src.core.minecraft.version_manager import VersionManager
 from src.core.modloader.fabric.fabric_version_manager import FabricVersionManager
 from src.core.modloader.forge.forge_version_manager import ForgeVersionManager
@@ -19,46 +20,60 @@ class ModLoaderManager:
     FORGE_FAMILY = frozenset({FORGE, NEOFORGE})
 
     @staticmethod
-    def load(instance: Instance, reporter: ProgressReporter | None = None) -> Version:
+    def load(instance: Instance, reporter: ProgressReporter | None = None, preferred_java_path: str | None = None) -> Version:
         loader_name, loader_version = ModLoaderManager.normalize(getattr(instance, "mod_loader", (ModLoaderManager.VANILLA, "-1")))
         if loader_name == ModLoaderManager.VANILLA:
             return VersionManager.load(instance.version_id)
         if loader_name == ModLoaderManager.FABRIC:
             return FabricVersionManager.load(instance.version_id, loader_version, reporter)
         if loader_name == ModLoaderManager.FORGE:
+            if preferred_java_path:
+                return ForgeVersionManager.load(instance.version_id, loader_version, reporter, preferred_java_path=preferred_java_path)
             return ForgeVersionManager.load(instance.version_id, loader_version, reporter)
         if loader_name == ModLoaderManager.NEOFORGE:
+            if preferred_java_path:
+                return NeoForgeVersionManager.load(instance.version_id, loader_version, reporter, preferred_java_path=preferred_java_path)
             return NeoForgeVersionManager.load(instance.version_id, loader_version, reporter)
         if loader_name == ModLoaderManager.QUILT:
             return QuiltVersionManager.load(instance.version_id, loader_version, reporter)
         raise RuntimeError(f"Unsupported mod loader: {loader_name}")
 
     @staticmethod
-    def prepare(version: Version, loader_name: str, loader_version: str, reporter: ProgressReporter | None = None) -> Version:
+    def prepare(version: Version, loader_name: str, loader_version: str, reporter: ProgressReporter | None = None, preferred_java_path: str | None = None) -> Version:
         loader_name, loader_version = ModLoaderManager.normalize((loader_name, loader_version))
         if loader_name == ModLoaderManager.VANILLA:
             return version
         if loader_name == ModLoaderManager.FABRIC:
             return FabricVersionManager.install(version, loader_version, reporter)
         if loader_name == ModLoaderManager.FORGE:
+            if preferred_java_path:
+                return ForgeVersionManager.install(version, loader_version, reporter, preferred_java_path=preferred_java_path)
             return ForgeVersionManager.install(version, loader_version, reporter)
         if loader_name == ModLoaderManager.NEOFORGE:
+            if preferred_java_path:
+                return NeoForgeVersionManager.install(version, loader_version, reporter, preferred_java_path=preferred_java_path)
             return NeoForgeVersionManager.install(version, loader_version, reporter)
         if loader_name == ModLoaderManager.QUILT:
             return QuiltVersionManager.install(version, loader_version, reporter)
         raise RuntimeError(f"Unsupported mod loader: {loader_name}")
 
     @staticmethod
-    def repair(instance: Instance, reporter: ProgressReporter | None = None) -> Version:
+    def repair(instance: Instance, reporter: ProgressReporter | None = None, preferred_java_path: str | None = None) -> Version:
         loader_name, loader_version = ModLoaderManager.normalize(getattr(instance, "mod_loader", (ModLoaderManager.VANILLA, "-1")))
         if loader_name not in ModLoaderManager.MODDED_LOADERS:
             raise RuntimeError("Only Fabric, Quilt, Forge, or NeoForge instances can be repaired.")
         base_version = VersionManager.load(instance.version_id)
+        if preferred_java_path is None and loader_name in ModLoaderManager.FORGE_FAMILY and hasattr(instance, "instance_dir"):
+            preferred_java_path = str(getattr(SettingsManager.load(instance), "java_path", "") or "").strip()
         if loader_name == ModLoaderManager.FABRIC:
             return FabricVersionManager.repair(base_version, loader_version, reporter)
         if loader_name == ModLoaderManager.FORGE:
+            if preferred_java_path:
+                return ForgeVersionManager.repair(base_version, loader_version, reporter, preferred_java_path=preferred_java_path)
             return ForgeVersionManager.repair(base_version, loader_version, reporter)
         if loader_name == ModLoaderManager.NEOFORGE:
+            if preferred_java_path:
+                return NeoForgeVersionManager.repair(base_version, loader_version, reporter, preferred_java_path=preferred_java_path)
             return NeoForgeVersionManager.repair(base_version, loader_version, reporter)
         return QuiltVersionManager.repair(base_version, loader_version, reporter)
 

@@ -1,5 +1,6 @@
 from src.core.minecraft.classpath_builder import ClasspathBuilder
 from src.core.minecraft.argument_builder import ArgumentBuilder
+from src.core.minecraft.game_argument_normalizer import GameArgumentNormalizer
 from src.core.modloader.forge.forge_launch_command_manager import ForgeLaunchCommandManager
 from src.models.minecraft.version import Version
 from src.core.fs.paths import Paths
@@ -19,6 +20,7 @@ class LauncherManager:
         )
 
         jvm_args, game_args = ArgumentBuilder.build(version, context, settings, account)
+        game_args = GameArgumentNormalizer.normalize(game_args, context)
         jvm_args = ForgeLaunchCommandManager.prepare(version, jvm_args, client_path=Paths.client(version), library_directory=Paths.libraries())
         if runtime_jvm_arguments:
             jvm_args.extend(str(argument) for argument in runtime_jvm_arguments)

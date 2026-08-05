@@ -172,6 +172,55 @@ def patch_pipeline(
     }
 
 
+
+def test_load_client_forces_full_hash_for_legacy_forge(monkeypatch: pytest.MonkeyPatch) -> None:
+    version = SimpleNamespace(
+        main_class="net.minecraft.launchwrapper.Launch",
+        raw_json={"forge": {"gameVersion": "1.6.4", "loaderVersion": "9.11.1.1345"}},
+    )
+    reporter = object()
+    verification_cache = object()
+    received = {}
+
+    def fake_load(**kwargs):
+        received.update(kwargs)
+        return Path("1.6.4.jar")
+
+    monkeypatch.setattr(DownloadClientManager, "load", fake_load)
+
+    result = MinecraftExecutor._load_client(version, reporter, verification_cache)
+
+    assert result == Path("1.6.4.jar")
+    assert received == {
+        "version": version,
+        "reporter": reporter,
+        "verification_cache": verification_cache,
+        "fast_verify": False,
+    }
+
+
+def test_load_client_keeps_fast_verification_for_non_legacy_profiles(monkeypatch: pytest.MonkeyPatch) -> None:
+    version = SimpleNamespace(main_class="net.minecraft.client.main.Main", raw_json={})
+    reporter = object()
+    verification_cache = object()
+    received = {}
+
+    def fake_load(**kwargs):
+        received.update(kwargs)
+        return Path("client.jar")
+
+    monkeypatch.setattr(DownloadClientManager, "load", fake_load)
+
+    result = MinecraftExecutor._load_client(version, reporter, verification_cache)
+
+    assert result == Path("client.jar")
+    assert received == {
+        "version": version,
+        "reporter": reporter,
+        "verification_cache": verification_cache,
+        "fast_verify": True,
+    }
+
 def test_run_returns_launch_information(
     monkeypatch: pytest.MonkeyPatch,
 ):

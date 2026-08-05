@@ -6,17 +6,15 @@ from pathlib import Path
 from threading import Lock
 import hashlib
 import json
-import os
 import shutil
-import subprocess
 
 from src.core.fs.paths import Paths
-from src.core.java.java_resolver import JavaResolver
 from src.core.minecraft.library_manager import DownloadLibraryManager
 from src.core.minecraft.library_rule_manager import LibraryRuleManager
 from src.core.minecraft.version_manager import VersionManager
 from src.core.modloader.forge.forge_metadata_client import ForgeMetadataClient
 from src.core.modloader.forge.legacy_forge_installer import LegacyForgeInstaller
+from src.core.modloader.java_installer_runner import ModLoaderJavaRunner
 from src.core.network.httpx_downloader import HttpDownloader
 from src.core.progress.progress_reporter import ProgressReporter
 from src.models.minecraft.version import Version
@@ -40,11 +38,11 @@ class ForgeVersionManager:
         return ForgeMetadataClient.recommended_version(game_version)
 
     @staticmethod
-    def load(game_version: str, forge_version: str, reporter: ProgressReporter | None = None) -> Version:
-        return ForgeVersionManager.install(VersionManager.load(game_version), forge_version, reporter=reporter)
+    def load(game_version: str, forge_version: str, reporter: ProgressReporter | None = None, preferred_java_path: str | Path | None = None) -> Version:
+        return ForgeVersionManager.install(VersionManager.load(game_version), forge_version, reporter=reporter, preferred_java_path=preferred_java_path)
 
     @staticmethod
-    def install(base_version: Version, forge_version: str, reporter: ProgressReporter | None = None, force_refresh: bool = False) -> Version:
+    def install(base_version: Version, forge_version: str, reporter: ProgressReporter | None = None, force_refresh: bool = False, preferred_java_path: str | Path | None = None) -> Version:
         loader = str(forge_version).strip()
         if not loader:
             raise RuntimeError("Select a Minecraft Forge version.")
@@ -65,10 +63,10 @@ class ForgeVersionManager:
                 shutil.rmtree(staging, ignore_errors=True)
             staging.mkdir(parents=True, exist_ok=True)
             ForgeVersionManager._prepare_staging(base_version, staging)
-            ForgeVersionManager._run_installer(base_version, loader, installer, staging, reporter)
+            ForgeVersionManager._run_installer(base_version, loader, installer, staging, reporter, preferred_java_path)
             profile = ForgeVersionManager._find_profile(staging, loader)
             ForgeVersionManager._import_libraries(staging, reporter)
-            normalized = ForgeVersionManager._normalize_libraries(profile)
+            normalized = ForgeVersionManager._normalize_libraries(profile, reporter)
             merged = ForgeVersionManager._merge_profiles(base_version.raw_json, normalized, base_version.id, loader)
             ForgeVersionManager._write_json(cache_path, merged)
             version = VersionManager._parse_version(merged, cache_path)
@@ -77,7 +75,7 @@ class ForgeVersionManager:
             return version
 
     @staticmethod
-    def repair(base_version: Version, forge_version: str, reporter: ProgressReporter | None = None) -> Version:
+    def repair(base_version: Version, forge_version: str, reporter: ProgressReporter | None = None, preferred_java_path: str | Path | None = None) -> Version:
         loader = str(forge_version).strip()
         if not loader:
             raise RuntimeError("Select a Minecraft Forge version.")
@@ -88,7 +86,7 @@ class ForgeVersionManager:
         if reporter is not None:
             reporter.status(stage=ProgressStage.INSTALLING_MOD_LOADER, message=f"Repairing Minecraft Forge {loader}...")
         try:
-            version = ForgeVersionManager.install(base_version, loader, reporter=reporter, force_refresh=True)
+            version = ForgeVersionManager.install(base_version, loader, reporter=reporter, force_refresh=True, preferred_java_path=preferred_java_path)
             DownloadLibraryManager.load(version, reporter=reporter)
             issues = ForgeVersionManager.validate_installation(version, base_version.id, loader, verify_files=True)
             if issues:
@@ -137,7 +135,7 @@ class ForgeVersionManager:
                 shutil.copy2(client, target)
 
     @staticmethod
-    def _run_installer(base_version: Version, forge_version: str, installer: Path, staging: Path, reporter: ProgressReporter | None) -> None:
+    def _run_installer(base_version: Version, forge_version: str, installer: Path, staging: Path, reporter: ProgressReporter | None, preferred_java_path: str | Path | None = None) -> None:
         log_path = Paths.forge_root() / "logs" / f"forge-{base_version.id}-{forge_version}.log"
         log_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -152,12 +150,16 @@ class ForgeVersionManager:
             return
 
         java_major = int((base_version.java_version or {}).get("majorVersion") or 8)
-        java = JavaResolver.resolve(java_major, reporter)
         if reporter is not None:
             reporter.status(stage=ProgressStage.INSTALLING_MOD_LOADER, message=f"Running Forge {forge_version} installer...")
-        creation_flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-        result = subprocess.run([str(java), "-jar", str(installer), "--installClient", str(staging)], cwd=staging, capture_output=True, text=True, timeout=15 * 60, creationflags=creation_flags)
-        output = (result.stdout or "") + ("\n" if result.stdout and result.stderr else "") + (result.stderr or "")
+        result = ModLoaderJavaRunner.run(
+            java_major,
+            ["-jar", str(installer), "--installClient", str(staging)],
+            staging,
+            reporter=reporter,
+            preferred_java_path=preferred_java_path,
+        )
+        output = result.output
         log_path.write_text(output, encoding="utf-8", errors="replace")
         if result.returncode != 0:
             if ForgeVersionManager._is_unsupported_install_client(output):
@@ -166,7 +168,7 @@ class ForgeVersionManager:
                     "Please send the Forge installer log so support for this legacy profile can be added.\n"
                     + "\n".join(output.splitlines()[-12:])
                 )
-            tail = "\n".join((result.stderr or result.stdout or "Forge installer failed.").splitlines()[-12:])
+            tail = "\n".join((output or "Forge installer failed.").splitlines()[-12:])
             raise RuntimeError(f"Forge installer exited with code {result.returncode}.\n{tail}")
 
     @staticmethod
@@ -215,33 +217,109 @@ class ForgeVersionManager:
                 reporter.files(stage=ProgressStage.INSTALLING_MOD_LOADER, message="Importing Forge libraries...", current=index, total=total)
 
     @staticmethod
-    def _normalize_libraries(profile: dict) -> dict:
+    def _normalize_libraries(profile: dict, reporter: ProgressReporter | None = None) -> dict:
         normalized = deepcopy(profile)
         output: list[dict] = []
         for raw in profile.get("libraries", []):
             if not isinstance(raw, dict):
                 continue
             item = deepcopy(raw)
-            downloads = item.get("downloads") if isinstance(item.get("downloads"), dict) else {}
-            if isinstance(downloads.get("artifact"), dict):
+            if item.get("clientreq") is False or not LibraryRuleManager.is_allowed(item):
                 output.append(item)
                 continue
             coordinate = str(item.get("name") or "").strip()
-            path = ForgeVersionManager._maven_path(coordinate)
-            local = Paths.libraries() / path
             repository = ForgeVersionManager._library_repository(item, coordinate)
-            sha1 = ForgeVersionManager._sha1(local) if local.is_file() else ForgeVersionManager._legacy_library_sha1(item)
-            if not sha1:
+            downloads = deepcopy(item.get("downloads")) if isinstance(item.get("downloads"), dict) else {}
+            ForgeVersionManager._normalize_windows_native(item, coordinate, repository, downloads, reporter)
+
+            artifact = downloads.get("artifact") if isinstance(downloads.get("artifact"), dict) else None
+            if ForgeVersionManager._download_entry_is_complete(artifact):
+                item["downloads"] = downloads
                 output.append(item)
                 continue
+            if ForgeVersionManager._is_legacy_native_only_library(item, coordinate):
+                item["downloads"] = downloads
+                output.append(item)
+                continue
+
+            path = ForgeVersionManager._maven_path(coordinate)
+            local = Paths.libraries() / path
+            url = repository + path.as_posix()
+            sha1 = ForgeVersionManager._sha1(local) if local.is_file() else ForgeVersionManager._legacy_library_sha1(item)
             size = local.stat().st_size if local.is_file() else max(0, int(item.get("size") or 0))
-            item["downloads"] = {"artifact": {"path": path.as_posix(), "url": repository + path.as_posix(), "sha1": sha1, "size": size}}
+            if not sha1:
+                try:
+                    _, sha1, size = HttpDownloader.download_and_hash(
+                        url=url,
+                        path=local,
+                        max_retry=3,
+                        timeout=30.0,
+                        reporter=reporter,
+                        progress_stage=ProgressStage.INSTALLING_MOD_LOADER,
+                        progress_message=f"Downloading Forge library {path.name}...",
+                    )
+                except Exception as error:
+                    raise RuntimeError(f"Could not resolve legacy Forge library '{coordinate}'.") from error
+            downloads["artifact"] = {"path": path.as_posix(), "url": url, "sha1": sha1, "size": size}
+            item["downloads"] = downloads
             output.append(item)
         normalized["libraries"] = output
         return normalized
 
     @staticmethod
-    def _maven_path(coordinate: str) -> Path:
+    def _normalize_windows_native(item: dict, coordinate: str, repository: str, downloads: dict, reporter: ProgressReporter | None) -> None:
+        natives = deepcopy(item.get("natives")) if isinstance(item.get("natives"), dict) else {}
+        classifier = str(natives.get("windows") or "").replace("${arch}", "64").strip()
+        if not classifier and ForgeVersionManager._is_legacy_native_platform_coordinate(coordinate):
+            classifier = "natives-windows"
+            natives["windows"] = classifier
+            item["natives"] = natives
+        if not classifier:
+            return
+        classifiers = deepcopy(downloads.get("classifiers")) if isinstance(downloads.get("classifiers"), dict) else {}
+        current = classifiers.get(classifier) if isinstance(classifiers.get(classifier), dict) else None
+        if ForgeVersionManager._download_entry_is_complete(current):
+            downloads["classifiers"] = classifiers
+            return
+
+        path = ForgeVersionManager._maven_path(coordinate, classifier=classifier)
+        local = Paths.libraries() / path
+        url = repository + path.as_posix()
+        sha1 = ForgeVersionManager._sha1(local) if local.is_file() else ""
+        size = local.stat().st_size if local.is_file() else 0
+        if not sha1:
+            try:
+                _, sha1, size = HttpDownloader.download_and_hash(
+                    url=url,
+                    path=local,
+                    max_retry=3,
+                    timeout=30.0,
+                    reporter=reporter,
+                    progress_stage=ProgressStage.INSTALLING_MOD_LOADER,
+                    progress_message=f"Downloading Forge native library {path.name}...",
+                )
+            except Exception as error:
+                raise RuntimeError(f"Could not resolve legacy Forge native library '{coordinate}' ({classifier}).") from error
+        classifiers[classifier] = {"path": path.as_posix(), "url": url, "sha1": sha1, "size": size}
+        downloads["classifiers"] = classifiers
+
+    @staticmethod
+    def _download_entry_is_complete(entry: dict | None) -> bool:
+        return bool(entry and entry.get("path") and entry.get("url") and entry.get("sha1"))
+
+    @staticmethod
+    def _is_legacy_native_only_library(item: dict, coordinate: str) -> bool:
+        natives = item.get("natives") if isinstance(item.get("natives"), dict) else {}
+        return bool(natives.get("windows") and ForgeVersionManager._is_legacy_native_platform_coordinate(coordinate))
+
+    @staticmethod
+    def _is_legacy_native_platform_coordinate(coordinate: str) -> bool:
+        parts = str(coordinate).split(":")
+        artifact = parts[1].strip().casefold() if len(parts) >= 2 else ""
+        return artifact.endswith("-platform")
+
+    @staticmethod
+    def _maven_path(coordinate: str, classifier: str | None = None) -> Path:
         raw = str(coordinate).strip()
         extension = "jar"
         if "@" in raw:
@@ -251,8 +329,8 @@ class ForgeVersionManager:
         if len(parts) < 3:
             raise RuntimeError(f"Invalid Forge library coordinate: {coordinate}")
         group, artifact, version = parts[:3]
-        classifier = parts[3] if len(parts) > 3 and parts[3] else ""
-        filename = f"{artifact}-{version}{'-' + classifier if classifier else ''}.{extension}"
+        selected_classifier = classifier if classifier is not None else (parts[3] if len(parts) > 3 and parts[3] else "")
+        filename = f"{artifact}-{version}{'-' + selected_classifier if selected_classifier else ''}.{extension}"
         return Path(*group.split("."), artifact, version, filename)
 
     @staticmethod
@@ -324,8 +402,43 @@ class ForgeVersionManager:
             return None
         if not data.get("mainClass") or not data.get("libraries"):
             return None
+        if not ForgeVersionManager._legacy_launchwrapper_cache_is_complete(data):
+            return None
+        if not ForgeVersionManager._windows_native_cache_is_complete(data):
+            return None
         return data
 
+    @staticmethod
+    def _legacy_launchwrapper_cache_is_complete(data: dict) -> bool:
+        if str(data.get("mainClass") or "").strip() != "net.minecraft.launchwrapper.Launch":
+            return True
+        libraries = data.get("libraries") if isinstance(data.get("libraries"), list) else []
+        for item in libraries:
+            if not isinstance(item, dict) or not str(item.get("name") or "").startswith("net.minecraft:launchwrapper:"):
+                continue
+            downloads = item.get("downloads") if isinstance(item.get("downloads"), dict) else {}
+            artifact = downloads.get("artifact") if isinstance(downloads.get("artifact"), dict) else {}
+            return bool(artifact.get("path") and artifact.get("url") and artifact.get("sha1"))
+        return False
+
+    @staticmethod
+    def _windows_native_cache_is_complete(data: dict) -> bool:
+        libraries = data.get("libraries") if isinstance(data.get("libraries"), list) else []
+        for item in libraries:
+            if not isinstance(item, dict) or not LibraryRuleManager.is_allowed(item):
+                continue
+            natives = item.get("natives") if isinstance(item.get("natives"), dict) else {}
+            classifier = str(natives.get("windows") or "").replace("${arch}", "64").strip()
+            if not classifier and ForgeVersionManager._is_legacy_native_platform_coordinate(str(item.get("name") or "")):
+                classifier = "natives-windows"
+            if not classifier:
+                continue
+            downloads = item.get("downloads") if isinstance(item.get("downloads"), dict) else {}
+            classifiers = downloads.get("classifiers") if isinstance(downloads.get("classifiers"), dict) else {}
+            entry = classifiers.get(classifier) if isinstance(classifiers.get(classifier), dict) else None
+            if not ForgeVersionManager._download_entry_is_complete(entry):
+                return False
+        return True
 
     @staticmethod
     def validate_installation(version: Version, game_version: str, forge_version: str, verify_files: bool = True) -> list[str]:
@@ -367,7 +480,7 @@ class ForgeVersionManager:
 
     @staticmethod
     def _has_forge_runtime(libraries: list, raw: dict, forge_version: str) -> bool:
-        runtime_artifacts = {"forge", "fmlloader", "fmlcore", "javafmllanguage", "lowcodelanguage", "mclanguage"}
+        runtime_artifacts = {"forge", "minecraftforge", "fmlloader", "fmlcore", "javafmllanguage", "lowcodelanguage", "mclanguage"}
         for item in libraries:
             if not isinstance(item, dict):
                 continue

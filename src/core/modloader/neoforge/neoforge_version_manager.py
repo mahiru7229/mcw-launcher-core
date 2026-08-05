@@ -6,17 +6,15 @@ from pathlib import Path
 from threading import Lock
 import hashlib
 import json
-import os
 import shutil
-import subprocess
 
 from src.core.fs.paths import Paths
-from src.core.java.java_resolver import JavaResolver
 from src.core.minecraft.library_manager import DownloadLibraryManager
 from src.core.minecraft.library_rule_manager import LibraryRuleManager
 from src.core.minecraft.version_manager import VersionManager
 from src.core.modloader.neoforge.neoforge_metadata_client import NeoForgeMetadataClient
 from src.core.modloader.forge.legacy_forge_installer import LegacyForgeInstaller
+from src.core.modloader.java_installer_runner import ModLoaderJavaRunner
 from src.core.network.httpx_downloader import HttpDownloader
 from src.core.progress.progress_reporter import ProgressReporter
 from src.models.minecraft.version import Version
@@ -40,11 +38,11 @@ class NeoForgeVersionManager:
         return NeoForgeMetadataClient.recommended_version(game_version)
 
     @staticmethod
-    def load(game_version: str, neoforge_version: str, reporter: ProgressReporter | None = None) -> Version:
-        return NeoForgeVersionManager.install(VersionManager.load(game_version), neoforge_version, reporter=reporter)
+    def load(game_version: str, neoforge_version: str, reporter: ProgressReporter | None = None, preferred_java_path: str | Path | None = None) -> Version:
+        return NeoForgeVersionManager.install(VersionManager.load(game_version), neoforge_version, reporter=reporter, preferred_java_path=preferred_java_path)
 
     @staticmethod
-    def install(base_version: Version, neoforge_version: str, reporter: ProgressReporter | None = None, force_refresh: bool = False) -> Version:
+    def install(base_version: Version, neoforge_version: str, reporter: ProgressReporter | None = None, force_refresh: bool = False, preferred_java_path: str | Path | None = None) -> Version:
         loader = str(neoforge_version).strip()
         if not loader:
             raise RuntimeError("Select a Minecraft NeoForge version.")
@@ -65,7 +63,7 @@ class NeoForgeVersionManager:
                 shutil.rmtree(staging, ignore_errors=True)
             staging.mkdir(parents=True, exist_ok=True)
             NeoForgeVersionManager._prepare_staging(base_version, staging)
-            NeoForgeVersionManager._run_installer(base_version, loader, installer, staging, reporter)
+            NeoForgeVersionManager._run_installer(base_version, loader, installer, staging, reporter, preferred_java_path)
             profile = NeoForgeVersionManager._find_profile(staging, base_version.id, loader)
             NeoForgeVersionManager._import_libraries(staging, reporter)
             normalized = NeoForgeVersionManager._normalize_libraries(profile)
@@ -80,7 +78,7 @@ class NeoForgeVersionManager:
             return version
 
     @staticmethod
-    def repair(base_version: Version, neoforge_version: str, reporter: ProgressReporter | None = None) -> Version:
+    def repair(base_version: Version, neoforge_version: str, reporter: ProgressReporter | None = None, preferred_java_path: str | Path | None = None) -> Version:
         loader = str(neoforge_version).strip()
         if not loader:
             raise RuntimeError("Select a Minecraft NeoForge version.")
@@ -91,7 +89,7 @@ class NeoForgeVersionManager:
         if reporter is not None:
             reporter.status(stage=ProgressStage.INSTALLING_MOD_LOADER, message=f"Repairing Minecraft NeoForge {loader}...")
         try:
-            version = NeoForgeVersionManager.install(base_version, loader, reporter=reporter, force_refresh=True)
+            version = NeoForgeVersionManager.install(base_version, loader, reporter=reporter, force_refresh=True, preferred_java_path=preferred_java_path)
             DownloadLibraryManager.load(version, reporter=reporter)
             issues = NeoForgeVersionManager.validate_installation(version, base_version.id, loader, verify_files=True)
             if issues:
@@ -140,7 +138,7 @@ class NeoForgeVersionManager:
                 shutil.copy2(client, target)
 
     @staticmethod
-    def _run_installer(base_version: Version, neoforge_version: str, installer: Path, staging: Path, reporter: ProgressReporter | None) -> None:
+    def _run_installer(base_version: Version, neoforge_version: str, installer: Path, staging: Path, reporter: ProgressReporter | None, preferred_java_path: str | Path | None = None) -> None:
         log_path = Paths.neoforge_root() / "logs" / f"neoforge-{base_version.id}-{neoforge_version}.log"
         log_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -155,12 +153,16 @@ class NeoForgeVersionManager:
             return
 
         java_major = int((base_version.java_version or {}).get("majorVersion") or 8)
-        java = JavaResolver.resolve(java_major, reporter)
         if reporter is not None:
             reporter.status(stage=ProgressStage.INSTALLING_MOD_LOADER, message=f"Running NeoForge {neoforge_version} installer...")
-        creation_flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-        result = subprocess.run([str(java), "-jar", str(installer), "--installClient", str(staging)], cwd=staging, capture_output=True, text=True, timeout=15 * 60, creationflags=creation_flags)
-        output = (result.stdout or "") + ("\n" if result.stdout and result.stderr else "") + (result.stderr or "")
+        result = ModLoaderJavaRunner.run(
+            java_major,
+            ["-jar", str(installer), "--installClient", str(staging)],
+            staging,
+            reporter=reporter,
+            preferred_java_path=preferred_java_path,
+        )
+        output = result.output
         log_path.write_text(output, encoding="utf-8", errors="replace")
         if result.returncode != 0:
             if NeoForgeVersionManager._is_unsupported_install_client(output):
@@ -169,7 +171,7 @@ class NeoForgeVersionManager:
                     "Please send the NeoForge installer log so support for this legacy profile can be added.\n"
                     + "\n".join(output.splitlines()[-12:])
                 )
-            tail = "\n".join((result.stderr or result.stdout or "NeoForge installer failed.").splitlines()[-12:])
+            tail = "\n".join((output or "NeoForge installer failed.").splitlines()[-12:])
             raise RuntimeError(f"NeoForge installer exited with code {result.returncode}.\n{tail}")
 
     @staticmethod

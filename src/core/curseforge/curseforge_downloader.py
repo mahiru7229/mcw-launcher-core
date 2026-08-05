@@ -5,6 +5,7 @@ from pathlib import Path
 
 from src.core.curseforge.curseforge_client import CurseForgeClient
 from src.core.curseforge.curseforge_download_fallback import CurseForgeDownloadFallback
+from src.core.curseforge.curseforge_links import file_page_url, is_numeric_project_placeholder, normalize_project_page, project_search_url
 from src.core.network.artifact_download_service import ArtifactDownloadError, artifact_download_service
 from src.core.network.httpx_downloader import HttpDownloader
 from src.core.progress.progress_reporter import ProgressReporter
@@ -45,8 +46,8 @@ class CurseForgeDownloader:
                 )
 
         name = str(project_name).strip() or f"CurseForge project {resolved.project_id}"
-        canonical_project_url = str(project_url).strip() or f"https://www.curseforge.com/minecraft/mc-mods/{resolved.project_id}"
-        version_url = f"{canonical_project_url.rstrip('/')}/files/{resolved.file_id}"
+        canonical_project_url = CurseForgeDownloader._resolve_project_url(resolved.project_id, project_url)
+        version_url = file_page_url(canonical_project_url, resolved.file_id)
         hashes = {"sha1": resolved.sha1} if resolved.sha1 else {}
         request = ArtifactRequest(
             provider="curseforge",
@@ -84,6 +85,21 @@ class CurseForgeDownloader:
         except ArtifactDownloadError as error:
             raise CurseForgeManualDownloadRequired(CurseForgeDownloader._manual_requirement(resolved, name, error.failure, managed_kind, managed_path, gateway_error)) from error
 
+
+    @staticmethod
+    def _resolve_project_url(project_id: int, candidate: str = "") -> str:
+        normalized = normalize_project_page(candidate)
+        if normalized and not is_numeric_project_placeholder(normalized, project_id):
+            return normalized
+        try:
+            project = CurseForgeClient.get_project(project_id)
+        except RuntimeError:
+            project = None
+        resolved = normalize_project_page(getattr(project, "project_url", "")) if project is not None else ""
+        if resolved and not is_numeric_project_placeholder(resolved, project_id):
+            return resolved
+        return project_search_url(project_id)
+
     @staticmethod
     def _manual_requirement(file: CurseForgeFile, project_name: str, failure: ArtifactDownloadFailure, managed_kind: str, managed_path: str, gateway_error: RuntimeError | None = None) -> CurseForgeManualDownload:
         details = failure.detail
@@ -100,7 +116,7 @@ class CurseForgeDownloader:
             file_name=file.file_name,
             file_size=file.file_length,
             sha1=file.sha1,
-            project_url=failure.project_url or f"https://www.curseforge.com/minecraft/mc-mods/{file.project_id}",
+            project_url=failure.project_url or project_search_url(file.project_id),
             reason=reason,
             managed_kind=managed_kind,
             managed_path=managed_path,

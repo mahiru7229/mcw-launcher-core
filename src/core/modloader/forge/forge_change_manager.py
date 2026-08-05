@@ -6,6 +6,7 @@ import os
 
 from src.core.fs.paths import Paths
 from src.core.instance.instance_manager import InstanceManager
+from src.core.instance.settings_manager import SettingsManager
 from src.core.minecraft.library_manager import DownloadLibraryManager
 from src.core.minecraft.version_manager import VersionManager
 from src.core.modloader.forge.forge_version_manager import ForgeVersionManager
@@ -39,7 +40,11 @@ class ForgeChangeManager:
             )
 
         base_version = VersionManager.load(instance.version_id)
-        prepared = ModLoaderManager.prepare(base_version, *resolved_loader, reporter=reporter)
+        preferred_java = str(getattr(SettingsManager.load(instance), "java_path", "") or "").strip()
+        if preferred_java:
+            prepared = ModLoaderManager.prepare(base_version, *resolved_loader, reporter=reporter, preferred_java_path=preferred_java)
+        else:
+            prepared = ModLoaderManager.prepare(base_version, *resolved_loader, reporter=reporter)
         cls._verify_prepared(instance.version_id, resolved_loader, prepared, reporter)
 
         snapshot = cls._build_snapshot(instance, previous_loader, resolved_loader)
@@ -78,7 +83,11 @@ class ForgeChangeManager:
             )
 
         base_version = VersionManager.load(instance.version_id)
-        prepared = ModLoaderManager.prepare(base_version, *previous_loader, reporter=reporter)
+        preferred_java = str(getattr(SettingsManager.load(instance), "java_path", "") or "").strip()
+        if preferred_java:
+            prepared = ModLoaderManager.prepare(base_version, *previous_loader, reporter=reporter, preferred_java_path=preferred_java)
+        else:
+            prepared = ModLoaderManager.prepare(base_version, *previous_loader, reporter=reporter)
         cls._verify_prepared(instance.version_id, previous_loader, prepared, reporter)
 
         reverse_snapshot = cls._build_snapshot(instance, current_loader, previous_loader)

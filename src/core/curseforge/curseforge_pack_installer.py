@@ -11,6 +11,7 @@ import zipfile
 
 from src.core.curseforge.curseforge_client import CurseForgeClient
 from src.core.curseforge.curseforge_downloader import CurseForgeDownloader, CurseForgeManualDownloadRequired
+from src.core.curseforge.curseforge_links import file_page_url
 from src.core.curseforge.curseforge_errors import CurseForgeModpackManualDownloadRequired
 from src.core.curseforge.curseforge_pack_registry import CurseForgePackRegistry
 from src.core.fs.paths import Paths
@@ -43,12 +44,14 @@ class CurseForgePackInstaller:
         name, allowed, project, file = CurseForgePackInstaller._prepare_install(project_id, file_id, instance_name, allowed_release_types)
         pack_path = Paths.curseforge_pack_cache(project_id, file_id, file.file_name)
         try:
-            CurseForgeDownloader.download_file(file, pack_path, reporter=reporter, stage=ProgressStage.DOWNLOADING_MODPACK, message=f"Downloading {project.name} manifest...", project_name=project.name)
+            CurseForgeDownloader.download_file(file, pack_path, reporter=reporter, stage=ProgressStage.DOWNLOADING_MODPACK, message=f"Downloading {project.name} manifest...", project_name=project.name, project_url=project.project_url)
         except CurseForgeManualDownloadRequired as error:
+            page_url = file_page_url(project.project_url or error.requirement.project_url, file_id) or error.requirement.version_url
             requirement = replace(
                 error.requirement,
                 project_name=project.name,
-                project_url=CurseForgePackInstaller._file_page_url(project.project_url, project_id, file_id),
+                project_url=page_url or project.project_url or error.requirement.project_url,
+                version_url=page_url,
                 managed_kind="modpack_archive",
             )
             raise CurseForgeModpackManualDownloadRequired(requirement, project_id, file_id, name, install_optional_files, allowed, expected_loader, settings_override) from error
@@ -253,15 +256,6 @@ class CurseForgePackInstaller:
             while chunk := input_file.read(1024 * 1024):
                 digest.update(chunk)
         return digest.hexdigest()
-
-    @staticmethod
-    def _file_page_url(project_url: str, project_id: int, file_id: int) -> str:
-        base = str(project_url or "").strip().rstrip("/")
-        if not base:
-            base = f"https://www.curseforge.com/minecraft/modpacks/{int(project_id)}"
-        if re.search(r"/files/\d+$", base):
-            return base
-        return f"{base}/files/{int(file_id)}"
 
     @staticmethod
     def _read_manifest(archive: zipfile.ZipFile) -> dict:

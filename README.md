@@ -1,11 +1,11 @@
-# MCW Core 1.1.0-beta.2
+# MCW Core 1.1.0
 
-MCW Core 1.1.0-beta.2 is the runtime package released with MCW Launcher v1.1.0-beta.2. This beta adds bounded Java-selection recovery while preserving the existing instance settings format and public launch result contract.
+MCW Core is the GUI-independent runtime used by **MCW Launcher v1.1.0**. It provides the public Python API for instances, Java selection, Minecraft launch, mod loaders, provider downloads, repair, backup, process supervision, and package workflows.
 
 ## Install
 
 ```bash
-python -m pip install mcw_core-1.1.0b2-py3-none-any.whl
+python -m pip install mcw_core-1.1.0-py3-none-any.whl
 ```
 
 Verify:
@@ -17,32 +17,46 @@ python -c "import mcw_core; print(mcw_core.__version__)"
 Expected output:
 
 ```text
-1.1.0-beta.2
+1.1.0
 ```
 
-## Java selection and recovery
+## v1.1.0 highlights
 
-- An empty per-instance Java path continues to mean automatic selection.
-- A configured Java path is validated against the Minecraft runtime requirement.
-- If the configured path is missing, unreadable, or incompatible, MCW attempts automatic selection instead.
-- MCW briefly observes the spawned Java process for strong runtime-mismatch signatures such as `UnsupportedClassVersionError`.
-- A Java-specific early startup failure is retried once with another compatible installation or a launcher-managed runtime.
-- Successful recovery clears the failed custom path so future launches remain on automatic selection.
-- If no valid alternative can be selected or installed, launch fails with an actionable `JavaRecoveryError`.
-- Same-second retry attempts receive separate log files so the rejected Java output is not overwritten.
+- Automatic or custom Java selection with compatibility recovery.
+- The Forge/NeoForge installer uses the instance Java choice.
+- Legacy Forge support for singleton launch arguments, LaunchWrapper libraries, native classifiers, OS rules, and old certificate validation behavior.
+- Bounded provider/metadata recovery used by the launcher.
+- CurseForge manual-download links prefer stable slug-based file pages instead of failed CDN URLs or numeric project placeholders.
+- Public CurseForge URL helpers are exposed through `mcw_core.api.curseforge.curseforge_links`.
 
 ## Compatibility
 
-- Existing `settings.json` files remain valid; no schema migration is required.
-- `JavaResolver.resolve(...)` keeps its existing strict return type and behavior for current callers.
-- Recovery is exposed through additive internal methods and does not remove existing public imports.
-- `JavaManager.find_installation()` still returns one preferred installation per major version; recovery uses a separate all-candidates scan.
-- The default CurseForge gateway remains empty.
+- Existing imports from `mcw_core` and `mcw_core.api.*` remain supported.
+- No existing public class, method, field, or exception is intentionally removed or renamed.
+- Applications should import public contracts from `mcw_core` rather than implementation modules under `src.core`.
+- The default CurseForge gateway remains empty; deployments must provide their own configured gateway.
+
+## Minimal example
+
+```python
+from mcw_core import CorePaths, LaunchRequest, MCWCore
+
+core = MCWCore(CorePaths.from_root(r"D:\\Games\\MCW"))
+result = core.launch(
+    LaunchRequest(
+        instance="My Instance",
+        offline_username="Player",
+        on_progress=print,
+    )
+)
+print(result.minecraft_version, result.java_path)
+```
 
 ## Tiếng Việt
 
-MCW Core 1.1.0-beta.2 bổ sung cơ chế tự phục hồi Java có giới hạn. Nếu đường dẫn Java đã cấu hình không hợp lệ hoặc Java thoát sớm do lỗi runtime/không tương thích phiên bản, core sẽ thử đúng một lần bằng Java tương thích khác hoặc Java do launcher quản lý. Nếu phục hồi thành công, đường dẫn tùy chọn bị lỗi được xóa để instance quay về chế độ tự động.
+MCW Core 1.1.0 là runtime headless đi kèm MCW Launcher v1.1.0. Bản này đồng bộ toàn bộ sửa lỗi Java, Forge legacy, CurseForge và pipeline launch của nhánh 1.1. Public API cũ vẫn được giữ tương thích; ứng dụng bên ngoài nên import từ `mcw_core` hoặc `mcw_core.api.*`.
 
-Định dạng `settings.json` và các import công khai hiện có vẫn tương thích.
+Xem thêm:
 
-Xem [`docs/RELEASE-v1.1.0-beta.2.md`](docs/RELEASE-v1.1.0-beta.2.md).
+- [`docs/MCW_CORE_LIBRARY.md`](docs/MCW_CORE_LIBRARY.md)
+- [`docs/RELEASE-v1.1.0.md`](docs/RELEASE-v1.1.0.md)

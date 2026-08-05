@@ -133,7 +133,7 @@ class PortableContentManager:
             file = CurseForgeClient.get_file(project_id, file_id)
             if not PortableContentManager._curseforge_file_matches(file, filename, size, sha1):
                 raise RuntimeError("The CurseForge source does not provide the exact manifest file.")
-            CurseForgeDownloader.download_file(file, target, reporter=reporter, stage=ProgressStage.DOWNLOADING_MODS, message="Downloading modpack mods...", purpose="portable-mod", managed_kind="mod", managed_path=str(entry.get("targetPath") or f"mods/{filename}"))
+            CurseForgeDownloader.download_file(file, target, reporter=reporter, stage=ProgressStage.DOWNLOADING_MODS, message="Downloading modpack mods...", purpose="portable-mod", managed_kind="mod", managed_path=str(entry.get("targetPath") or f"mods/{filename}"), project_url=str(source.get("projectUrl") or source.get("project_url") or ""))
             return
         urls = PortableContentManager._safe_public_urls(source.get("urls"))
         if not urls or not (sha1 or sha512):

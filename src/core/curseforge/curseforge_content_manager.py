@@ -188,6 +188,7 @@ class CurseForgeContentManager:
                     purpose="modpack-artifact" if item["kind"] == "pack" else "mod",
                     managed_kind=str(item["kind"]),
                     managed_path=str(item["path"]),
+                    project_url=str(entry.get("projectUrl") or entry.get("project_url") or ""),
                 )
                 download_pause_controller.raise_if_requested()
 

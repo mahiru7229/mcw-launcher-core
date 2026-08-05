@@ -8,6 +8,7 @@ import shutil
 
 from src.core.curseforge.curseforge_client import CurseForgeClient
 from src.core.curseforge.curseforge_downloader import CurseForgeDownloader, CurseForgeManualDownloadRequired
+from src.core.curseforge.curseforge_links import file_page_url
 from src.core.curseforge.curseforge_registry import CurseForgeRegistry
 from src.core.fs.paths import Paths
 from src.core.instance.instance_run_lock import InstanceRunLock
@@ -87,6 +88,7 @@ class CurseForgeModInstaller:
                     stage=ProgressStage.DOWNLOADING_MODS,
                     message=f"Downloading {project.name}...",
                     project_name=project.name,
+                    project_url=project.project_url,
                 )
                 metadata = ModManager.read_mod(cache, preferred_loader=loader_name)
                 root_override = bool(
@@ -303,6 +305,7 @@ class CurseForgeModInstaller:
             "sha1": file.sha1,
             "size": file.file_length,
             "downloadUrl": file.download_url,
+            "projectUrl": project.project_url,
             "releaseType": file.release_type,
             "declaredLoaders": list(file.loaders),
             "gameVersions": list(file.game_versions),
@@ -315,16 +318,10 @@ class CurseForgeModInstaller:
 
     @staticmethod
     def _manual_requirement(error: CurseForgeManualDownloadRequired, project: CurseForgeProject) -> CurseForgeManualDownload:
-        return CurseForgeManualDownload(
-            project_id=error.requirement.project_id,
-            file_id=error.requirement.file_id,
-            project_name=project.name,
-            file_name=error.requirement.file_name,
-            file_size=error.requirement.file_size,
-            sha1=error.requirement.sha1,
-            project_url=project.project_url or error.requirement.project_url,
-            reason=error.requirement.reason,
-        )
+        requirement = error.requirement
+        project_url = project.project_url or requirement.project_url
+        version_url = file_page_url(project_url, requirement.file_id) or requirement.version_url
+        return replace(requirement, project_name=project.name, project_url=project_url, version_url=version_url)
 
     @staticmethod
     def _build_plan(root: CurseForgeFile, game_version: str, loader: str, install_dependencies: bool, allowed_release_types: tuple[str, ...]) -> list[CurseForgeFile]:

@@ -10,6 +10,8 @@ class ForgeLaunchCommandManager:
     """Validate and normalize JVM arguments required by modern Forge."""
 
     MODERN_MAIN_CLASS = "cpw.mods.bootstraplauncher.BootstrapLauncher"
+    LEGACY_MAIN_CLASS = "net.minecraft.launchwrapper.Launch"
+    LEGACY_CERTIFICATE_PROPERTY = "fml.ignoreInvalidMinecraftCertificates"
     MODULE_PATH_FLAGS = ("-p", "--module-path")
     DEFAULT_IGNORE_LIST = (
         "bootstraplauncher",
@@ -33,6 +35,14 @@ class ForgeLaunchCommandManager:
     @classmethod
     def prepare(cls, version: Version, jvm_arguments: list[str], client_path: Path | None = None, library_directory: Path | None = None) -> list[str]:
         arguments = [str(value) for value in jvm_arguments]
+        if cls.is_legacy_forge(version):
+            # Minecraft 1.6-era Forge validates Mojang's historical JAR
+            # certificate chain. Modern Java 8 security policies can reject
+            # that old signature even after MCW has verified the official
+            # client JAR by its Mojang SHA-1. Keep the bypass scoped to the
+            # legacy Forge LaunchWrapper profile and normalize conflicting
+            # user-provided values so FML can start reliably.
+            return cls._ensure_system_property(arguments, cls.LEGACY_CERTIFICATE_PROPERTY, "true")
         if not cls.is_modern_forge(version):
             return arguments
 
@@ -94,6 +104,12 @@ class ForgeLaunchCommandManager:
         raw = getattr(version, "raw_json", None)
         loader_metadata = cls._loader_metadata(raw)
         return str(getattr(version, "main_class", "")).strip() == cls.MODERN_MAIN_CLASS and loader_metadata is not None
+
+    @classmethod
+    def is_legacy_forge(cls, version: Version) -> bool:
+        raw = getattr(version, "raw_json", None)
+        forge_metadata = raw.get("forge") if isinstance(raw, dict) else None
+        return str(getattr(version, "main_class", "")).strip() == cls.LEGACY_MAIN_CLASS and isinstance(forge_metadata, dict)
 
     @staticmethod
     def _loader_metadata(raw: object) -> dict | None:
