@@ -1,0 +1,143 @@
+{
+  "asset_catalog_file": "theme-assets.v1.json",
+  "asset_catalog_version": 1,
+  "compatibility_policy": {
+    "existing_fields_will_not_change_meaning": true,
+    "future_breaking_changes_require_new_schema_version": true,
+    "new_schema_6_fields_must_be_optional": true,
+    "schema_6_frozen": true,
+    "unknown_future_schema_versions_are_rejected": true
+  },
+  "contract_version": 1,
+  "package_error_codes": [
+    "THEME_PACKAGE_NOT_FOUND",
+    "THEME_PACKAGE_READ_FAILED",
+    "THEME_PACKAGE_FILE_COUNT_INVALID",
+    "THEME_PACKAGE_ENCRYPTED",
+    "THEME_PACKAGE_SYMLINK",
+    "THEME_PACKAGE_DUPLICATE_PATH",
+    "THEME_PACKAGE_PATH_UNSAFE",
+    "THEME_PACKAGE_DIRECTORY_DISALLOWED",
+    "THEME_PACKAGE_FILE_TYPE_UNSUPPORTED",
+    "THEME_PACKAGE_SIZE_LIMIT",
+    "THEME_PACKAGE_ROOT_INVALID",
+    "THEME_PACKAGE_MANIFEST_MISSING",
+    "THEME_PACKAGE_CHECKSUM_MANIFEST_INVALID",
+    "THEME_PACKAGE_CHECKSUM_ALGORITHM_UNSUPPORTED",
+    "THEME_PACKAGE_CHECKSUM_PATH_UNSAFE",
+    "THEME_PACKAGE_CHECKSUM_SELF_REFERENCE",
+    "THEME_PACKAGE_CHECKSUM_DUPLICATE_PATH",
+    "THEME_PACKAGE_CHECKSUM_FILE_MISSING",
+    "THEME_PACKAGE_CHECKSUM_EXTRA_FILE",
+    "THEME_PACKAGE_CHECKSUM_MISMATCH",
+    "THEME_PACKAGE_FORMAT_VERSION_INVALID",
+    "THEME_PACKAGE_FORMAT_VERSION_UNSUPPORTED",
+    "THEME_PACKAGE_ID_MISMATCH"
+  ],
+  "package_format_version": 1,
+  "schema_file": "theme.schema.v6.json",
+  "sha256": {
+    "theme-assets.v1.json": "e5e958cd7de36e39a1506777c3595ed68dfb46f4be9c2d706d635e6b5c1584b9",
+    "theme.schema.v6.json": "bd54d8776d964cc13a141c2bc62d2fba2492e9c52c79033db64a81819ffb582d"
+  },
+  "supported_theme_schema_versions": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "theme_schema_version": 6,
+  "validation_codes": {
+    "THEME_ACCENT_ASSET_INVALID": {
+      "category": "palette",
+      "default_severity": "error"
+    },
+    "THEME_ANIMATION_INVALID": {
+      "category": "animation",
+      "default_severity": "error"
+    },
+    "THEME_ANIMATION_SHEET_TOO_SMALL": {
+      "category": "animation",
+      "default_severity": "error"
+    },
+    "THEME_ASSET_INVALID_PNG": {
+      "category": "asset",
+      "default_severity": "error"
+    },
+    "THEME_ASSET_MISSING_FILE": {
+      "category": "asset",
+      "default_severity": "error"
+    },
+    "THEME_ASSET_UNKNOWN_KEY": {
+      "category": "asset",
+      "default_severity": "warning"
+    },
+    "THEME_ASSET_UNSAFE_PATH": {
+      "category": "security",
+      "default_severity": "error"
+    },
+    "THEME_CAPABILITY_INVALID": {
+      "category": "manifest",
+      "default_severity": "warning"
+    },
+    "THEME_FONT_INVALID": {
+      "category": "font",
+      "default_severity": "error"
+    },
+    "THEME_ID_INVALID": {
+      "category": "manifest",
+      "default_severity": "error"
+    },
+    "THEME_MANIFEST_INVALID_JSON": {
+      "category": "manifest",
+      "default_severity": "error"
+    },
+    "THEME_MANIFEST_INVALID_ROOT": {
+      "category": "manifest",
+      "default_severity": "error"
+    },
+    "THEME_MANIFEST_MISSING": {
+      "category": "manifest",
+      "default_severity": "error"
+    },
+    "THEME_MOTION_INVALID": {
+      "category": "motion",
+      "default_severity": "error"
+    },
+    "THEME_NOT_INSTALLED": {
+      "category": "manifest",
+      "default_severity": "error"
+    },
+    "THEME_PALETTE_INVALID": {
+      "category": "palette",
+      "default_severity": "error"
+    },
+    "THEME_SCHEMA_INVALID": {
+      "category": "manifest",
+      "default_severity": "error"
+    },
+    "THEME_SCHEMA_UNSUPPORTED": {
+      "category": "manifest",
+      "default_severity": "error"
+    },
+    "THEME_SECURITY_VIOLATION": {
+      "category": "security",
+      "default_severity": "error"
+    },
+    "THEME_STYLESHEET_INVALID": {
+      "category": "style",
+      "default_severity": "error"
+    },
+    "THEME_TEXT_ASSET_INVALID": {
+      "category": "asset",
+      "default_severity": "warning"
+    },
+    "THEME_UNKNOWN_ISSUE": {
+      "category": "asset",
+      "default_severity": "error"
+    }
+  },
+  "validation_report_version": 1
+}

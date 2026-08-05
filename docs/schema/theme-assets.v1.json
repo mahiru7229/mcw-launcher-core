@@ -1,0 +1,1495 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "assets": {
+    "background.center": {
+      "category": "Background",
+      "default_relative_path": "backgrounds/center.png",
+      "default_theme_fallback": true,
+      "purpose": "Center column behind pages and the launch control.",
+      "recommended_size": {
+        "height": 900,
+        "width": 980
+      },
+      "required": false,
+      "type": "png"
+    },
+    "background.dialog.message": {
+      "category": "Dialog background",
+      "default_relative_path": "backgrounds/dialogs/message.png",
+      "default_theme_fallback": true,
+      "purpose": "QMessageBox confirmation, warning and error dialogs.",
+      "recommended_size": {
+        "height": 260,
+        "width": 520
+      },
+      "required": false,
+      "type": "png"
+    },
+    "background.dialog.mod_manager": {
+      "category": "Dialog background",
+      "default_relative_path": "backgrounds/dialogs/mod_manager.png",
+      "default_theme_fallback": true,
+      "purpose": "Fabric Mod Manager dialog.",
+      "recommended_size": {
+        "height": 680,
+        "width": 1050
+      },
+      "required": false,
+      "type": "png"
+    },
+    "background.dialog.modrinth": {
+      "category": "Dialog background",
+      "default_relative_path": "backgrounds/dialogs/modrinth.png",
+      "default_theme_fallback": true,
+      "purpose": "Modrinth mod and modpack browser.",
+      "recommended_size": {
+        "height": 720,
+        "width": 1120
+      },
+      "required": false,
+      "type": "png"
+    },
+    "background.dialog.update": {
+      "category": "Dialog background",
+      "default_relative_path": "backgrounds/dialogs/update.png",
+      "default_theme_fallback": true,
+      "purpose": "Update confirmation dialog.",
+      "recommended_size": {
+        "height": 520,
+        "width": 680
+      },
+      "required": false,
+      "type": "png"
+    },
+    "background.launch_control": {
+      "category": "Background",
+      "default_relative_path": "backgrounds/launch_control.png",
+      "default_theme_fallback": true,
+      "purpose": "Permanent launch bar at the bottom of the center column.",
+      "recommended_size": {
+        "height": 120,
+        "width": 980
+      },
+      "required": false,
+      "type": "png"
+    },
+    "background.page.about": {
+      "category": "Page background",
+      "default_relative_path": "backgrounds/pages/about.png",
+      "default_theme_fallback": true,
+      "purpose": "About page viewport.",
+      "recommended_size": {
+        "height": 780,
+        "width": 980
+      },
+      "required": false,
+      "type": "png"
+    },
+    "background.page.accounts": {
+      "category": "Page background",
+      "default_relative_path": "backgrounds/pages/accounts.png",
+      "default_theme_fallback": true,
+      "purpose": "Accounts page viewport.",
+      "recommended_size": {
+        "height": 780,
+        "width": 980
+      },
+      "required": false,
+      "type": "png"
+    },
+    "background.page.home": {
+      "category": "Page background",
+      "default_relative_path": "backgrounds/pages/home.png",
+      "default_theme_fallback": true,
+      "purpose": "Home page viewport.",
+      "recommended_size": {
+        "height": 780,
+        "width": 980
+      },
+      "required": false,
+      "type": "png"
+    },
+    "background.page.instance_settings": {
+      "category": "Page background",
+      "default_relative_path": "backgrounds/pages/instance_settings.png",
+      "default_theme_fallback": true,
+      "purpose": "Instance Settings page viewport.",
+      "recommended_size": {
+        "height": 780,
+        "width": 980
+      },
+      "required": false,
+      "type": "png"
+    },
+    "background.page.instances": {
+      "category": "Page background",
+      "default_relative_path": "backgrounds/pages/instances.png",
+      "default_theme_fallback": true,
+      "purpose": "Instances page viewport.",
+      "recommended_size": {
+        "height": 780,
+        "width": 980
+      },
+      "required": false,
+      "type": "png"
+    },
+    "background.page.launcher_settings": {
+      "category": "Page background",
+      "default_relative_path": "backgrounds/pages/launcher_settings.png",
+      "default_theme_fallback": true,
+      "purpose": "Launcher Settings page viewport.",
+      "recommended_size": {
+        "height": 780,
+        "width": 980
+      },
+      "required": false,
+      "type": "png"
+    },
+    "background.page.logs": {
+      "category": "Page background",
+      "default_relative_path": "backgrounds/pages/logs.png",
+      "default_theme_fallback": true,
+      "purpose": "Logs page viewport.",
+      "recommended_size": {
+        "height": 780,
+        "width": 980
+      },
+      "required": false,
+      "type": "png"
+    },
+    "background.right_panel": {
+      "category": "Background",
+      "default_relative_path": "backgrounds/right_panel.png",
+      "default_theme_fallback": true,
+      "purpose": "Right session/status panel.",
+      "recommended_size": {
+        "height": 900,
+        "width": 400
+      },
+      "required": false,
+      "type": "png"
+    },
+    "background.sidebar": {
+      "category": "Background",
+      "default_relative_path": "backgrounds/sidebar.png",
+      "default_theme_fallback": true,
+      "purpose": "Left navigation sidebar.",
+      "recommended_size": {
+        "height": 900,
+        "width": 220
+      },
+      "required": false,
+      "type": "png"
+    },
+    "background.window": {
+      "category": "Background",
+      "default_relative_path": "backgrounds/window.png",
+      "default_theme_fallback": true,
+      "purpose": "Full launcher background, including unused outer areas.",
+      "recommended_size": {
+        "height": 900,
+        "width": 1600
+      },
+      "required": false,
+      "type": "png"
+    },
+    "badge.error": {
+      "category": "Badge",
+      "default_relative_path": "surfaces/badges/error.png",
+      "default_theme_fallback": true,
+      "purpose": "Error/failed status badge.",
+      "recommended_size": {
+        "height": 40,
+        "width": 180
+      },
+      "required": false,
+      "type": "png"
+    },
+    "badge.locked": {
+      "category": "Badge",
+      "default_relative_path": "surfaces/badges/locked.png",
+      "default_theme_fallback": true,
+      "purpose": "Feature locked or approval-pending status badge.",
+      "recommended_size": {
+        "height": 48,
+        "width": 260
+      },
+      "required": false,
+      "type": "png"
+    },
+    "badge.status": {
+      "category": "Badge",
+      "default_relative_path": "surfaces/badges/status.png",
+      "default_theme_fallback": true,
+      "purpose": "Ready/success status badge.",
+      "recommended_size": {
+        "height": 40,
+        "width": 180
+      },
+      "required": false,
+      "type": "png"
+    },
+    "badge.warning": {
+      "category": "Badge",
+      "default_relative_path": "surfaces/badges/warning.png",
+      "default_theme_fallback": true,
+      "purpose": "Warning status badge.",
+      "recommended_size": {
+        "height": 40,
+        "width": 180
+      },
+      "required": false,
+      "type": "png"
+    },
+    "button.cancel": {
+      "category": "Launch button",
+      "default_relative_path": "controls/buttons/launch/cancel.png",
+      "default_theme_fallback": true,
+      "purpose": "Cancel artwork shown while a launch download is active.",
+      "recommended_size": {
+        "height": 133,
+        "width": 461
+      },
+      "required": false,
+      "type": "png"
+    },
+    "button.cancel_disabled": {
+      "category": "Launch button",
+      "default_relative_path": "controls/buttons/launch/cancel_disabled.png",
+      "default_theme_fallback": true,
+      "purpose": "Disabled Cancel artwork while a pause request is being applied.",
+      "recommended_size": {
+        "height": 133,
+        "width": 461
+      },
+      "required": false,
+      "type": "png"
+    },
+    "button.cancel_hover": {
+      "category": "Launch button",
+      "default_relative_path": "controls/buttons/launch/cancel_hover.png",
+      "default_theme_fallback": true,
+      "purpose": "Hovered Cancel artwork.",
+      "recommended_size": {
+        "height": 133,
+        "width": 461
+      },
+      "required": false,
+      "type": "png"
+    },
+    "button.cancel_pressed": {
+      "category": "Launch button",
+      "default_relative_path": "controls/buttons/launch/cancel_pressed.png",
+      "default_theme_fallback": true,
+      "purpose": "Pressed Cancel artwork.",
+      "recommended_size": {
+        "height": 133,
+        "width": 461
+      },
+      "required": false,
+      "type": "png"
+    },
+    "button.danger": {
+      "category": "Button",
+      "default_relative_path": "controls/buttons/danger.png",
+      "default_theme_fallback": true,
+      "purpose": "Destructive action.",
+      "recommended_size": {
+        "height": 48,
+        "width": 240
+      },
+      "required": false,
+      "type": "png"
+    },
+    "button.danger_hover": {
+      "category": "Button",
+      "default_relative_path": "controls/buttons/danger_hover.png",
+      "default_theme_fallback": true,
+      "purpose": "Hovered destructive action.",
+      "recommended_size": {
+        "height": 48,
+        "width": 240
+      },
+      "required": false,
+      "type": "png"
+    },
+    "button.default": {
+      "category": "Button",
+      "default_relative_path": "controls/buttons/default.png",
+      "default_theme_fallback": true,
+      "purpose": "Normal push button.",
+      "recommended_size": {
+        "height": 48,
+        "width": 240
+      },
+      "required": false,
+      "type": "png"
+    },
+    "button.disabled": {
+      "category": "Button",
+      "default_relative_path": "controls/buttons/disabled.png",
+      "default_theme_fallback": true,
+      "purpose": "Disabled push button.",
+      "recommended_size": {
+        "height": 48,
+        "width": 240
+      },
+      "required": false,
+      "type": "png"
+    },
+    "button.hover": {
+      "category": "Button",
+      "default_relative_path": "controls/buttons/hover.png",
+      "default_theme_fallback": true,
+      "purpose": "Hovered push button.",
+      "recommended_size": {
+        "height": 48,
+        "width": 240
+      },
+      "required": false,
+      "type": "png"
+    },
+    "button.launch": {
+      "category": "Launch button",
+      "default_relative_path": "controls/buttons/launch/default.png",
+      "default_theme_fallback": true,
+      "purpose": "Dedicated Launch button artwork; may contain baked pixel-art lettering.",
+      "recommended_size": {
+        "height": 133,
+        "width": 461
+      },
+      "required": false,
+      "type": "png"
+    },
+    "button.launch_disabled": {
+      "category": "Launch button",
+      "default_relative_path": "controls/buttons/launch/disabled.png",
+      "default_theme_fallback": true,
+      "purpose": "Disabled Launch button artwork.",
+      "recommended_size": {
+        "height": 133,
+        "width": 461
+      },
+      "required": false,
+      "type": "png"
+    },
+    "button.launch_hover": {
+      "category": "Launch button",
+      "default_relative_path": "controls/buttons/launch/hover.png",
+      "default_theme_fallback": true,
+      "purpose": "Hovered Launch button artwork.",
+      "recommended_size": {
+        "height": 133,
+        "width": 461
+      },
+      "required": false,
+      "type": "png"
+    },
+    "button.launch_pressed": {
+      "category": "Launch button",
+      "default_relative_path": "controls/buttons/launch/pressed.png",
+      "default_theme_fallback": true,
+      "purpose": "Pressed Launch button artwork.",
+      "recommended_size": {
+        "height": 133,
+        "width": 461
+      },
+      "required": false,
+      "type": "png"
+    },
+    "button.nav": {
+      "category": "Navigation",
+      "default_relative_path": "controls/navigation/default.png",
+      "default_theme_fallback": true,
+      "purpose": "Normal sidebar navigation button.",
+      "recommended_size": {
+        "height": 46,
+        "width": 192
+      },
+      "required": false,
+      "type": "png"
+    },
+    "button.nav_hover": {
+      "category": "Navigation",
+      "default_relative_path": "controls/navigation/hover.png",
+      "default_theme_fallback": true,
+      "purpose": "Hovered sidebar navigation button.",
+      "recommended_size": {
+        "height": 46,
+        "width": 192
+      },
+      "required": false,
+      "type": "png"
+    },
+    "button.nav_selected": {
+      "category": "Navigation",
+      "default_relative_path": "controls/navigation/selected.png",
+      "default_theme_fallback": true,
+      "purpose": "Selected sidebar navigation button.",
+      "recommended_size": {
+        "height": 46,
+        "width": 192
+      },
+      "required": false,
+      "type": "png"
+    },
+    "button.pressed": {
+      "category": "Button",
+      "default_relative_path": "controls/buttons/pressed.png",
+      "default_theme_fallback": true,
+      "purpose": "Pressed push button.",
+      "recommended_size": {
+        "height": 48,
+        "width": 240
+      },
+      "required": false,
+      "type": "png"
+    },
+    "button.primary": {
+      "category": "Button",
+      "default_relative_path": "controls/buttons/primary.png",
+      "default_theme_fallback": true,
+      "purpose": "Primary action and Launch button.",
+      "recommended_size": {
+        "height": 72,
+        "width": 260
+      },
+      "required": false,
+      "type": "png"
+    },
+    "button.primary_hover": {
+      "category": "Button",
+      "default_relative_path": "controls/buttons/primary_hover.png",
+      "default_theme_fallback": true,
+      "purpose": "Hovered primary action.",
+      "recommended_size": {
+        "height": 72,
+        "width": 260
+      },
+      "required": false,
+      "type": "png"
+    },
+    "button.primary_pressed": {
+      "category": "Button",
+      "default_relative_path": "controls/buttons/primary_pressed.png",
+      "default_theme_fallback": true,
+      "purpose": "Pressed primary action.",
+      "recommended_size": {
+        "height": 72,
+        "width": 260
+      },
+      "required": false,
+      "type": "png"
+    },
+    "checkbox.checked": {
+      "category": "Control",
+      "default_relative_path": "controls/checkbox/checked.png",
+      "default_theme_fallback": true,
+      "purpose": "Checked checkbox indicator.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "checkbox.disabled": {
+      "category": "Control",
+      "default_relative_path": "controls/checkbox/disabled.png",
+      "default_theme_fallback": true,
+      "purpose": "Disabled checkbox indicator.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "checkbox.unchecked": {
+      "category": "Control",
+      "default_relative_path": "controls/checkbox/unchecked.png",
+      "default_theme_fallback": true,
+      "purpose": "Unchecked checkbox indicator.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "combo.arrow": {
+      "category": "Control",
+      "default_relative_path": "controls/combo/arrow.png",
+      "default_theme_fallback": true,
+      "purpose": "Combo box drop-down arrow.",
+      "recommended_size": {
+        "height": 20,
+        "width": 20
+      },
+      "required": false,
+      "type": "png"
+    },
+    "combo.popup": {
+      "category": "Control",
+      "default_relative_path": "controls/combo/popup.png",
+      "default_theme_fallback": true,
+      "purpose": "Combo box drop-down list surface.",
+      "recommended_size": {
+        "height": 320,
+        "width": 420
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.account": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/account.png",
+      "default_theme_fallback": true,
+      "purpose": "Account action.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.add": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/add.png",
+      "default_theme_fallback": true,
+      "purpose": "Create/add actions.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.backup": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/backup.png",
+      "default_theme_fallback": true,
+      "purpose": "Create an instance or world backup.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.clear": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/clear.png",
+      "default_theme_fallback": true,
+      "purpose": "Clear output action.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.clone": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/clone.png",
+      "default_theme_fallback": true,
+      "purpose": "Clone/copy instance action.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.copy": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/copy.png",
+      "default_theme_fallback": true,
+      "purpose": "Copy text action.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.disable": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/disable.png",
+      "default_theme_fallback": true,
+      "purpose": "Disable mod action.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.download": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/download.png",
+      "default_theme_fallback": true,
+      "purpose": "Install/download action.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.edit": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/edit.png",
+      "default_theme_fallback": true,
+      "purpose": "Rename/edit actions.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.enable": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/enable.png",
+      "default_theme_fallback": true,
+      "purpose": "Enable mod action.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.export": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/export.png",
+      "default_theme_fallback": true,
+      "purpose": "Export package/diagnostics action.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.folder": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/folder.png",
+      "default_theme_fallback": true,
+      "purpose": "Open or browse folder/file action.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.import": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/import.png",
+      "default_theme_fallback": true,
+      "purpose": "Import package action.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.instance": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/instance.png",
+      "default_theme_fallback": true,
+      "purpose": "Instance action.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.java": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/java.png",
+      "default_theme_fallback": true,
+      "purpose": "Scan or manage Java installations.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.language": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/language.png",
+      "default_theme_fallback": true,
+      "purpose": "Reload language packs action.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.launch": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/launch.png",
+      "default_theme_fallback": true,
+      "purpose": "Launch button.",
+      "recommended_size": {
+        "height": 40,
+        "width": 40
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.microsoft": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/microsoft.png",
+      "default_theme_fallback": true,
+      "purpose": "Add Microsoft account action.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.modrinth": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/modrinth.png",
+      "default_theme_fallback": true,
+      "purpose": "Browse Modrinth action.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.mods": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/mods.png",
+      "default_theme_fallback": true,
+      "purpose": "Manage mods action.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.next": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/next.png",
+      "default_theme_fallback": true,
+      "purpose": "Next page action.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.previous": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/previous.png",
+      "default_theme_fallback": true,
+      "purpose": "Previous page action.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.refresh": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/refresh.png",
+      "default_theme_fallback": true,
+      "purpose": "Refresh/reload actions.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.release": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/release.png",
+      "default_theme_fallback": true,
+      "purpose": "Open GitHub release page.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.remove": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/remove.png",
+      "default_theme_fallback": true,
+      "purpose": "Remove/delete actions.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.repair": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/repair.png",
+      "default_theme_fallback": true,
+      "purpose": "Repair Fabric/instance action.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.reprotect": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/reprotect.png",
+      "default_theme_fallback": true,
+      "purpose": "Re-protect Microsoft account credentials.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.reset": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/reset.png",
+      "default_theme_fallback": true,
+      "purpose": "Reset settings action.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.restore": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/restore.png",
+      "default_theme_fallback": true,
+      "purpose": "Restore an MCW backup.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.save": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/save.png",
+      "default_theme_fallback": true,
+      "purpose": "Save settings action.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.search": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/search.png",
+      "default_theme_fallback": true,
+      "purpose": "Search action.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.settings": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/settings.png",
+      "default_theme_fallback": true,
+      "purpose": "Settings action.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.shield": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/shield.png",
+      "default_theme_fallback": true,
+      "purpose": "Verify account protection and database integrity.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.theme": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/theme.png",
+      "default_theme_fallback": true,
+      "purpose": "Reload/apply theme action.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.action.update": {
+      "category": "Action icon",
+      "default_relative_path": "icons/actions/update.png",
+      "default_theme_fallback": true,
+      "purpose": "Check/apply update action.",
+      "recommended_size": {
+        "height": 24,
+        "width": 24
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.app": {
+      "category": "Application",
+      "default_relative_path": "icons/app.png",
+      "default_theme_fallback": true,
+      "purpose": "Window and executable icon source.",
+      "recommended_size": {
+        "height": 256,
+        "width": 256
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.nav.about": {
+      "category": "Navigation icon",
+      "default_relative_path": "icons/navigation/about.png",
+      "default_theme_fallback": true,
+      "purpose": "About navigation icon.",
+      "recommended_size": {
+        "height": 32,
+        "width": 32
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.nav.accounts": {
+      "category": "Navigation icon",
+      "default_relative_path": "icons/navigation/accounts.png",
+      "default_theme_fallback": true,
+      "purpose": "Accounts navigation icon.",
+      "recommended_size": {
+        "height": 32,
+        "width": 32
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.nav.home": {
+      "category": "Navigation icon",
+      "default_relative_path": "icons/navigation/home.png",
+      "default_theme_fallback": true,
+      "purpose": "Home navigation icon.",
+      "recommended_size": {
+        "height": 32,
+        "width": 32
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.nav.instance_settings": {
+      "category": "Navigation icon",
+      "default_relative_path": "icons/navigation/instance_settings.png",
+      "default_theme_fallback": true,
+      "purpose": "Instance Settings navigation icon.",
+      "recommended_size": {
+        "height": 32,
+        "width": 32
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.nav.instances": {
+      "category": "Navigation icon",
+      "default_relative_path": "icons/navigation/instances.png",
+      "default_theme_fallback": true,
+      "purpose": "Instances navigation icon.",
+      "recommended_size": {
+        "height": 32,
+        "width": 32
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.nav.launcher_settings": {
+      "category": "Navigation icon",
+      "default_relative_path": "icons/navigation/launcher_settings.png",
+      "default_theme_fallback": true,
+      "purpose": "Launcher Settings navigation icon.",
+      "recommended_size": {
+        "height": 32,
+        "width": 32
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.nav.logs": {
+      "category": "Navigation icon",
+      "default_relative_path": "icons/navigation/logs.png",
+      "default_theme_fallback": true,
+      "purpose": "Logs navigation icon.",
+      "recommended_size": {
+        "height": 32,
+        "width": 32
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.nav.mods": {
+      "category": "Navigation icon",
+      "default_relative_path": "icons/actions/mods.png",
+      "default_theme_fallback": true,
+      "purpose": "Mods navigation icon.",
+      "recommended_size": {
+        "height": 32,
+        "width": 32
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.state.busy": {
+      "category": "State icon",
+      "default_relative_path": "icons/states/busy.png",
+      "default_theme_fallback": true,
+      "purpose": "Busy/downloading state.",
+      "recommended_size": {
+        "height": 32,
+        "width": 32
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.state.error": {
+      "category": "State icon",
+      "default_relative_path": "icons/states/error.png",
+      "default_theme_fallback": true,
+      "purpose": "Failure state.",
+      "recommended_size": {
+        "height": 32,
+        "width": 32
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.state.ready": {
+      "category": "State icon",
+      "default_relative_path": "icons/states/ready.png",
+      "default_theme_fallback": true,
+      "purpose": "Ready state.",
+      "recommended_size": {
+        "height": 32,
+        "width": 32
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.state.success": {
+      "category": "State icon",
+      "default_relative_path": "icons/states/success.png",
+      "default_theme_fallback": true,
+      "purpose": "Success/running state.",
+      "recommended_size": {
+        "height": 32,
+        "width": 32
+      },
+      "required": false,
+      "type": "png"
+    },
+    "icon.state.warning": {
+      "category": "State icon",
+      "default_relative_path": "icons/states/warning.png",
+      "default_theme_fallback": true,
+      "purpose": "Warning state.",
+      "recommended_size": {
+        "height": 32,
+        "width": 32
+      },
+      "required": false,
+      "type": "png"
+    },
+    "input.default": {
+      "category": "Input",
+      "default_relative_path": "controls/input/default.png",
+      "default_theme_fallback": true,
+      "purpose": "Line edit, combo box and spin box background.",
+      "recommended_size": {
+        "height": 42,
+        "width": 420
+      },
+      "required": false,
+      "type": "png"
+    },
+    "input.focus": {
+      "category": "Input",
+      "default_relative_path": "controls/input/focus.png",
+      "default_theme_fallback": true,
+      "purpose": "Focused single-line input background.",
+      "recommended_size": {
+        "height": 42,
+        "width": 420
+      },
+      "required": false,
+      "type": "png"
+    },
+    "input.text_area": {
+      "category": "Input",
+      "default_relative_path": "controls/input/text_area.png",
+      "default_theme_fallback": true,
+      "purpose": "Multiline JVM and game argument editor.",
+      "recommended_size": {
+        "height": 140,
+        "width": 640
+      },
+      "required": false,
+      "type": "png"
+    },
+    "input.text_area_focus": {
+      "category": "Input",
+      "default_relative_path": "controls/input/text_area_focus.png",
+      "default_theme_fallback": true,
+      "purpose": "Focused multiline argument editor.",
+      "recommended_size": {
+        "height": 140,
+        "width": 640
+      },
+      "required": false,
+      "type": "png"
+    },
+    "logo.main": {
+      "category": "Logo",
+      "default_relative_path": "logos/main.png",
+      "default_theme_fallback": true,
+      "purpose": "Large Home page launcher logo.",
+      "recommended_size": {
+        "height": 240,
+        "width": 640
+      },
+      "required": false,
+      "type": "png"
+    },
+    "logo.sidebar": {
+      "category": "Logo",
+      "default_relative_path": "logos/sidebar.png",
+      "default_theme_fallback": true,
+      "purpose": "Optional sidebar brand logo.",
+      "recommended_size": {
+        "height": 72,
+        "width": 192
+      },
+      "required": false,
+      "type": "png"
+    },
+    "progress.chunk": {
+      "category": "Progress",
+      "default_relative_path": "controls/progress/chunk.png",
+      "default_theme_fallback": true,
+      "purpose": "Progress bar filled chunk.",
+      "recommended_size": {
+        "height": 24,
+        "width": 640
+      },
+      "required": false,
+      "type": "png"
+    },
+    "progress.track": {
+      "category": "Progress",
+      "default_relative_path": "controls/progress/track.png",
+      "default_theme_fallback": true,
+      "purpose": "Progress bar track.",
+      "recommended_size": {
+        "height": 24,
+        "width": 640
+      },
+      "required": false,
+      "type": "png"
+    },
+    "scrollbar.handle": {
+      "category": "Scrollbar",
+      "default_relative_path": "controls/scrollbar/handle.png",
+      "default_theme_fallback": true,
+      "purpose": "Vertical scrollbar handle.",
+      "recommended_size": {
+        "height": 64,
+        "width": 16
+      },
+      "required": false,
+      "type": "png"
+    },
+    "scrollbar.horizontal_handle": {
+      "category": "Scrollbar",
+      "default_relative_path": "controls/scrollbar/horizontal_handle.png",
+      "default_theme_fallback": true,
+      "purpose": "Horizontal scrollbar handle.",
+      "recommended_size": {
+        "height": 16,
+        "width": 64
+      },
+      "required": false,
+      "type": "png"
+    },
+    "scrollbar.horizontal_track": {
+      "category": "Scrollbar",
+      "default_relative_path": "controls/scrollbar/horizontal_track.png",
+      "default_theme_fallback": true,
+      "purpose": "Horizontal scrollbar track.",
+      "recommended_size": {
+        "height": 16,
+        "width": 256
+      },
+      "required": false,
+      "type": "png"
+    },
+    "scrollbar.track": {
+      "category": "Scrollbar",
+      "default_relative_path": "controls/scrollbar/track.png",
+      "default_theme_fallback": true,
+      "purpose": "Vertical scrollbar track.",
+      "recommended_size": {
+        "height": 256,
+        "width": 16
+      },
+      "required": false,
+      "type": "png"
+    },
+    "surface.card": {
+      "category": "Surface",
+      "default_relative_path": "surfaces/card.png",
+      "default_theme_fallback": true,
+      "purpose": "Normal card. Designed as a stretchable nine-slice surface.",
+      "recommended_size": {
+        "height": 240,
+        "width": 480
+      },
+      "required": false,
+      "type": "png"
+    },
+    "surface.details": {
+      "category": "Surface",
+      "default_relative_path": "surfaces/details.png",
+      "default_theme_fallback": true,
+      "purpose": "Read-only mod details and update release notes.",
+      "recommended_size": {
+        "height": 260,
+        "width": 920
+      },
+      "required": false,
+      "type": "png"
+    },
+    "surface.group_box": {
+      "category": "Surface",
+      "default_relative_path": "surfaces/group_box.png",
+      "default_theme_fallback": true,
+      "purpose": "Group box background for current or future grouped controls.",
+      "recommended_size": {
+        "height": 180,
+        "width": 480
+      },
+      "required": false,
+      "type": "png"
+    },
+    "surface.hero_card": {
+      "category": "Surface",
+      "default_relative_path": "surfaces/hero_card.png",
+      "default_theme_fallback": true,
+      "purpose": "Large Home hero card.",
+      "recommended_size": {
+        "height": 230,
+        "width": 920
+      },
+      "required": false,
+      "type": "png"
+    },
+    "surface.inset": {
+      "category": "Surface",
+      "default_relative_path": "surfaces/inset.png",
+      "default_theme_fallback": true,
+      "purpose": "Inset panels and secondary surfaces.",
+      "recommended_size": {
+        "height": 180,
+        "width": 440
+      },
+      "required": false,
+      "type": "png"
+    },
+    "surface.java_card": {
+      "category": "Surface",
+      "default_relative_path": "surfaces/cards/java.png",
+      "default_theme_fallback": true,
+      "purpose": "Java installation scanner and diagnostics card.",
+      "recommended_size": {
+        "height": 260,
+        "width": 480
+      },
+      "required": false,
+      "type": "png"
+    },
+    "surface.lifecycle_card": {
+      "category": "Surface",
+      "default_relative_path": "surfaces/cards/lifecycle.png",
+      "default_theme_fallback": true,
+      "purpose": "Backup and Modrinth pack lifecycle card.",
+      "recommended_size": {
+        "height": 440,
+        "width": 480
+      },
+      "required": false,
+      "type": "png"
+    },
+    "surface.log": {
+      "category": "Surface",
+      "default_relative_path": "surfaces/log_output.png",
+      "default_theme_fallback": true,
+      "purpose": "Launcher activity log output.",
+      "recommended_size": {
+        "height": 560,
+        "width": 920
+      },
+      "required": false,
+      "type": "png"
+    },
+    "surface.microsoft_card": {
+      "category": "Surface",
+      "default_relative_path": "surfaces/cards/microsoft.png",
+      "default_theme_fallback": true,
+      "purpose": "Account creation card with Microsoft approval status.",
+      "recommended_size": {
+        "height": 280,
+        "width": 480
+      },
+      "required": false,
+      "type": "png"
+    },
+    "surface.security_card": {
+      "category": "Surface",
+      "default_relative_path": "surfaces/cards/security.png",
+      "default_theme_fallback": true,
+      "purpose": "Microsoft account protection and database integrity card.",
+      "recommended_size": {
+        "height": 260,
+        "width": 480
+      },
+      "required": false,
+      "type": "png"
+    },
+    "surface.tab": {
+      "category": "Tab",
+      "default_relative_path": "surfaces/tabs/default.png",
+      "default_theme_fallback": true,
+      "purpose": "Normal tab button.",
+      "recommended_size": {
+        "height": 42,
+        "width": 180
+      },
+      "required": false,
+      "type": "png"
+    },
+    "surface.tab_hover": {
+      "category": "Tab",
+      "default_relative_path": "surfaces/tabs/hover.png",
+      "default_theme_fallback": true,
+      "purpose": "Hovered tab button.",
+      "recommended_size": {
+        "height": 42,
+        "width": 180
+      },
+      "required": false,
+      "type": "png"
+    },
+    "surface.tab_pane": {
+      "category": "Tab",
+      "default_relative_path": "surfaces/tabs/pane.png",
+      "default_theme_fallback": true,
+      "purpose": "Tab content pane.",
+      "recommended_size": {
+        "height": 500,
+        "width": 920
+      },
+      "required": false,
+      "type": "png"
+    },
+    "surface.tab_selected": {
+      "category": "Tab",
+      "default_relative_path": "surfaces/tabs/selected.png",
+      "default_theme_fallback": true,
+      "purpose": "Selected tab button.",
+      "recommended_size": {
+        "height": 42,
+        "width": 180
+      },
+      "required": false,
+      "type": "png"
+    },
+    "surface.table": {
+      "category": "Surface",
+      "default_relative_path": "surfaces/table.png",
+      "default_theme_fallback": true,
+      "purpose": "Table body background.",
+      "recommended_size": {
+        "height": 500,
+        "width": 920
+      },
+      "required": false,
+      "type": "png"
+    },
+    "surface.table_header": {
+      "category": "Surface",
+      "default_relative_path": "surfaces/table_header.png",
+      "default_theme_fallback": true,
+      "purpose": "Table header row.",
+      "recommended_size": {
+        "height": 40,
+        "width": 920
+      },
+      "required": false,
+      "type": "png"
+    },
+    "surface.table_selected": {
+      "category": "Surface",
+      "default_relative_path": "surfaces/table_selected.png",
+      "default_theme_fallback": true,
+      "purpose": "Selected table row or cell.",
+      "recommended_size": {
+        "height": 40,
+        "width": 920
+      },
+      "required": false,
+      "type": "png"
+    },
+    "surface.tooltip": {
+      "category": "Surface",
+      "default_relative_path": "surfaces/tooltip.png",
+      "default_theme_fallback": true,
+      "purpose": "Launcher tooltip background.",
+      "recommended_size": {
+        "height": 120,
+        "width": 360
+      },
+      "required": false,
+      "type": "png"
+    }
+  },
+  "catalog_version": 1,
+  "theme_schema_version": 6
+}

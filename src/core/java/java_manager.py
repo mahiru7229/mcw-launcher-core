@@ -41,6 +41,16 @@ class JavaManager:
 
     @staticmethod
     def find_installation(reporter: ProgressReporter | None = None) -> list[JavaInstallation]:
+        return JavaManager._remove_duplicates(JavaManager.find_installation_candidates(reporter))
+
+    @staticmethod
+    def find_installation_candidates(reporter: ProgressReporter | None = None) -> list[JavaInstallation]:
+        """Return every usable Java installation, deduplicated by executable path.
+
+        ``find_installation`` intentionally keeps the historic one-runtime-per-major
+        contract. Recovery needs a wider candidate pool so a broken Java 17 can be
+        replaced by another Java 17 installation without changing existing callers.
+        """
         javas: list[JavaInstallation] = []
         sources = (
             ("java.scan.source.java_home", JavaManager._scan_java_home),
@@ -56,7 +66,7 @@ class JavaManager:
 
         if reporter is not None:
             reporter.status(ProgressStage.SELECTING_JAVA, "java.scan.sources_completed")
-        return JavaManager._remove_duplicates(javas)
+        return JavaManager._remove_duplicate_paths(javas)
 
     @staticmethod
     def _scan_managed_runtimes() -> list[JavaInstallation]:
@@ -303,6 +313,22 @@ class JavaManager:
             return int(match.group(1))
         except ValueError:
             return None
+
+
+    @staticmethod
+    def _remove_duplicate_paths(javas: list[JavaInstallation]) -> list[JavaInstallation]:
+        unique: list[JavaInstallation] = []
+        seen: set[str] = set()
+        for java in javas:
+            try:
+                key = str(java.executable.resolve(strict=False)).casefold()
+            except OSError:
+                key = str(java.executable).casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            unique.append(java)
+        return unique
 
     @staticmethod
     def _remove_duplicates(javas: list[JavaInstallation]) -> list[JavaInstallation]:

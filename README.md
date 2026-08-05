@@ -1,11 +1,11 @@
-# MCW Core 1.0.2
+# MCW Core 1.1.0-beta.2
 
-MCW Core 1.0.2 is a metadata-alignment hotfix released with MCW Launcher v1.0.2. The launcher restart fix lives in the PySide6 GUI layer, so the public core API and runtime behavior remain unchanged from 1.0.1.
+MCW Core 1.1.0-beta.2 is the runtime package released with MCW Launcher v1.1.0-beta.2. This beta adds bounded Java-selection recovery while preserving the existing instance settings format and public launch result contract.
 
 ## Install
 
 ```bash
-python -m pip install mcw_core-1.0.2-py3-none-any.whl
+python -m pip install mcw_core-1.1.0b2-py3-none-any.whl
 ```
 
 Verify:
@@ -17,20 +17,32 @@ python -c "import mcw_core; print(mcw_core.__version__)"
 Expected output:
 
 ```text
-1.0.2
+1.1.0-beta.2
 ```
+
+## Java selection and recovery
+
+- An empty per-instance Java path continues to mean automatic selection.
+- A configured Java path is validated against the Minecraft runtime requirement.
+- If the configured path is missing, unreadable, or incompatible, MCW attempts automatic selection instead.
+- MCW briefly observes the spawned Java process for strong runtime-mismatch signatures such as `UnsupportedClassVersionError`.
+- A Java-specific early startup failure is retried once with another compatible installation or a launcher-managed runtime.
+- Successful recovery clears the failed custom path so future launches remain on automatic selection.
+- If no valid alternative can be selected or installed, launch fails with an actionable `JavaRecoveryError`.
+- Same-second retry attempts receive separate log files so the rejected Java output is not overwritten.
 
 ## Compatibility
 
-- Public imports from `mcw_core` and `mcw_core.api.*` remain compatible with 1.0.1.
-- No new public class, method, field, exception, or behavior is introduced.
+- Existing `settings.json` files remain valid; no schema migration is required.
+- `JavaResolver.resolve(...)` keeps its existing strict return type and behavior for current callers.
+- Recovery is exposed through additive internal methods and does not remove existing public imports.
+- `JavaManager.find_installation()` still returns one preferred installation per major version; recovery uses a separate all-candidates scan.
 - The default CurseForge gateway remains empty.
-- Existing instance, package, language, theme, and provider formats are unchanged.
 
 ## Tiếng Việt
 
-MCW Core 1.0.2 chỉ đồng bộ metadata phiên bản với MCW Launcher v1.0.2. Lỗi restart nằm ở lớp GUI PySide6, vì vậy public API và hành vi runtime của core không thay đổi so với 1.0.1.
+MCW Core 1.1.0-beta.2 bổ sung cơ chế tự phục hồi Java có giới hạn. Nếu đường dẫn Java đã cấu hình không hợp lệ hoặc Java thoát sớm do lỗi runtime/không tương thích phiên bản, core sẽ thử đúng một lần bằng Java tương thích khác hoặc Java do launcher quản lý. Nếu phục hồi thành công, đường dẫn tùy chọn bị lỗi được xóa để instance quay về chế độ tự động.
 
-Ứng dụng bên ngoài vẫn nên import từ `mcw_core` hoặc `mcw_core.api.*`.
+Định dạng `settings.json` và các import công khai hiện có vẫn tương thích.
 
-Xem [`docs/RELEASE-v1.0.2.md`](docs/RELEASE-v1.0.2.md).
+Xem [`docs/RELEASE-v1.1.0-beta.2.md`](docs/RELEASE-v1.1.0-beta.2.md).

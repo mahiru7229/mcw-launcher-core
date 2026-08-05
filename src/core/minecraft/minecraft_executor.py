@@ -11,8 +11,9 @@ from src.core.instance.instance_run_lock import InstanceRunLock
 from src.core.instance.settings_manager import SettingsManager
 from src.core.lan.lan_agent_manager import LanAgentManager
 from src.core.lan.lan_hosting_manager import LanHostingManager
+from src.core.language.language_manager import tr
 from src.core.java.java_major_policy import JavaMajorPolicy
-from src.core.java.java_resolver import JavaResolver
+from src.core.java.java_resolver import JavaRecoveryError, JavaResolver
 from src.core.java.java_runtime import JavaRuntime
 from src.core.minecraft.asset_manager import AssetManager
 from src.core.minecraft.context_builder import ContextBuilder
@@ -51,6 +52,66 @@ class MinecraftExecutor:
         if supports_cache:
             return loader(version=version, reporter=reporter, verification_cache=verification_cache, fast_verify=True)
         return loader(version=version, reporter=reporter)
+
+    @staticmethod
+    def _start_with_java_recovery(instance: Instance, command: list[str], required_java_major: int, reporter: ProgressReporter, preferred_java: str, lan_log_path) -> tuple[object, object, tuple[str, ...]]:
+        resolution = JavaResolver.resolve_with_recovery(required_java_major, reporter, preferred_java)
+        java = resolution.path
+        recovery_warnings: list[str] = []
+        recovery_used = resolution.recovered
+        recovery_reason = resolution.recovery_reason
+
+        if resolution.recovered:
+            LanAgentManager.append_log_path(
+                lan_log_path,
+                f"Configured Java was rejected; automatic selection chose {java}. Reason: {resolution.recovery_reason}",
+            )
+
+        process = JavaRuntime.run(java, command, instance)
+        probe = JavaRuntime.probe_startup(process)
+        if probe is not None and probe.java_runtime_failure:
+            failed_java = java
+            failed_output = MinecraftExecutor._startup_log_tail(probe.output)
+            JavaRuntime.close_process_log(process)
+            reporter.status(stage=ProgressStage.SELECTING_JAVA, message="java.recovery.runtime_failed")
+            LanAgentManager.append_log_path(
+                lan_log_path,
+                f"Java runtime failed during startup and will be replaced: {failed_java}; exit={probe.exit_code}; details={failed_output}",
+            )
+            try:
+                java = JavaResolver.resolve_alternative(required_java_major, {failed_java}, reporter)
+            except Exception as recovery_error:
+                raise JavaRecoveryError(
+                    "Minecraft could not start with the selected Java runtime, and MCW could not prepare a compatible alternative. "
+                    f"Failed Java: {failed_java}. Startup details: {failed_output}. Recovery error: {recovery_error}"
+                ) from recovery_error
+
+            reporter.status(stage=ProgressStage.LAUNCHING, message="java.recovery.retrying_launch")
+            process = JavaRuntime.run(java, command, instance)
+            retry_probe = JavaRuntime.probe_startup(process)
+            if retry_probe is not None and retry_probe.java_runtime_failure:
+                retry_output = MinecraftExecutor._startup_log_tail(retry_probe.output)
+                JavaRuntime.close_process_log(process)
+                raise JavaRecoveryError(
+                    "Minecraft still could not start after MCW switched to an automatically selected Java runtime. "
+                    f"Retried Java: {java}. Startup details: {retry_output}"
+                )
+            recovery_used = True
+            recovery_reason = failed_output or f"Java exited with code {probe.exit_code}."
+            LanAgentManager.append_log_path(lan_log_path, f"Java recovery succeeded with: {java}.")
+
+        if recovery_used:
+            if preferred_java:
+                SettingsManager.update_java_path(instance, "")
+                recovery_warnings.append(tr("java.recovery.warning_custom", path=java, reason=recovery_reason))
+            else:
+                recovery_warnings.append(tr("java.recovery.warning_auto", path=java, reason=recovery_reason))
+        return process, java, tuple(recovery_warnings)
+
+    @staticmethod
+    def _startup_log_tail(output: str, line_limit: int = 8) -> str:
+        lines = [line.strip() for line in str(output or "").splitlines() if line.strip()]
+        return " | ".join(lines[-max(1, int(line_limit)):])
 
     @staticmethod
     def run(instance: Instance, authentication: Authentication, account: Account, debug_mode: bool = False, on_progress: ProgressCallback | None = None, on_exit: Callable[[GameExitResult], None] | None = None, allow_compatibility_issues_once: bool = False) -> dict:
@@ -145,15 +206,16 @@ class MinecraftExecutor:
             required_java_major = int(version.java_version.get("majorVersion") or 8)
             java_major = JavaMajorPolicy.resolve(required_java_major)
             preferred_java = str(getattr(settings, "java_path", "") or "").strip()
-            java = JavaResolver.resolve(required_java_major, reporter, preferred_java) if preferred_java else JavaResolver.resolve(required_java_major, reporter)
-            LanAgentManager.append_log_path(lan_log_path, f"Java selected: {java} (required {required_java_major}; compatibility target {java_major}).")
             download_pause_controller.raise_if_requested()
 
             reporter.status(stage=ProgressStage.LAUNCHING, message=f"Launching Minecraft {version.id}...")
             crash_report_snapshot = GameRuntimeManager.crash_report_snapshot(instance)
             started_at = datetime.now(timezone.utc)
-            process = JavaRuntime.run(java, command, instance)
+            process, java, java_recovery_warnings = MinecraftExecutor._start_with_java_recovery(
+                instance, command, required_java_major, reporter, preferred_java, lan_log_path
+            )
             process_started = True
+            LanAgentManager.append_log_path(lan_log_path, f"Java selected: {java} (required {required_java_major}; compatibility target {java_major}).")
             LanAgentManager.append_log_path(lan_log_path, f"Minecraft process started; pid={getattr(process, 'pid', 'unknown')}.")
             run_lock.track_process(process)
             ProcessSupervisor.attach(process_session.session_id, process)
@@ -181,7 +243,7 @@ class MinecraftExecutor:
                 and (forge_preflight_policy == ManagedContentPolicy.ALLOW or allow_compatibility_issues_once)
             )
             forge_warnings = tuple(issue.message for issue in forge_preflight.warnings) + bypassed_compatibility
-            warnings = tuple(modrinth_warnings) + tuple(curseforge_warnings) + tuple(ftb_warnings) + forge_warnings
+            warnings = tuple(modrinth_warnings) + tuple(curseforge_warnings) + tuple(ftb_warnings) + forge_warnings + tuple(java_recovery_warnings)
             if warnings:
                 result["warnings"] = warnings
             return result

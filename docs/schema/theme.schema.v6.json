@@ -1,0 +1,1234 @@
+{
+  "$defs": {
+    "animation": {
+      "additionalProperties": false,
+      "properties": {
+        "columns": {
+          "maximum": 256,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "fallback": {
+          "enum": [
+            "background.center",
+            "background.dialog.message",
+            "background.dialog.mod_manager",
+            "background.dialog.modrinth",
+            "background.dialog.update",
+            "background.launch_control",
+            "background.page.about",
+            "background.page.accounts",
+            "background.page.home",
+            "background.page.instance_settings",
+            "background.page.instances",
+            "background.page.launcher_settings",
+            "background.page.logs",
+            "background.right_panel",
+            "background.sidebar",
+            "background.window",
+            "badge.error",
+            "badge.locked",
+            "badge.status",
+            "badge.warning",
+            "button.cancel",
+            "button.cancel_disabled",
+            "button.cancel_hover",
+            "button.cancel_pressed",
+            "button.danger",
+            "button.danger_hover",
+            "button.default",
+            "button.disabled",
+            "button.hover",
+            "button.launch",
+            "button.launch_disabled",
+            "button.launch_hover",
+            "button.launch_pressed",
+            "button.nav",
+            "button.nav_hover",
+            "button.nav_selected",
+            "button.pressed",
+            "button.primary",
+            "button.primary_hover",
+            "button.primary_pressed",
+            "checkbox.checked",
+            "checkbox.disabled",
+            "checkbox.unchecked",
+            "combo.arrow",
+            "combo.popup",
+            "icon.action.account",
+            "icon.action.add",
+            "icon.action.backup",
+            "icon.action.clear",
+            "icon.action.clone",
+            "icon.action.copy",
+            "icon.action.disable",
+            "icon.action.download",
+            "icon.action.edit",
+            "icon.action.enable",
+            "icon.action.export",
+            "icon.action.folder",
+            "icon.action.import",
+            "icon.action.instance",
+            "icon.action.java",
+            "icon.action.language",
+            "icon.action.launch",
+            "icon.action.microsoft",
+            "icon.action.modrinth",
+            "icon.action.mods",
+            "icon.action.next",
+            "icon.action.previous",
+            "icon.action.refresh",
+            "icon.action.release",
+            "icon.action.remove",
+            "icon.action.repair",
+            "icon.action.reprotect",
+            "icon.action.reset",
+            "icon.action.restore",
+            "icon.action.save",
+            "icon.action.search",
+            "icon.action.settings",
+            "icon.action.shield",
+            "icon.action.theme",
+            "icon.action.update",
+            "icon.app",
+            "icon.nav.about",
+            "icon.nav.accounts",
+            "icon.nav.home",
+            "icon.nav.instance_settings",
+            "icon.nav.instances",
+            "icon.nav.launcher_settings",
+            "icon.nav.logs",
+            "icon.nav.mods",
+            "icon.state.busy",
+            "icon.state.error",
+            "icon.state.ready",
+            "icon.state.success",
+            "icon.state.warning",
+            "input.default",
+            "input.focus",
+            "input.text_area",
+            "input.text_area_focus",
+            "logo.main",
+            "logo.sidebar",
+            "progress.chunk",
+            "progress.track",
+            "scrollbar.handle",
+            "scrollbar.horizontal_handle",
+            "scrollbar.horizontal_track",
+            "scrollbar.track",
+            "surface.card",
+            "surface.details",
+            "surface.group_box",
+            "surface.hero_card",
+            "surface.inset",
+            "surface.java_card",
+            "surface.lifecycle_card",
+            "surface.log",
+            "surface.microsoft_card",
+            "surface.security_card",
+            "surface.tab",
+            "surface.tab_hover",
+            "surface.tab_pane",
+            "surface.tab_selected",
+            "surface.table",
+            "surface.table_header",
+            "surface.table_selected",
+            "surface.tooltip"
+          ],
+          "type": "string"
+        },
+        "fallback_asset": {
+          "enum": [
+            "background.center",
+            "background.dialog.message",
+            "background.dialog.mod_manager",
+            "background.dialog.modrinth",
+            "background.dialog.update",
+            "background.launch_control",
+            "background.page.about",
+            "background.page.accounts",
+            "background.page.home",
+            "background.page.instance_settings",
+            "background.page.instances",
+            "background.page.launcher_settings",
+            "background.page.logs",
+            "background.right_panel",
+            "background.sidebar",
+            "background.window",
+            "badge.error",
+            "badge.locked",
+            "badge.status",
+            "badge.warning",
+            "button.cancel",
+            "button.cancel_disabled",
+            "button.cancel_hover",
+            "button.cancel_pressed",
+            "button.danger",
+            "button.danger_hover",
+            "button.default",
+            "button.disabled",
+            "button.hover",
+            "button.launch",
+            "button.launch_disabled",
+            "button.launch_hover",
+            "button.launch_pressed",
+            "button.nav",
+            "button.nav_hover",
+            "button.nav_selected",
+            "button.pressed",
+            "button.primary",
+            "button.primary_hover",
+            "button.primary_pressed",
+            "checkbox.checked",
+            "checkbox.disabled",
+            "checkbox.unchecked",
+            "combo.arrow",
+            "combo.popup",
+            "icon.action.account",
+            "icon.action.add",
+            "icon.action.backup",
+            "icon.action.clear",
+            "icon.action.clone",
+            "icon.action.copy",
+            "icon.action.disable",
+            "icon.action.download",
+            "icon.action.edit",
+            "icon.action.enable",
+            "icon.action.export",
+            "icon.action.folder",
+            "icon.action.import",
+            "icon.action.instance",
+            "icon.action.java",
+            "icon.action.language",
+            "icon.action.launch",
+            "icon.action.microsoft",
+            "icon.action.modrinth",
+            "icon.action.mods",
+            "icon.action.next",
+            "icon.action.previous",
+            "icon.action.refresh",
+            "icon.action.release",
+            "icon.action.remove",
+            "icon.action.repair",
+            "icon.action.reprotect",
+            "icon.action.reset",
+            "icon.action.restore",
+            "icon.action.save",
+            "icon.action.search",
+            "icon.action.settings",
+            "icon.action.shield",
+            "icon.action.theme",
+            "icon.action.update",
+            "icon.app",
+            "icon.nav.about",
+            "icon.nav.accounts",
+            "icon.nav.home",
+            "icon.nav.instance_settings",
+            "icon.nav.instances",
+            "icon.nav.launcher_settings",
+            "icon.nav.logs",
+            "icon.nav.mods",
+            "icon.state.busy",
+            "icon.state.error",
+            "icon.state.ready",
+            "icon.state.success",
+            "icon.state.warning",
+            "input.default",
+            "input.focus",
+            "input.text_area",
+            "input.text_area_focus",
+            "logo.main",
+            "logo.sidebar",
+            "progress.chunk",
+            "progress.track",
+            "scrollbar.handle",
+            "scrollbar.horizontal_handle",
+            "scrollbar.horizontal_track",
+            "scrollbar.track",
+            "surface.card",
+            "surface.details",
+            "surface.group_box",
+            "surface.hero_card",
+            "surface.inset",
+            "surface.java_card",
+            "surface.lifecycle_card",
+            "surface.log",
+            "surface.microsoft_card",
+            "surface.security_card",
+            "surface.tab",
+            "surface.tab_hover",
+            "surface.tab_pane",
+            "surface.tab_selected",
+            "surface.table",
+            "surface.table_header",
+            "surface.table_selected",
+            "surface.tooltip"
+          ],
+          "type": "string"
+        },
+        "filtering": {
+          "default": "nearest",
+          "enum": [
+            "nearest",
+            "smooth"
+          ],
+          "type": "string"
+        },
+        "frame_count": {
+          "maximum": 256,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "frame_duration_ms": {
+          "default": 100,
+          "maximum": 10000,
+          "minimum": 16,
+          "type": "integer"
+        },
+        "frame_size": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "maximum": 4096,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "maximum": 4096,
+              "minimum": 1,
+              "type": "integer"
+            }
+          ],
+          "type": "array"
+        },
+        "loop": {
+          "default": true,
+          "type": "boolean"
+        },
+        "path": {
+          "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\\\x00]+\\.png$",
+          "type": "string"
+        },
+        "render_mode": {
+          "default": "tile_x",
+          "enum": [
+            "contain",
+            "stretch",
+            "tile_x"
+          ],
+          "type": "string"
+        },
+        "scale_mode": {
+          "enum": [
+            "tile",
+            "contain",
+            "stretch",
+            "tile_x"
+          ],
+          "type": "string"
+        },
+        "type": {
+          "const": "spritesheet",
+          "default": "spritesheet"
+        }
+      },
+      "required": [
+        "path",
+        "frame_size",
+        "frame_count"
+      ],
+      "type": "object"
+    },
+    "font": {
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "required": [
+            "path"
+          ]
+        },
+        {
+          "required": [
+            "files"
+          ]
+        }
+      ],
+      "properties": {
+        "fallback_families": {
+          "items": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "family": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "files": {
+          "items": {
+            "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\\\x00]+\\.(?:ttf|otf)$",
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "italic": {
+          "default": false,
+          "type": "boolean"
+        },
+        "letter_spacing": {
+          "default": 0,
+          "maximum": 20,
+          "minimum": -5,
+          "type": "number"
+        },
+        "path": {
+          "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\\\x00]+\\.(?:ttf|otf)$",
+          "type": "string"
+        },
+        "point_size": {
+          "default": 10.5,
+          "maximum": 72,
+          "minimum": 6,
+          "type": "number"
+        },
+        "weight": {
+          "default": 400,
+          "enum": [
+            100,
+            200,
+            300,
+            400,
+            500,
+            600,
+            700,
+            800,
+            900
+          ],
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "motion": {
+      "additionalProperties": false,
+      "properties": {
+        "button": {
+          "additionalProperties": false,
+          "properties": {
+            "easing": {
+              "enum": [
+                "in_cubic",
+                "in_out_cubic",
+                "in_out_quad",
+                "in_quad",
+                "linear",
+                "out_back",
+                "out_cubic",
+                "out_quad"
+              ],
+              "type": "string"
+            },
+            "hover_duration_ms": {
+              "maximum": 2000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "hover_strength": {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            "press_duration_ms": {
+              "maximum": 2000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "press_strength": {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "type": "object"
+        },
+        "dialog": {
+          "additionalProperties": false,
+          "properties": {
+            "distance_px": {
+              "maximum": 256,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "duration_ms": {
+              "maximum": 3000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "easing": {
+              "enum": [
+                "in_cubic",
+                "in_out_cubic",
+                "in_out_quad",
+                "in_quad",
+                "linear",
+                "out_back",
+                "out_cubic",
+                "out_quad"
+              ],
+              "type": "string"
+            },
+            "type": {
+              "enum": [
+                "fade",
+                "none"
+              ],
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "launch_control": {
+          "additionalProperties": false,
+          "properties": {
+            "distance_px": {
+              "maximum": 256,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "duration_ms": {
+              "maximum": 3000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "easing": {
+              "enum": [
+                "in_cubic",
+                "in_out_cubic",
+                "in_out_quad",
+                "in_quad",
+                "linear",
+                "out_back",
+                "out_cubic",
+                "out_quad"
+              ],
+              "type": "string"
+            },
+            "type": {
+              "enum": [
+                "fade",
+                "none"
+              ],
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "page": {
+          "additionalProperties": false,
+          "properties": {
+            "distance_px": {
+              "maximum": 256,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "duration_ms": {
+              "maximum": 3000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "easing": {
+              "enum": [
+                "in_cubic",
+                "in_out_cubic",
+                "in_out_quad",
+                "in_quad",
+                "linear",
+                "out_back",
+                "out_cubic",
+                "out_quad"
+              ],
+              "type": "string"
+            },
+            "type": {
+              "enum": [
+                "fade",
+                "fade_slide",
+                "none",
+                "slide_left",
+                "slide_right"
+              ],
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "performance": {
+          "additionalProperties": false,
+          "properties": {
+            "full_fps": {
+              "maximum": 120,
+              "minimum": 15,
+              "type": "integer"
+            },
+            "pause_when_hidden": {
+              "type": "boolean"
+            },
+            "reduced_fps": {
+              "maximum": 60,
+              "minimum": 10,
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
+        "sidebar": {
+          "additionalProperties": false,
+          "properties": {
+            "collapsed_width": {
+              "maximum": 160,
+              "minimum": 56,
+              "type": "integer"
+            },
+            "duration_ms": {
+              "maximum": 3000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "easing": {
+              "enum": [
+                "in_cubic",
+                "in_out_cubic",
+                "in_out_quad",
+                "in_quad",
+                "linear",
+                "out_back",
+                "out_cubic",
+                "out_quad"
+              ],
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "toast": {
+          "additionalProperties": false,
+          "properties": {
+            "distance_px": {
+              "maximum": 256,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "duration_ms": {
+              "maximum": 3000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "easing": {
+              "enum": [
+                "in_cubic",
+                "in_out_cubic",
+                "in_out_quad",
+                "in_quad",
+                "linear",
+                "out_back",
+                "out_cubic",
+                "out_quad"
+              ],
+              "type": "string"
+            },
+            "max_visible": {
+              "maximum": 8,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "type": {
+              "enum": [
+                "fade",
+                "none",
+                "slide",
+                "slide_fade"
+              ],
+              "type": "string"
+            },
+            "visible_duration_ms": {
+              "maximum": 30000,
+              "minimum": 500,
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "palette": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "type": "string"
+        },
+        "focus": {
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "type": "string"
+        },
+        "link": {
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "type": "string"
+        },
+        "primary": {
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "type": "string"
+        },
+        "primary_hover": {
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "type": "string"
+        },
+        "primary_pressed": {
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "type": "string"
+        },
+        "primary_text": {
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "type": "string"
+        },
+        "selection": {
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "type": "string"
+        },
+        "selection_text": {
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "type": "string"
+        },
+        "success": {
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "type": "string"
+        },
+        "text_disabled": {
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "type": "string"
+        },
+        "text_inverse": {
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "type": "string"
+        },
+        "text_muted": {
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "type": "string"
+        },
+        "text_primary": {
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "type": "string"
+        },
+        "warning": {
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "https://mcw-launcher.local/schema/theme.schema.v6.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Frozen theme runtime contract for MCW Launcher v0.11.x and MCW Theme Studio.",
+  "properties": {
+    "$schema": {
+      "maxLength": 512,
+      "type": "string"
+    },
+    "accent_assets": {
+      "default": [],
+      "items": {
+        "oneOf": [
+          {
+            "enum": [
+              "background.center",
+              "background.dialog.message",
+              "background.dialog.mod_manager",
+              "background.dialog.modrinth",
+              "background.dialog.update",
+              "background.launch_control",
+              "background.page.about",
+              "background.page.accounts",
+              "background.page.home",
+              "background.page.instance_settings",
+              "background.page.instances",
+              "background.page.launcher_settings",
+              "background.page.logs",
+              "background.right_panel",
+              "background.sidebar",
+              "background.window",
+              "badge.error",
+              "badge.locked",
+              "badge.status",
+              "badge.warning",
+              "button.cancel",
+              "button.cancel_disabled",
+              "button.cancel_hover",
+              "button.cancel_pressed",
+              "button.danger",
+              "button.danger_hover",
+              "button.default",
+              "button.disabled",
+              "button.hover",
+              "button.launch",
+              "button.launch_disabled",
+              "button.launch_hover",
+              "button.launch_pressed",
+              "button.nav",
+              "button.nav_hover",
+              "button.nav_selected",
+              "button.pressed",
+              "button.primary",
+              "button.primary_hover",
+              "button.primary_pressed",
+              "checkbox.checked",
+              "checkbox.disabled",
+              "checkbox.unchecked",
+              "combo.arrow",
+              "combo.popup",
+              "icon.action.account",
+              "icon.action.add",
+              "icon.action.backup",
+              "icon.action.clear",
+              "icon.action.clone",
+              "icon.action.copy",
+              "icon.action.disable",
+              "icon.action.download",
+              "icon.action.edit",
+              "icon.action.enable",
+              "icon.action.export",
+              "icon.action.folder",
+              "icon.action.import",
+              "icon.action.instance",
+              "icon.action.java",
+              "icon.action.language",
+              "icon.action.launch",
+              "icon.action.microsoft",
+              "icon.action.modrinth",
+              "icon.action.mods",
+              "icon.action.next",
+              "icon.action.previous",
+              "icon.action.refresh",
+              "icon.action.release",
+              "icon.action.remove",
+              "icon.action.repair",
+              "icon.action.reprotect",
+              "icon.action.reset",
+              "icon.action.restore",
+              "icon.action.save",
+              "icon.action.search",
+              "icon.action.settings",
+              "icon.action.shield",
+              "icon.action.theme",
+              "icon.action.update",
+              "icon.app",
+              "icon.nav.about",
+              "icon.nav.accounts",
+              "icon.nav.home",
+              "icon.nav.instance_settings",
+              "icon.nav.instances",
+              "icon.nav.launcher_settings",
+              "icon.nav.logs",
+              "icon.nav.mods",
+              "icon.state.busy",
+              "icon.state.error",
+              "icon.state.ready",
+              "icon.state.success",
+              "icon.state.warning",
+              "input.default",
+              "input.focus",
+              "input.text_area",
+              "input.text_area_focus",
+              "logo.main",
+              "logo.sidebar",
+              "progress.chunk",
+              "progress.track",
+              "scrollbar.handle",
+              "scrollbar.horizontal_handle",
+              "scrollbar.horizontal_track",
+              "scrollbar.track",
+              "surface.card",
+              "surface.details",
+              "surface.group_box",
+              "surface.hero_card",
+              "surface.inset",
+              "surface.java_card",
+              "surface.lifecycle_card",
+              "surface.log",
+              "surface.microsoft_card",
+              "surface.security_card",
+              "surface.tab",
+              "surface.tab_hover",
+              "surface.tab_pane",
+              "surface.tab_selected",
+              "surface.table",
+              "surface.table_header",
+              "surface.table_selected",
+              "surface.tooltip"
+            ],
+            "type": "string"
+          },
+          {
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$",
+            "type": "string"
+          }
+        ]
+      },
+      "maxItems": 380,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "animations": {
+      "additionalProperties": {
+        "$ref": "#/$defs/animation"
+      },
+      "default": {},
+      "propertyNames": {
+        "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "type": "object"
+    },
+    "assets": {
+      "additionalProperties": {
+        "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\\\x00]+\\.png$",
+        "type": "string"
+      },
+      "default": {},
+      "propertyNames": {
+        "enum": [
+          "background.center",
+          "background.dialog.message",
+          "background.dialog.mod_manager",
+          "background.dialog.modrinth",
+          "background.dialog.update",
+          "background.launch_control",
+          "background.page.about",
+          "background.page.accounts",
+          "background.page.home",
+          "background.page.instance_settings",
+          "background.page.instances",
+          "background.page.launcher_settings",
+          "background.page.logs",
+          "background.right_panel",
+          "background.sidebar",
+          "background.window",
+          "badge.error",
+          "badge.locked",
+          "badge.status",
+          "badge.warning",
+          "button.cancel",
+          "button.cancel_disabled",
+          "button.cancel_hover",
+          "button.cancel_pressed",
+          "button.danger",
+          "button.danger_hover",
+          "button.default",
+          "button.disabled",
+          "button.hover",
+          "button.launch",
+          "button.launch_disabled",
+          "button.launch_hover",
+          "button.launch_pressed",
+          "button.nav",
+          "button.nav_hover",
+          "button.nav_selected",
+          "button.pressed",
+          "button.primary",
+          "button.primary_hover",
+          "button.primary_pressed",
+          "checkbox.checked",
+          "checkbox.disabled",
+          "checkbox.unchecked",
+          "combo.arrow",
+          "combo.popup",
+          "icon.action.account",
+          "icon.action.add",
+          "icon.action.backup",
+          "icon.action.clear",
+          "icon.action.clone",
+          "icon.action.copy",
+          "icon.action.disable",
+          "icon.action.download",
+          "icon.action.edit",
+          "icon.action.enable",
+          "icon.action.export",
+          "icon.action.folder",
+          "icon.action.import",
+          "icon.action.instance",
+          "icon.action.java",
+          "icon.action.language",
+          "icon.action.launch",
+          "icon.action.microsoft",
+          "icon.action.modrinth",
+          "icon.action.mods",
+          "icon.action.next",
+          "icon.action.previous",
+          "icon.action.refresh",
+          "icon.action.release",
+          "icon.action.remove",
+          "icon.action.repair",
+          "icon.action.reprotect",
+          "icon.action.reset",
+          "icon.action.restore",
+          "icon.action.save",
+          "icon.action.search",
+          "icon.action.settings",
+          "icon.action.shield",
+          "icon.action.theme",
+          "icon.action.update",
+          "icon.app",
+          "icon.nav.about",
+          "icon.nav.accounts",
+          "icon.nav.home",
+          "icon.nav.instance_settings",
+          "icon.nav.instances",
+          "icon.nav.launcher_settings",
+          "icon.nav.logs",
+          "icon.nav.mods",
+          "icon.state.busy",
+          "icon.state.error",
+          "icon.state.ready",
+          "icon.state.success",
+          "icon.state.warning",
+          "input.default",
+          "input.focus",
+          "input.text_area",
+          "input.text_area_focus",
+          "logo.main",
+          "logo.sidebar",
+          "progress.chunk",
+          "progress.track",
+          "scrollbar.handle",
+          "scrollbar.horizontal_handle",
+          "scrollbar.horizontal_track",
+          "scrollbar.track",
+          "surface.card",
+          "surface.details",
+          "surface.group_box",
+          "surface.hero_card",
+          "surface.inset",
+          "surface.java_card",
+          "surface.lifecycle_card",
+          "surface.log",
+          "surface.microsoft_card",
+          "surface.security_card",
+          "surface.tab",
+          "surface.tab_hover",
+          "surface.tab_pane",
+          "surface.tab_selected",
+          "surface.table",
+          "surface.table_header",
+          "surface.table_selected",
+          "surface.tooltip"
+        ]
+      },
+      "type": "object"
+    },
+    "author": {
+      "maxLength": 128,
+      "minLength": 1,
+      "type": "string"
+    },
+    "capabilities": {
+      "oneOf": [
+        {
+          "additionalProperties": {
+            "type": "boolean"
+          },
+          "type": "object"
+        },
+        {
+          "items": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        }
+      ]
+    },
+    "description": {
+      "maxLength": 2048,
+      "type": "string"
+    },
+    "font": {
+      "$ref": "#/$defs/font"
+    },
+    "id": {
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+      "type": "string"
+    },
+    "motion": {
+      "$ref": "#/$defs/motion"
+    },
+    "name": {
+      "maxLength": 128,
+      "minLength": 1,
+      "type": "string"
+    },
+    "palette": {
+      "$ref": "#/$defs/palette"
+    },
+    "schema_version": {
+      "const": 6
+    },
+    "stylesheet": {
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\\\x00]+\\.qss$",
+      "type": "string"
+    },
+    "text_assets": {
+      "additionalProperties": {
+        "enum": [
+          "background.center",
+          "background.dialog.message",
+          "background.dialog.mod_manager",
+          "background.dialog.modrinth",
+          "background.dialog.update",
+          "background.launch_control",
+          "background.page.about",
+          "background.page.accounts",
+          "background.page.home",
+          "background.page.instance_settings",
+          "background.page.instances",
+          "background.page.launcher_settings",
+          "background.page.logs",
+          "background.right_panel",
+          "background.sidebar",
+          "background.window",
+          "badge.error",
+          "badge.locked",
+          "badge.status",
+          "badge.warning",
+          "button.cancel",
+          "button.cancel_disabled",
+          "button.cancel_hover",
+          "button.cancel_pressed",
+          "button.danger",
+          "button.danger_hover",
+          "button.default",
+          "button.disabled",
+          "button.hover",
+          "button.launch",
+          "button.launch_disabled",
+          "button.launch_hover",
+          "button.launch_pressed",
+          "button.nav",
+          "button.nav_hover",
+          "button.nav_selected",
+          "button.pressed",
+          "button.primary",
+          "button.primary_hover",
+          "button.primary_pressed",
+          "checkbox.checked",
+          "checkbox.disabled",
+          "checkbox.unchecked",
+          "combo.arrow",
+          "combo.popup",
+          "icon.action.account",
+          "icon.action.add",
+          "icon.action.backup",
+          "icon.action.clear",
+          "icon.action.clone",
+          "icon.action.copy",
+          "icon.action.disable",
+          "icon.action.download",
+          "icon.action.edit",
+          "icon.action.enable",
+          "icon.action.export",
+          "icon.action.folder",
+          "icon.action.import",
+          "icon.action.instance",
+          "icon.action.java",
+          "icon.action.language",
+          "icon.action.launch",
+          "icon.action.microsoft",
+          "icon.action.modrinth",
+          "icon.action.mods",
+          "icon.action.next",
+          "icon.action.previous",
+          "icon.action.refresh",
+          "icon.action.release",
+          "icon.action.remove",
+          "icon.action.repair",
+          "icon.action.reprotect",
+          "icon.action.reset",
+          "icon.action.restore",
+          "icon.action.save",
+          "icon.action.search",
+          "icon.action.settings",
+          "icon.action.shield",
+          "icon.action.theme",
+          "icon.action.update",
+          "icon.app",
+          "icon.nav.about",
+          "icon.nav.accounts",
+          "icon.nav.home",
+          "icon.nav.instance_settings",
+          "icon.nav.instances",
+          "icon.nav.launcher_settings",
+          "icon.nav.logs",
+          "icon.nav.mods",
+          "icon.state.busy",
+          "icon.state.error",
+          "icon.state.ready",
+          "icon.state.success",
+          "icon.state.warning",
+          "input.default",
+          "input.focus",
+          "input.text_area",
+          "input.text_area_focus",
+          "logo.main",
+          "logo.sidebar",
+          "progress.chunk",
+          "progress.track",
+          "scrollbar.handle",
+          "scrollbar.horizontal_handle",
+          "scrollbar.horizontal_track",
+          "scrollbar.track",
+          "surface.card",
+          "surface.details",
+          "surface.group_box",
+          "surface.hero_card",
+          "surface.inset",
+          "surface.java_card",
+          "surface.lifecycle_card",
+          "surface.log",
+          "surface.microsoft_card",
+          "surface.security_card",
+          "surface.tab",
+          "surface.tab_hover",
+          "surface.tab_pane",
+          "surface.tab_selected",
+          "surface.table",
+          "surface.table_header",
+          "surface.table_selected",
+          "surface.tooltip"
+        ],
+        "type": "string"
+      },
+      "default": {},
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+      },
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "id"
+  ],
+  "title": "MCW Launcher Theme Manifest",
+  "type": "object"
+}
