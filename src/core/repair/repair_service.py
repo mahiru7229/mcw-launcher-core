@@ -23,6 +23,8 @@ from src.core.minecraft.download_manager import DownloadClientManager
 from src.core.minecraft.library_manager import DownloadLibraryManager
 from src.core.minecraft.version_manager import VersionManager
 from src.core.modloader.mod_loader_manager import ModLoaderManager
+from src.core.mod.modpack_dependency_resolver import ModpackDependencyResolver
+from src.core.modrinth.modrinth_content_manager import ModrinthContentManager
 from src.core.modrinth.modrinth_pack_registry import ModrinthPackRegistry
 from src.core.modrinth.modrinth_pack_repair_manager import ModrinthPackRepairManager
 from src.core.progress.progress_reporter import ProgressReporter
@@ -445,6 +447,18 @@ class RepairService:
                 ModrinthPackRepairManager.repair(instance, reporter=reporter)
             if CurseForgePackRegistry.load(instance):
                 CurseForgeContentManager.ensure(instance, reporter=reporter, block_launch_on_failure=True)
+            final_resolution = ModpackDependencyResolver.resolve(instance, reporter)
+            for _pass_number in range(ModpackDependencyResolver.MAX_COMPLETION_PASSES):
+                if not final_resolution.changed:
+                    break
+                ModrinthContentManager.ensure(instance, reporter=reporter, block_launch_on_failure=True)
+                CurseForgeContentManager.ensure(instance, reporter=reporter, block_launch_on_failure=True)
+                final_resolution = ModpackDependencyResolver.resolve(instance, reporter)
+            if final_resolution.changed:
+                ModrinthContentManager.ensure(instance, reporter=reporter, block_launch_on_failure=True)
+                CurseForgeContentManager.ensure(instance, reporter=reporter, block_launch_on_failure=True)
+                final_resolution = ModpackDependencyResolver.resolve(instance, reporter)
+            ModpackDependencyResolver.raise_for_required_dependencies(instance, final_resolution.unresolved)
             return
 
         # Core Minecraft repairs share one resolved runtime profile. The loader

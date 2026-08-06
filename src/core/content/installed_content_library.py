@@ -9,6 +9,7 @@ from src.core.content.content_pack_manager import ContentPackManager
 from src.core.curseforge.curseforge_pack_registry import CurseForgePackRegistry
 from src.core.curseforge.curseforge_registry import CurseForgeRegistry
 from src.core.ftb.ftb_pack_registry import FTBPackRegistry
+from src.core.atlauncher.atlauncher_pack_registry import ATLauncherPackRegistry
 from src.core.mod.mod_manager import ModManager
 from src.core.mod.mod_provenance_registry import ModProvenanceRegistry
 from src.core.modrinth.modrinth_pack_registry import ModrinthPackRegistry
@@ -227,11 +228,12 @@ class InstalledContentLibraryManager:
             ("modrinth", ModrinthPackRegistry.load(instance)),
             ("curseforge", CurseForgePackRegistry.load(instance)),
             ("ftb", FTBPackRegistry.load(instance)),
+            ("atlauncher", ATLauncherPackRegistry.load(instance)),
         )
         for provider, data in registries:
             if not isinstance(data, dict) or not data:
                 continue
-            project_id = str(data.get("projectId") or "").strip()
+            project_id = str(data.get("projectId") or data.get("packId") or data.get("safeName") or "").strip()
             version_id = str(data.get("versionId") or data.get("fileId") or "").strip()
             if not project_id and not version_id:
                 continue
@@ -275,7 +277,7 @@ class InstalledContentLibraryManager:
     @staticmethod
     def _provider(value: object) -> str:
         normalized = str(value or "local").strip().casefold()
-        return normalized if normalized in {"modrinth", "curseforge", "ftb", "local", "manual", "unknown"} else "unknown"
+        return normalized if normalized in {"modrinth", "curseforge", "ftb", "atlauncher", "local", "manual", "unknown"} else "unknown"
 
     @staticmethod
     def _item_id(content_type: str, provider: str, project_id: str, file_name: str, sha512_value: str) -> str:
@@ -291,6 +293,8 @@ class InstalledContentLibraryManager:
         if provider == "modrinth":
             slug = "modpack" if content_type == InstalledContentLibraryManager.MODPACK else "mod"
             return f"https://modrinth.com/{slug}/{project}"
+        if provider == "atlauncher" and content_type == InstalledContentLibraryManager.MODPACK:
+            return f"https://atlauncher.com/pack/{project}"
         return ""
 
     @staticmethod

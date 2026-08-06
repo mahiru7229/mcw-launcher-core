@@ -30,6 +30,13 @@ class _ForgeInstallerDownload:
 
 class ForgeVersionManager:
     CACHE_SCHEMA_VERSION = 1
+    LEGACY_NATIVE_PLATFORM_COORDINATES = frozenset({
+        "org.lwjgl.lwjgl:lwjgl-platform",
+        "net.java.jinput:jinput-platform",
+        "tv.twitch:twitch-platform",
+        "tv.twitch:twitch-external-platform",
+    })
+    SPURIOUS_NATIVE_PLATFORM_COORDINATES = frozenset({"net.java.dev.jna:jna-platform"})
     _locks: dict[str, Lock] = {}
     _guard = Lock()
 
@@ -55,6 +62,17 @@ class ForgeVersionManager:
                     version = VersionManager._parse_version(cached, cache_path)
                     if version is not None:
                         return version
+                repairable = ForgeVersionManager._load_structurally_valid_cache(cache_path, base_version.id, loader)
+                if repairable is not None:
+                    if reporter is not None:
+                        reporter.status(stage=ProgressStage.INSTALLING_MOD_LOADER, message=f"Refreshing cached Minecraft Forge {loader} metadata...")
+                    refreshed = ForgeVersionManager._normalize_libraries(repairable, reporter)
+                    ForgeVersionManager._write_json(cache_path, refreshed)
+                    cached = ForgeVersionManager._load_cached(cache_path, base_version.id, loader)
+                    if cached is not None:
+                        version = VersionManager._parse_version(cached, cache_path)
+                        if version is not None:
+                            return version
             if reporter is not None:
                 reporter.status(stage=ProgressStage.INSTALLING_MOD_LOADER, message=f"Preparing Minecraft Forge {loader}...")
             installer = ForgeVersionManager._download_installer(base_version.id, loader, reporter)
@@ -68,6 +86,7 @@ class ForgeVersionManager:
             ForgeVersionManager._import_libraries(staging, reporter)
             normalized = ForgeVersionManager._normalize_libraries(profile, reporter)
             merged = ForgeVersionManager._merge_profiles(base_version.raw_json, normalized, base_version.id, loader)
+            merged = ForgeVersionManager._normalize_libraries(merged, reporter)
             ForgeVersionManager._write_json(cache_path, merged)
             version = VersionManager._parse_version(merged, cache_path)
             if version is None:
@@ -268,6 +287,8 @@ class ForgeVersionManager:
 
     @staticmethod
     def _normalize_windows_native(item: dict, coordinate: str, repository: str, downloads: dict, reporter: ProgressReporter | None) -> None:
+        if ForgeVersionManager._remove_spurious_native_platform_metadata(item, coordinate, downloads):
+            return
         natives = deepcopy(item.get("natives")) if isinstance(item.get("natives"), dict) else {}
         classifier = str(natives.get("windows") or "").replace("${arch}", "64").strip()
         if not classifier and ForgeVersionManager._is_legacy_native_platform_coordinate(coordinate):
@@ -314,9 +335,50 @@ class ForgeVersionManager:
 
     @staticmethod
     def _is_legacy_native_platform_coordinate(coordinate: str) -> bool:
-        parts = str(coordinate).split(":")
-        artifact = parts[1].strip().casefold() if len(parts) >= 2 else ""
-        return artifact.endswith("-platform")
+        return ForgeVersionManager._coordinate_key(coordinate) in ForgeVersionManager.LEGACY_NATIVE_PLATFORM_COORDINATES
+
+    @staticmethod
+    def _remove_spurious_native_platform_metadata(item: dict, coordinate: str, downloads: dict) -> bool:
+        if ForgeVersionManager._coordinate_key(coordinate) not in ForgeVersionManager.SPURIOUS_NATIVE_PLATFORM_COORDINATES:
+            return False
+        natives = deepcopy(item.get("natives")) if isinstance(item.get("natives"), dict) else {}
+        classifier = str(natives.get("windows") or "").replace("${arch}", "64").strip()
+        if classifier != "natives-windows":
+            return False
+        classifiers = deepcopy(downloads.get("classifiers")) if isinstance(downloads.get("classifiers"), dict) else {}
+        current = classifiers.get(classifier) if isinstance(classifiers.get(classifier), dict) else None
+        if ForgeVersionManager._download_entry_is_complete(current):
+            return False
+        natives.pop("windows", None)
+        if natives:
+            item["natives"] = natives
+        else:
+            item.pop("natives", None)
+        classifiers.pop(classifier, None)
+        if classifiers:
+            downloads["classifiers"] = classifiers
+        else:
+            downloads.pop("classifiers", None)
+        return True
+
+    @staticmethod
+    def _has_spurious_native_platform_metadata(item: dict, coordinate: str, downloads: dict) -> bool:
+        if ForgeVersionManager._coordinate_key(coordinate) not in ForgeVersionManager.SPURIOUS_NATIVE_PLATFORM_COORDINATES:
+            return False
+        natives = item.get("natives") if isinstance(item.get("natives"), dict) else {}
+        classifier = str(natives.get("windows") or "").replace("${arch}", "64").strip()
+        if classifier != "natives-windows":
+            return False
+        classifiers = downloads.get("classifiers") if isinstance(downloads.get("classifiers"), dict) else {}
+        current = classifiers.get(classifier) if isinstance(classifiers.get(classifier), dict) else None
+        return not ForgeVersionManager._download_entry_is_complete(current)
+
+    @staticmethod
+    def _coordinate_key(coordinate: str) -> str:
+        parts = str(coordinate).strip().split(":")
+        if len(parts) < 2:
+            return ""
+        return f"{parts[0].strip().casefold()}:{parts[1].strip().casefold()}"
 
     @staticmethod
     def _maven_path(coordinate: str, classifier: str | None = None) -> Path:
@@ -393,6 +455,17 @@ class ForgeVersionManager:
 
     @staticmethod
     def _load_cached(path: Path, game_version: str, forge_version: str) -> dict | None:
+        data = ForgeVersionManager._load_structurally_valid_cache(path, game_version, forge_version)
+        if data is None:
+            return None
+        if not ForgeVersionManager._legacy_launchwrapper_cache_is_complete(data):
+            return None
+        if not ForgeVersionManager._windows_native_cache_is_complete(data):
+            return None
+        return data
+
+    @staticmethod
+    def _load_structurally_valid_cache(path: Path, game_version: str, forge_version: str) -> dict | None:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except (FileNotFoundError, OSError, json.JSONDecodeError):
@@ -401,10 +474,6 @@ class ForgeVersionManager:
         if forge.get("schemaVersion") != ForgeVersionManager.CACHE_SCHEMA_VERSION or forge.get("gameVersion") != game_version or forge.get("loaderVersion") != forge_version:
             return None
         if not data.get("mainClass") or not data.get("libraries"):
-            return None
-        if not ForgeVersionManager._legacy_launchwrapper_cache_is_complete(data):
-            return None
-        if not ForgeVersionManager._windows_native_cache_is_complete(data):
             return None
         return data
 
@@ -427,13 +496,16 @@ class ForgeVersionManager:
         for item in libraries:
             if not isinstance(item, dict) or not LibraryRuleManager.is_allowed(item):
                 continue
+            coordinate = str(item.get("name") or "")
+            downloads = item.get("downloads") if isinstance(item.get("downloads"), dict) else {}
+            if ForgeVersionManager._has_spurious_native_platform_metadata(item, coordinate, downloads):
+                return False
             natives = item.get("natives") if isinstance(item.get("natives"), dict) else {}
             classifier = str(natives.get("windows") or "").replace("${arch}", "64").strip()
             if not classifier and ForgeVersionManager._is_legacy_native_platform_coordinate(str(item.get("name") or "")):
                 classifier = "natives-windows"
             if not classifier:
                 continue
-            downloads = item.get("downloads") if isinstance(item.get("downloads"), dict) else {}
             classifiers = downloads.get("classifiers") if isinstance(downloads.get("classifiers"), dict) else {}
             entry = classifiers.get(classifier) if isinstance(classifiers.get(classifier), dict) else None
             if not ForgeVersionManager._download_entry_is_complete(entry):

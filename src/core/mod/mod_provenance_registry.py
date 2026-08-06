@@ -18,9 +18,9 @@ class ModProvenanceRegistry:
     so the UI and future MCWPack exporter can recover provenance consistently.
     """
 
-    SCHEMA_VERSION = 1
+    SCHEMA_VERSION = 2
     _MODRINTH_CDN_PATTERN = re.compile(r"^/data/([^/]+)/versions/([^/]+)/([^/]+)$", re.IGNORECASE)
-    _PROVIDERS = {"modrinth", "curseforge", "ftb", "local", "manual", "unknown"}
+    _PROVIDERS = {"modrinth", "curseforge", "ftb", "atlauncher", "optifine", "local", "manual", "unknown"}
 
     @staticmethod
     def empty() -> dict:
@@ -71,6 +71,7 @@ class ModProvenanceRegistry:
         ModProvenanceRegistry._merge_modrinth_pack(instance, merge)
         ModProvenanceRegistry._merge_curseforge_pack(instance, merge)
         ModProvenanceRegistry._merge_ftb_pack(instance, merge)
+        ModProvenanceRegistry._merge_atlauncher_pack(instance, merge)
 
         # Directly installed mods are more specific than a pack-level record.
         from src.core.modrinth.modrinth_registry import ModrinthRegistry
@@ -79,6 +80,7 @@ class ModProvenanceRegistry:
         for project_id, raw in ModrinthRegistry.load(instance).get("mods", {}).items():
             if not isinstance(raw, dict):
                 continue
+            managed_by_modpack = bool(raw.get("managedByModpack", False))
             merge({
                 "fileName": raw.get("fileName"),
                 "provider": "modrinth",
@@ -89,7 +91,10 @@ class ModProvenanceRegistry:
                 "sha512": raw.get("sha512"),
                 "size": raw.get("size"),
                 "downloadUrls": raw.get("downloadUrls", []),
-                "managedByModpack": False,
+                "managedByModpack": managed_by_modpack,
+                "selectionReason": raw.get("selectionReason"),
+                "requiredBy": raw.get("requiredBy", []),
+                "packProvider": raw.get("packProvider") if managed_by_modpack else "",
             }, 30)
 
         for project_id, raw in CurseForgeRegistry.load(instance).get("mods", {}).items():
@@ -191,6 +196,8 @@ class ModProvenanceRegistry:
                 "size": raw.get("size"),
                 "downloadUrls": downloads,
                 "managedByModpack": True,
+                "selectionReason": raw.get("selectionReason"),
+                "requiredBy": raw.get("requiredBy", []),
                 "packProvider": "modrinth",
                 "packProjectId": pack_project_id,
                 "packVersionId": pack_version_id,
@@ -217,6 +224,8 @@ class ModProvenanceRegistry:
                 "size": raw.get("size"),
                 "downloadUrls": [raw.get("downloadUrl")] if raw.get("downloadUrl") else [],
                 "managedByModpack": True,
+                "selectionReason": raw.get("selectionReason"),
+                "requiredBy": raw.get("requiredBy", []),
                 "packProvider": "curseforge",
                 "packProjectId": pack_project_id,
                 "packVersionId": pack_version_id,
@@ -242,6 +251,30 @@ class ModProvenanceRegistry:
                 "downloadUrls": raw.get("urls", []),
                 "managedByModpack": True,
                 "packProvider": "ftb",
+                "packProjectId": pack_project_id,
+                "packVersionId": pack_version_id,
+            }, 20)
+
+    @staticmethod
+    def _merge_atlauncher_pack(instance: Instance, merge) -> None:
+        from src.core.atlauncher.atlauncher_pack_registry import ATLauncherPackRegistry
+
+        pack = ATLauncherPackRegistry.load(instance)
+        pack_project_id = str(pack.get("safeName") or pack.get("packId") or "").strip()
+        pack_version_id = str(pack.get("versionName") or pack.get("versionId") or "").strip()
+        for raw in pack.get("managedFiles", []):
+            if not isinstance(raw, dict) or not ModProvenanceRegistry._is_mod_path(raw.get("path")):
+                continue
+            merge({
+                "fileName": raw.get("fileName") or PurePosixPath(str(raw.get("path") or "")).name,
+                "path": raw.get("path"),
+                "provider": raw.get("provider") or "atlauncher",
+                "fileId": raw.get("fileId"),
+                "sha1": raw.get("sha1"),
+                "size": raw.get("size"),
+                "downloadUrls": raw.get("urls", []),
+                "managedByModpack": True,
+                "packProvider": "atlauncher",
                 "packProjectId": pack_project_id,
                 "packVersionId": pack_version_id,
             }, 20)
@@ -293,6 +326,8 @@ class ModProvenanceRegistry:
             "licenseUrl": str(raw.get("licenseUrl") or "").strip(),
             "redistributionAllowed": bool(raw.get("redistributionAllowed", False)),
             "managedByModpack": bool(raw.get("managedByModpack", False)),
+            "selectionReason": str(raw.get("selectionReason") or ("pack_manifest" if raw.get("managedByModpack", False) else "direct_install")).strip().casefold(),
+            "requiredBy": list(dict.fromkeys(str(item).strip() for item in raw.get("requiredBy", []) if str(item).strip())) if isinstance(raw.get("requiredBy"), (list, tuple, set)) else [],
             "packProvider": str(raw.get("packProvider") or "").strip().casefold(),
             "packProjectId": str(raw.get("packProjectId") or "").strip(),
             "packVersionId": str(raw.get("packVersionId") or "").strip(),

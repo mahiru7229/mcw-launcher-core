@@ -9,7 +9,7 @@ from src.models.instance.instance import Instance
 
 
 class CurseForgePackRegistry:
-    SCHEMA_VERSION = 2
+    SCHEMA_VERSION = 4
 
     @staticmethod
     def load(instance: Instance | Path) -> dict:
@@ -86,9 +86,47 @@ class CurseForgePackRegistry:
                 "manualImport": bool(raw.get("manualImport", False)),
                 "resolvePathFromProvider": bool(raw.get("resolvePathFromProvider", False)),
                 "provider": "curseforge",
+                "selectionReason": str(raw.get("selectionReason") or "pack_manifest").strip().casefold(),
+                "requiredBy": list(dict.fromkeys(str(item).strip() for item in raw.get("requiredBy", []) if str(item).strip())) if isinstance(raw.get("requiredBy"), (list, tuple, set)) else [],
+                "projectUrl": str(raw.get("projectUrl") or "").strip(),
+                "projectName": str(raw.get("projectName") or "").strip(),
+                "projectSlug": str(raw.get("projectSlug") or "").strip().casefold(),
+                "expectedModIds": CurseForgePackRegistry._normalize_mod_ids(raw.get("expectedModIds", [])),
+                "releaseType": str(raw.get("releaseType") or "release").strip().casefold(),
+                "datePublished": str(raw.get("datePublished") or "").strip(),
+                "declaredLoaders": [str(item).strip().casefold() for item in raw.get("declaredLoaders", []) if str(item).strip()] if isinstance(raw.get("declaredLoaders"), (list, tuple, set)) else [],
+                "gameVersions": [str(item).strip() for item in raw.get("gameVersions", []) if str(item).strip()] if isinstance(raw.get("gameVersions"), (list, tuple, set)) else [],
+                "dependencies": CurseForgePackRegistry._normalize_dependencies(raw.get("dependencies", [])),
+                "dependencyMetadataResolved": bool(raw.get("dependencyMetadataResolved", False)),
             })
         output = dict(data)
         output["schemaVersion"] = CurseForgePackRegistry.SCHEMA_VERSION
         output["managedFiles"] = managed
         output["source"] = "curseforge"
         return output
+
+    @staticmethod
+    def _normalize_mod_ids(value: object) -> list[str]:
+        if isinstance(value, str):
+            value = [value]
+        if not isinstance(value, (list, tuple, set)):
+            return []
+        return list(dict.fromkeys(str(item).strip().casefold() for item in value if str(item).strip()))
+
+    @staticmethod
+    def _normalize_dependencies(value: object) -> list[dict]:
+        if not isinstance(value, (list, tuple)):
+            return []
+        normalized: dict[tuple[int, int], dict] = {}
+        for raw in value:
+            if not isinstance(raw, dict):
+                continue
+            try:
+                project_id = int(raw.get("projectId") or raw.get("modId") or 0)
+                relation_type = int(raw.get("relationType") or 0)
+            except (TypeError, ValueError):
+                continue
+            if project_id <= 0 or relation_type <= 0:
+                continue
+            normalized[(project_id, relation_type)] = {"projectId": project_id, "relationType": relation_type}
+        return list(normalized.values())

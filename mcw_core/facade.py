@@ -15,7 +15,7 @@ from src.models.instance.instance import Instance
 from mcw_core.models import LaunchRequest, LaunchResult
 from mcw_core.operations import OperationHandle
 from mcw_core.paths import CorePaths
-from mcw_core.services import InstanceService, JavaService, LoaderService
+from mcw_core.services import InstanceService, JavaService, LoaderService, OptiFineService
 
 
 class MCWCore:
@@ -28,6 +28,7 @@ class MCWCore:
         self.loaders = LoaderService()
         self.instances = InstanceService(self.loaders)
         self.java = JavaService()
+        self.optifine = OptiFineService()
 
     @classmethod
     def create_default(cls, root: Path | str | None = None) -> "MCWCore":

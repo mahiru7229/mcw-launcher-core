@@ -11,7 +11,7 @@ from src.models.progress.progress_stage import ProgressStage
 
 
 class ModrinthPackRegistry:
-    SCHEMA_VERSION = 5
+    SCHEMA_VERSION = 6
     FILE_NAME = "modrinth-pack.json"
 
     @staticmethod
@@ -197,6 +197,10 @@ class ModrinthPackRegistry:
                 "fileName": Path(str(item.get("fileName") or relative.name)).name,
                 "downloads": ModrinthPackRegistry._normalize_downloads(item.get("downloads", [])),
                 "required": bool(item.get("required", True)),
+                "selectionReason": str(item.get("selectionReason") or "pack_manifest").strip().casefold(),
+                "requiredBy": ModrinthPackRegistry._normalize_required_by(item.get("requiredBy", [])),
+                "displayName": str(item.get("displayName") or item.get("title") or relative.name).strip(),
+                "versionNumber": str(item.get("versionNumber") or "").strip(),
             }
         return sorted(normalized.values(), key=lambda item: item["path"].casefold())
 
@@ -205,6 +209,12 @@ class ModrinthPackRegistry:
         if not isinstance(value, (list, tuple)):
             return []
         return list(dict.fromkeys(str(url).strip() for url in value if str(url).strip()))
+
+    @staticmethod
+    def _normalize_required_by(value: object) -> list[str]:
+        if not isinstance(value, (list, tuple, set)):
+            return []
+        return list(dict.fromkeys(str(item).strip() for item in value if str(item).strip()))
 
     @staticmethod
     def _normalize_preserved_files(value: object) -> list[dict]:

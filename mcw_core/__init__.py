@@ -19,7 +19,7 @@ from mcw_core.facade import MCWCore, configure_default_core, get_default_core
 from mcw_core.models import InstanceCreateRequest, LaunchRequest, LaunchResult
 from mcw_core.operations import OperationHandle, OperationState
 from mcw_core.paths import CorePaths
-from mcw_core.services import InstanceService, JavaService, LoaderService
+from mcw_core.services import InstanceService, JavaService, LoaderService, OptiFineService
 
 __all__ = [
     "Account",
@@ -43,6 +43,7 @@ __all__ = [
     "LaunchResult",
     "LoaderService",
     "MCWCore",
+    "OptiFineService",
     "OperationHandle",
     "OperationState",
     "ProgressEvent",

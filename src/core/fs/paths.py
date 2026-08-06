@@ -495,6 +495,16 @@ class Paths:
         return Path(instance.instance_dir) / ".mcw" / "ftb-pack.json"
 
     @staticmethod
+    def atlauncher_root() -> Path:
+        directory = Paths.CACHE_ROOT / "content" / "atlauncher"
+        directory.mkdir(parents=True, exist_ok=True)
+        return directory
+
+    @staticmethod
+    def atlauncher_pack_registry(instance: Instance) -> Path:
+        return Path(instance.instance_dir) / ".mcw" / "atlauncher-pack.json"
+
+    @staticmethod
     def curseforge_root() -> Path:
         directory = Paths.CACHE_ROOT / "content" / "curseforge"
         directory.mkdir(parents=True, exist_ok=True)
@@ -584,6 +594,39 @@ class Paths:
     @staticmethod
     def mod_provenance_registry(instance: Instance) -> Path:
         return Path(instance.instance_dir) / ".mcw" / "mod-provenance.json"
+
+    @staticmethod
+    def optifine_root() -> Path:
+        directory = Paths.CACHE_ROOT / "content" / "optifine"
+        directory.mkdir(parents=True, exist_ok=True)
+        return directory
+
+    @staticmethod
+    def optifine_metadata_cache() -> Path:
+        return Paths.optifine_root() / "metadata" / "downloads.json"
+
+    @staticmethod
+    def optifine_source_cache(sha256: str, filename: str = "OptiFine.jar") -> Path:
+        digest = str(sha256 or "").strip().casefold() or "unknown"
+        safe_name = Path(str(filename)).name or "OptiFine.jar"
+        return Paths.optifine_root() / "files" / digest[:2] / digest / safe_name
+
+    @staticmethod
+    def optifine_staging_dir(instance: Instance) -> Path:
+        identity = str(getattr(instance, "instance_id", getattr(instance, "name", "unknown")))
+        directory = Paths.optifine_root() / "staging" / identity
+        directory.mkdir(parents=True, exist_ok=True)
+        return directory
+
+    @staticmethod
+    def optifine_registry(instance: Instance) -> Path:
+        instance_dir = Path(getattr(instance, "instance_dir", Paths.load_instance_dir(str(getattr(instance, "name", "")))))
+        return instance_dir / ".mcw" / "optifine.json"
+
+    @staticmethod
+    def optifine_profile(instance: Instance) -> Path:
+        instance_dir = Path(getattr(instance, "instance_dir", Paths.load_instance_dir(str(getattr(instance, "name", "")))))
+        return instance_dir / ".mcw" / "optifine-profile.json"
 
     @staticmethod
     def modrinth_root() -> Path:

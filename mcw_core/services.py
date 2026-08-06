@@ -20,6 +20,7 @@ from src.core.modloader.mod_loader_manager import ModLoaderManager
 from src.core.progress.progress_reporter import ProgressReporter
 from src.core.package.modpack_package_manager import ModpackPackageManager
 from src.core.package.portable_content_manager import PortableContentManager
+from src.core.optifine.optifine_manager import OptiFineManager
 from src.core.repair.repair_service import RepairService
 from src.core.runtime.instance_repair_manager import InstanceRepairManager
 from src.models.instance.instance import Instance
@@ -27,6 +28,7 @@ from src.models.instance.instance_state import InstanceStatus
 from src.models.instance.instance_health import InstanceHealthReport
 from src.models.progress.progress_callback import ProgressCallback
 from src.models.package.modpack_export import ModpackExportOptions
+from src.models.optifine.optifine_models import OptiFineCompatibilityResult, OptiFineInstallMode, OptiFineInstallResult, OptiFineState, OptiFineVersion
 
 from mcw_core.models import InstanceCreateRequest
 
@@ -112,6 +114,20 @@ class InstanceService:
         resolved = self.loaders.resolve(version.id, request.loader_name, request.loader_version)
         ModLoaderManager.prepare(version, *resolved, reporter=ProgressReporter(request.on_progress))
         return InstanceManager.create(name=name, version=version, mod_loader=resolved)
+
+    def create_with_optifine(self, request: InstanceCreateRequest, source_path: Path, mode: str | OptiFineInstallMode = OptiFineInstallMode.AUTO, on_optifine_progress: ProgressCallback | None = None) -> Instance:
+        created: Instance | None = None
+        try:
+            created = self.create(request)
+            OptiFineManager.install(created, Path(source_path), mode, ProgressReporter(on_optifine_progress))
+            return created
+        except Exception:
+            if created is not None:
+                try:
+                    InstanceManager.delete_instance(created.name)
+                except Exception:
+                    pass
+            raise
 
     def change_loader(self, name: str, loader_name: str, loader_version: str, on_progress: ProgressCallback | None = None) -> Instance:
         instance = self.load(name)
@@ -206,6 +222,39 @@ class InstanceService:
         installed = PortableContentManager.install_many(instance, tuple(requirements or ()), tuple(Path(source) for source in (sources or ())))
         return {"instanceName": instance.name, "installed": installed}
 
+
+
+class OptiFineService:
+    OFFICIAL_DOWNLOADS_URL = "https://optifine.net/downloads"
+
+    @staticmethod
+    def inspect_file(source_path: Path) -> OptiFineVersion:
+        return OptiFineManager.inspect_file(Path(source_path))
+
+    @staticmethod
+    def state(instance: Instance | str) -> OptiFineState:
+        loaded = instance if isinstance(instance, Instance) else InstanceManager.load(str(instance))
+        return OptiFineManager.state(loaded)
+
+    @staticmethod
+    def compatibility(instance: Instance | str, version: OptiFineVersion, mode: str | OptiFineInstallMode = OptiFineInstallMode.AUTO) -> OptiFineCompatibilityResult:
+        loaded = instance if isinstance(instance, Instance) else InstanceManager.load(str(instance))
+        return OptiFineManager.compatibility(loaded, version, mode)
+
+    @staticmethod
+    def install(instance: Instance | str, source_path: Path, mode: str | OptiFineInstallMode = OptiFineInstallMode.AUTO, on_progress: ProgressCallback | None = None) -> OptiFineInstallResult:
+        loaded = instance if isinstance(instance, Instance) else InstanceManager.load(str(instance))
+        return OptiFineManager.install(loaded, Path(source_path), mode, ProgressReporter(on_progress))
+
+    @staticmethod
+    def repair(instance: Instance | str, on_progress: ProgressCallback | None = None) -> OptiFineInstallResult:
+        loaded = instance if isinstance(instance, Instance) else InstanceManager.load(str(instance))
+        return OptiFineManager.repair(loaded, ProgressReporter(on_progress))
+
+    @staticmethod
+    def uninstall(instance: Instance | str) -> bool:
+        loaded = instance if isinstance(instance, Instance) else InstanceManager.load(str(instance))
+        return OptiFineManager.uninstall(loaded)
 
 class JavaService:
     @staticmethod

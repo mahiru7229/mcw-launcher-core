@@ -29,3 +29,4 @@ class ModInfo:
     source_file_id: str = ""
     managed_by_modpack: bool = False
     source_pack_provider: str = ""
+    provided_mods: tuple[tuple[str, str], ...] = ()

@@ -1,0 +1,29 @@
+MCW Launcher / MCW Core v1.1.1
+
+Release validation
+
+- Release preflight: PASS
+- Update channel: stable
+- Language parity: 1991 keys in en-US and vi-VN
+- Unresolved merge markers: 0
+- Python compileall: PASS for launcher.py, src, mcw_core, tools, and test
+- Full regression: 1414 passed, 88 skipped, 2 warnings
+- Wheel install into isolated target: PASS
+- Installed distribution metadata: mcw-core 1.1.1
+- Installed runtime metadata: mcw_core.__version__ == 1.1.1
+- Forge dotted-letter range regression: 0.6.10 matches [0.6.8.a,0.7)
+
+Warnings
+
+The two warnings are intentional duplicate-entry ZIP fixtures from package security tests:
+- test_extract_deduplicates_identical_archive_members
+- test_extract_rejects_conflicting_duplicate_archive_members
+
+Real-world smoke validation reported during Beta 6 testing
+
+- SkyFactory 3 / Forge 1.10.2: launched successfully
+- RLCraft / Forge 1.12.2: launched successfully after legacy/manual dependency validation
+
+Platform note
+
+The release source and pure-Python MCW Core wheel were built and validated in a Linux headless environment. The one-file Windows EXE and updater-compatible Windows ZIP must be produced on Windows with build_release.ps1, then smoke-tested before GitHub publication.

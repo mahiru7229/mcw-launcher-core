@@ -401,6 +401,8 @@ class CurseForgePackInstaller:
                 "downloadUrl": file.download_url,
                 "declaredLoaders": list(file.loaders),
                 "gameVersions": list(file.game_versions),
+                "dependencies": [{"projectId": dependency.project_id, "relationType": dependency.relation_type} for dependency in file.dependencies],
+                "dependencyMetadataResolved": True,
                 "required": required,
                 "provider": "curseforge",
             })

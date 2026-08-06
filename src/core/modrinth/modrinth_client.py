@@ -180,6 +180,27 @@ class ModrinthClient:
         return ModrinthClient._parse_version(payload)
 
     @staticmethod
+    def get_version_from_hash(file_hash: str, algorithm: str = "sha512", force_refresh: bool = False) -> ModrinthVersion | None:
+        digest = ModrinthClient._required(file_hash, "File hash").casefold()
+        normalized_algorithm = str(algorithm or "sha512").strip().casefold()
+        if normalized_algorithm not in {"sha1", "sha512"}:
+            raise ValueError("Modrinth hash lookup supports SHA-1 or SHA-512.")
+        try:
+            payload = ModrinthClient._get_json(
+                f"/version_file/{quote(digest, safe='')}",
+                params={"algorithm": normalized_algorithm},
+                ttl=ModrinthClient.VERSIONS_TTL_SECONDS,
+                force_refresh=force_refresh,
+            )
+        except RuntimeError as error:
+            if "HTTP 404" in str(error):
+                return None
+            raise
+        if not isinstance(payload, dict):
+            return None
+        return ModrinthClient._parse_version(payload)
+
+    @staticmethod
     def select_version(project_id: str, game_version: str, loader: str = "fabric", version_types: tuple[str, ...] | list[str] | set[str] | None = None) -> ModrinthVersion:
         versions = ModrinthClient.list_project_versions(project_id, loader=loader, game_version=game_version, version_types=version_types)
         if not versions:
