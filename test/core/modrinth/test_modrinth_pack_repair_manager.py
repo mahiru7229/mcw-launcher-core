@@ -100,6 +100,6 @@ def test_repair_restores_missing_and_modified_managed_files(monkeypatch, tmp_pat
     assert result.repaired_files == 2
     assert result.backup_path is not None and result.backup_path.is_file()
     registry = ModrinthPackRegistry.load_from_dir(instance_dir)
-    assert registry["schemaVersion"] == 5
+    assert registry["schemaVersion"] == 6
     assert registry["preservedFiles"] == []
     assert len(registry["verificationCache"]) == 2

@@ -10,6 +10,7 @@ from src.core.config.curseforge_config_manager import CurseForgeConfigManager
 from src.core.curseforge.curseforge_cache import CurseForgeCache
 from src.core.curseforge.curseforge_client import CurseForgeClient
 from src.core.network.httpx_downloader import HttpDownloader
+from src.models.curseforge.file import CurseForgeFile
 
 
 def configure_gateway(monkeypatch, tmp_path: Path, client: httpx.Client, token: str = "") -> None:
@@ -178,6 +179,7 @@ def test_gateway_failure_returns_stale_cache_with_error_state(monkeypatch, tmp_p
     assert fallback.projects[0].project_id == 101
     assert CurseForgeClient.cache_status().last_error == "CurseForge is unavailable."
     client.close()
+
 
 
 def test_catalog_search_filters_projects_by_latest_file_loader(monkeypatch, tmp_path: Path) -> None:
@@ -512,3 +514,32 @@ def test_search_supports_resource_pack_and_shader_class_ids(monkeypatch, tmp_pat
 
     assert class_ids == ["12", "6552"]
     client.close()
+
+
+def test_fabric_forge_universal_metadata_is_not_neoforge_compatible() -> None:
+    file = CurseForgeClient._parse_file({
+        "id": 34,
+        "modId": 11,
+        "fileName": "fabric-forge.jar",
+        "gameVersions": ["1.20.1", "Fabric", "Forge"],
+    })
+
+    assert CurseForgeClient.loader_compatibility(file, "neoforge") == "unverified"
+
+
+def test_latest_compatible_file_skips_foreign_loader_candidate(monkeypatch) -> None:
+    fabric = CurseForgeFile(file_id=8443275, project_id=306612, display_name="Fabric API", file_name="fabric-api.jar", release_type="release", file_date="2026-08-01T00:00:00Z", file_length=10, download_url="", sha1="a" * 40, game_versions=("1.20.1",), dependencies=(), loaders=("fabric",))
+    forge = CurseForgeFile(file_id=9000000, project_id=306612, display_name="Forge-compatible", file_name="forge-compatible.jar", release_type="release", file_date="2026-07-01T00:00:00Z", file_length=10, download_url="", sha1="b" * 40, game_versions=("1.20.1",), dependencies=(), loaders=("forge",))
+    monkeypatch.setattr(CurseForgeClient, "list_files", staticmethod(lambda *_args, **_kwargs: [fabric, forge]))
+
+    selected = CurseForgeClient.latest_compatible_file(306612, "1.20.1", loader="forge")
+
+    assert selected.file_id == 9000000
+
+
+def test_latest_compatible_file_rejects_wrong_minecraft_version(monkeypatch) -> None:
+    nearby = CurseForgeFile(file_id=1, project_id=2, display_name="Nearby", file_name="nearby.jar", release_type="release", file_date="", file_length=10, download_url="", sha1="a" * 40, game_versions=("1.20.4",), dependencies=(), loaders=("forge",))
+    monkeypatch.setattr(CurseForgeClient, "list_files", staticmethod(lambda *_args, **_kwargs: [nearby]))
+
+    with pytest.raises(RuntimeError, match="No compatible Forge file for Minecraft 1.20.1"):
+        CurseForgeClient.latest_compatible_file(2, "1.20.1", loader="forge")

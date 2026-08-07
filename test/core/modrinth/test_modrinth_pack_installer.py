@@ -81,7 +81,7 @@ def test_installs_fabric_modpack_as_new_instance(tmp_path, monkeypatch):
     metadata_path = instance_dir / ".mcw" / "modrinth-pack.json"
     assert metadata_path.is_file()
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    assert metadata["schemaVersion"] == 5
+    assert metadata["schemaVersion"] == 6
     assert {item["path"] for item in metadata["managedFiles"]} == {"mods/example.jar", "config/example.json", "options.txt"}
     queued = next(item for item in metadata["managedFiles"] if item["path"] == "mods/example.jar")
     assert queued["downloads"] == ["https://cdn.modrinth.com/data/project/example.jar"]

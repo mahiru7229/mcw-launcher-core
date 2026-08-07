@@ -104,3 +104,34 @@ def test_untracked_mod_remains_local(tmp_path: Path) -> None:
 
     assert mod.source == "local"
     assert mod.managed_by_modpack is False
+
+
+def test_cross_provider_modrinth_dependency_remains_pack_managed(tmp_path: Path) -> None:
+    from src.core.modrinth.modrinth_registry import ModrinthRegistry
+
+    instance = make_instance(tmp_path, "CrossProvider")
+    make_mod(instance.instance_dir / "mods" / "kotlinforforge.jar", "kotlinforforge")
+    ModrinthRegistry.save(instance, {
+        "mods": {
+            "kff-project": {
+                "projectId": "kff-project",
+                "versionId": "kff-version",
+                "versionNumber": "3.9.1",
+                "fileName": "kotlinforforge.jar",
+                "managedByModpack": True,
+                "selectionReason": "required_dependency",
+                "requiredBy": ["Create Slice & Dice"],
+                "packProvider": "curseforge",
+            },
+        },
+    })
+
+    mod = ModManager.list_mods(instance)[0]
+    entry = ModProvenanceRegistry.entry_for_file(instance, "kotlinforforge.jar")
+
+    assert mod.source == "modrinth"
+    assert mod.managed_by_modpack is True
+    assert mod.source_pack_provider == "curseforge"
+    assert entry is not None
+    assert entry["selectionReason"] == "required_dependency"
+    assert entry["requiredBy"] == ["Create Slice & Dice"]

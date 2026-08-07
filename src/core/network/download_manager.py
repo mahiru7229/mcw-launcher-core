@@ -292,7 +292,7 @@ class DownloadManager:
                 raise DownloadChecksumMismatchError(request.display_name, algorithm)
 
     @staticmethod
-    def calculate_hash(path: Path, algorithm: str) -> str:
+    def calculate_hash(path: Path, algorithm: str, allow_while_paused: bool = False) -> str:
         normalized = str(algorithm).strip().lower()
         if normalized == "sha1":
             digest = hashlib.sha1(usedforsecurity=False)
@@ -300,12 +300,15 @@ class DownloadManager:
             digest = hashlib.new(normalized)
         with Path(path).open("rb") as file:
             while chunk := file.read(1024 * 1024):
-                download_pause_controller.raise_if_requested()
+                if allow_while_paused:
+                    download_pause_controller.raise_if_cancel_requested()
+                else:
+                    download_pause_controller.raise_if_requested()
                 digest.update(chunk)
         return digest.hexdigest().lower()
 
-    def calculate_hashes(self, path: Path, expected: dict | object) -> dict[str, str]:
-        return {algorithm: self.calculate_hash(path, algorithm) for algorithm in dict(expected or {})}
+    def calculate_hashes(self, path: Path, expected: dict | object, allow_while_paused: bool = False) -> dict[str, str]:
+        return {algorithm: self.calculate_hash(path, algorithm, allow_while_paused=allow_while_paused) for algorithm in dict(expected or {})}
 
     @contextmanager
     def _slot(self, host: str):

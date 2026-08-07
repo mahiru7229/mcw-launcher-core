@@ -1,6 +1,6 @@
 # CurseForge Gateway integration
 
-MCW Launcher provides Fabric and Forge CurseForge browsing and installation through a user- or deployment-configured HTTPS gateway without bundling a CurseForge API key in the source, EXE, or updater package.
+MCW Launcher `v0.10.0-beta.1` provides Fabric and Forge CurseForge browsing and installation through the public MCW gateway without bundling a CurseForge API key in the source, EXE, or updater package.
 
 ## Architecture
 
@@ -8,19 +8,23 @@ MCW Launcher provides Fabric and Forge CurseForge browsing and installation thro
 MCW Launcher
     │ HTTPS JSON
     ▼
-Configured CurseForge Gateway
-    │ failover to another configured gateway
+MCW public CurseForge Gateway
+    │ unavailable? try configured custom gateways
     ▼
 CurseForge API
 ```
 
 The CurseForge API key remains on the gateway server. Mod files are not proxied through the gateway: it returns metadata or download URLs and MCW Launcher's downloader fetches the file directly, reports progress, retries, and verifies SHA-1.
 
-## Gateway configuration
+## Default and custom endpoints
 
-Fresh installations do not contain a default CurseForge gateway URL. Configure one or more HTTPS endpoints in **Launcher Settings → CurseForge gateways**, or provide them through the supported environment variables.
+Fresh installations use:
 
-If no endpoint is configured, CurseForge features report that the provider is unavailable instead of silently using an MCW-hosted gateway.
+```text
+https://mcw-curseforge-gateway.vercel.app/api/curseforge
+```
+
+Custom HTTPS endpoints can still be configured in **Launcher Settings → CurseForge gateways**. Environment or locally protected configuration takes priority over the public default.
 
 The launcher stores local overrides in:
 

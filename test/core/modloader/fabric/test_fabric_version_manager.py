@@ -1,4 +1,5 @@
 from pathlib import Path
+from threading import Barrier, get_ident
 
 import httpx
 import pytest
@@ -178,3 +179,26 @@ def test_recommended_loader_rejects_automatic_unstable_version(monkeypatch):
 
     with pytest.raises(RuntimeError, match="No stable Fabric Loader"):
         FabricVersionManager.recommended_loader_version("1.21.1")
+
+
+def test_missing_library_metadata_is_resolved_concurrently(monkeypatch):
+    profile = {
+        "libraries": [
+            {"name": "example:first:1.0", "url": "https://example.invalid/"},
+            {"name": "example:second:1.0", "url": "https://example.invalid/"},
+        ]
+    }
+    barrier = Barrier(2)
+    worker_threads: set[int] = set()
+
+    def load_metadata(artifact, force=False, reporter=None):
+        worker_threads.add(get_ident())
+        barrier.wait(timeout=1)
+        return "e" * 40, 123
+
+    monkeypatch.setattr(FabricVersionManager, "_load_artifact_metadata", load_metadata)
+
+    normalized = FabricVersionManager._normalize_profile_libraries(profile)
+
+    assert len(worker_threads) == 2
+    assert [item["name"] for item in normalized["libraries"]] == ["example:first:1.0", "example:second:1.0"]

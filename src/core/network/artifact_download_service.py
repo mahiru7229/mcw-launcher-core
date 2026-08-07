@@ -73,9 +73,9 @@ class ArtifactDownloadService:
             attempts = getattr(error, "attempts", request.max_attempts)
             raise ArtifactDownloadError(self.failure(request, error, attempts=attempts)) from error
 
-    def verify_manual_file(self, request: ArtifactRequest, source: Path) -> dict[str, str]:
+    def verify_manual_file(self, request: ArtifactRequest, source: Path, allow_while_paused: bool = False) -> dict[str, str]:
         path = Path(source)
-        download_pause_controller.raise_if_requested()
+        self._manual_checkpoint(allow_while_paused)
         if not path.is_file():
             raise ArtifactManualValidationError("The selected file does not exist or cannot be read.")
         try:
@@ -86,7 +86,7 @@ class ArtifactDownloadService:
             raise ArtifactManualValidationError(self.manual_mismatch_message(request))
         if request.hashes:
             try:
-                actual_hashes = self._manager.calculate_hashes(path, request.hashes)
+                actual_hashes = self._manager.calculate_hashes(path, request.hashes, allow_while_paused=allow_while_paused)
             except DownloadCancelledError:
                 raise
             except (OSError, ValueError) as error:
@@ -94,19 +94,19 @@ class ArtifactDownloadService:
             for algorithm, expected in request.hashes.items():
                 if actual_hashes.get(algorithm) != expected.lower():
                     raise ArtifactManualValidationError(self.manual_mismatch_message(request))
-            download_pause_controller.raise_if_requested()
+            self._manual_checkpoint(allow_while_paused)
             return actual_hashes
         if not request.allow_unverified:
             if path.name.casefold() != request.expected_filename.casefold():
                 raise ArtifactManualValidationError(self.manual_mismatch_message(request))
             if request.expected_size <= 0:
                 raise ArtifactManualValidationError(f"The required artifact '{request.expected_filename}' has no checksum or size metadata and cannot be verified safely.")
-        download_pause_controller.raise_if_requested()
+        self._manual_checkpoint(allow_while_paused)
         return {}
 
-    def accept_manual_file(self, request: ArtifactRequest, source: Path) -> Path:
+    def accept_manual_file(self, request: ArtifactRequest, source: Path, allow_while_paused: bool = False) -> Path:
         source_path = Path(source)
-        self.verify_manual_file(request, source_path)
+        self.verify_manual_file(request, source_path, allow_while_paused=allow_while_paused)
         destination = Path(request.destination)
         destination.parent.mkdir(parents=True, exist_ok=True)
         try:
@@ -118,17 +118,17 @@ class ArtifactDownloadService:
         temporary = destination.with_name(destination.name + ".part")
         self._manager.delete_file(temporary)
         try:
-            download_pause_controller.raise_if_requested()
+            self._manual_checkpoint(allow_while_paused)
             with source_path.open("rb") as input_file, temporary.open("wb") as output_file:
                 while chunk := input_file.read(1024 * 1024):
-                    download_pause_controller.raise_if_requested()
+                    self._manual_checkpoint(allow_while_paused)
                     output_file.write(chunk)
                 output_file.flush()
                 try:
                     os.fsync(output_file.fileno())
                 except OSError:
                     pass
-            download_pause_controller.raise_if_requested()
+            self._manual_checkpoint(allow_while_paused)
             self.verify_manual_file(
                 ArtifactRequest(
                     provider=request.provider,
@@ -143,8 +143,9 @@ class ArtifactDownloadService:
                     allow_unverified=request.allow_unverified,
                 ),
                 temporary,
+                allow_while_paused=allow_while_paused,
             )
-            download_pause_controller.raise_if_requested()
+            self._manual_checkpoint(allow_while_paused)
             temporary.replace(destination)
             return destination
         except DownloadCancelledError:
@@ -153,6 +154,13 @@ class ArtifactDownloadService:
         except Exception:
             self._manager.delete_file(temporary)
             raise
+
+    @staticmethod
+    def _manual_checkpoint(allow_while_paused: bool) -> None:
+        if allow_while_paused:
+            download_pause_controller.raise_if_cancel_requested()
+            return
+        download_pause_controller.raise_if_requested()
 
     def failure(self, request: ArtifactRequest, error: BaseException | None, attempts: int = 1) -> ArtifactDownloadFailure:
         root = self._root_error(error)

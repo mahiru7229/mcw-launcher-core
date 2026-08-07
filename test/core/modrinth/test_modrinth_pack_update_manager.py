@@ -33,7 +33,7 @@ def test_check_returns_only_newer_pack_version(monkeypatch, tmp_path: Path) -> N
 def test_pack_registry_schema_four_preserves_conflict_metadata(tmp_path: Path) -> None:
     ModrinthPackRegistry.save(tmp_path, {"projectId": "pack", "managedFiles": [], "preservedFiles": [{"path": "config/demo.json", "reason": "modified-by-user", "previousSha1": "AA", "targetSha1": "BB"}]})
     data = ModrinthPackRegistry.load_from_dir(tmp_path)
-    assert data["schemaVersion"] == 5
+    assert data["schemaVersion"] == 6
     assert data["preservedFiles"] == [{"path": "config/demo.json", "reason": "modified-by-user", "previousSha1": "aa", "targetSha1": "bb"}]
 
 

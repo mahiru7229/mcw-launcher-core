@@ -2,9 +2,12 @@ from pathlib import Path
 import json
 import zipfile
 
+import pytest
+
 from src.core.instance.instance_run_lock import InstanceRunLock
 from src.core.mod.mod_compatibility_manager import ModCompatibilityManager
 from src.models.instance.instance import Instance
+from src.models.mod.mod_info import ModInfo
 
 
 def make_instance(tmp_path: Path) -> Instance:
@@ -38,6 +41,46 @@ def test_detects_duplicate_and_missing_fabric_api(tmp_path, monkeypatch):
     assert "duplicate-mod-id" in codes
     assert "dependency-missing" in codes
     assert report.error_count == 2
+
+
+def test_provided_capabilities_do_not_count_as_duplicate_primary_mod_ids(tmp_path) -> None:
+    instance = make_instance(tmp_path)
+    first = ModInfo(
+        path=tmp_path / "create.jar",
+        file_name="create.jar",
+        enabled=True,
+        mod_id="create",
+        name="Create",
+        version="1.0.0",
+        loader="fabric",
+        provided_mods=(("flywheel", "1.0.0"),),
+    )
+    second = ModInfo(
+        path=tmp_path / "ponderjs.jar",
+        file_name="ponderjs.jar",
+        enabled=True,
+        mod_id="ponderjs",
+        name="PonderJS",
+        version="1.0.0",
+        loader="fabric",
+        provided_mods=(("flywheel", "1.0.0"),),
+    )
+
+    report = ModCompatibilityManager.scan(instance, mods=[first, second])
+
+    assert not any(issue.code == "duplicate-mod-id" and "flywheel" in issue.mod_ids for issue in report.issues)
+
+
+def test_duplicate_primary_mod_ids_remain_blocking_with_provided_capabilities(tmp_path) -> None:
+    instance = make_instance(tmp_path)
+    first = ModInfo(path=tmp_path / "first.jar", file_name="first.jar", enabled=True, mod_id="example", name="Example A", version="1.0.0", loader="fabric", provided_mods=(("shared", "1.0.0"),))
+    second = ModInfo(path=tmp_path / "second.jar", file_name="second.jar", enabled=True, mod_id="example", name="Example B", version="2.0.0", loader="fabric", provided_mods=(("shared", "2.0.0"),))
+
+    report = ModCompatibilityManager.scan(instance, mods=[first, second])
+
+    duplicates = [issue for issue in report.issues if issue.code == "duplicate-mod-id"]
+    assert len(duplicates) == 1
+    assert duplicates[0].mod_ids == ("example",)
 
 
 def test_detects_disabled_and_wrong_dependency_version(tmp_path, monkeypatch):
@@ -114,6 +157,121 @@ def test_maven_range_rejects_outside_version() -> None:
     assert ModCompatibilityManager._matches_requirement("46.0.0", "[47,)") is False
     assert ModCompatibilityManager._matches_requirement("47.3.0", "[47,)") is True
     assert ModCompatibilityManager._matches_requirement("1.21.0", "[1.20.1,1.21)") is False
+
+
+@pytest.mark.parametrize(
+    ("installed", "required"),
+    (
+        ("3.0.1.10", "[3.0.1.7,)"),
+        ("2.4-Fix", "[2.4,)"),
+        ("1.20.1-1.5.2-neoforge", "[1.20.1,]"),
+        ("1.20.1", "1.19,1.20.1,"),
+    ),
+)
+def test_atm9_forge_version_requirements_match(installed: str, required: str) -> None:
+    assert ModCompatibilityManager._matches_requirement(installed, required) is True
+
+
+def test_comma_separated_comparator_constraints_remain_conjunctive() -> None:
+    assert ModCompatibilityManager._matches_requirement("1.5.0", ">=1.0,<2.0") is True
+    assert ModCompatibilityManager._matches_requirement("2.1.0", ">=1.0,<2.0") is False
+
+
+def test_optional_recommendations_are_informational_not_launch_warnings(tmp_path) -> None:
+    instance = make_instance(tmp_path)
+    consumer = ModInfo(
+        path=tmp_path / "consumer.jar",
+        file_name="consumer.jar",
+        enabled=True,
+        mod_id="consumer",
+        name="Consumer",
+        version="1.0.0",
+        loader="fabric",
+        recommends={"optional_mod": "[1.0,)"},
+    )
+
+    report = ModCompatibilityManager.scan(instance, mods=[consumer])
+
+    issue = next(issue for issue in report.issues if issue.code == "recommended-missing")
+    assert issue.severity == "info"
+    assert report.warning_count == 0
+
+
+@pytest.mark.parametrize(
+    ("installed", "required"),
+    (
+        ("1.19.2-3.0.0.6", "[1.19-3.0.0.3,)"),
+        ("1.19.2-5.1.4.3", "[1.19-5.1.0.0,)"),
+        ("1.8.2-55", "[1.8-54,)"),
+        ("1.19.2-4.2.8", "[1.19-4.0.7,)"),
+        ("1.19.2-4.2.18", "[1.19-4.0.12,)"),
+    ),
+)
+def test_forge_mod_versions_used_by_existing_modpacks_match(installed: str, required: str) -> None:
+    assert ModCompatibilityManager._matches_requirement(installed, required) is True
+
+
+def test_pack_managed_dependency_version_mismatch_is_non_blocking(tmp_path) -> None:
+    instance_dir = tmp_path / "pack-instance"
+    (instance_dir / "mods").mkdir(parents=True)
+    instance = Instance(instance_id="pack", name="Pack", version_id="1.19.2", instance_dir=instance_dir, mod_loader=("forge", "43.4.0"))
+    dependency = ModInfo(
+        path=tmp_path / "curios.jar",
+        file_name="curios.jar",
+        enabled=True,
+        mod_id="curios",
+        name="Curios API",
+        version="2.0.0",
+        loader="forge",
+        managed_by_modpack=True,
+    )
+    consumer = ModInfo(
+        path=tmp_path / "elytra-slot.jar",
+        file_name="elytra-slot.jar",
+        enabled=True,
+        mod_id="elytraslot",
+        name="Elytra Slot",
+        version="6.1.0",
+        loader="forge",
+        dependencies={"curios": "[3.0.0,)"},
+        managed_by_modpack=True,
+    )
+
+    report = ModCompatibilityManager.scan(instance, mods=[dependency, consumer])
+
+    assert not any(issue.code == "dependency-version" for issue in report.issues)
+    assert any(issue.code == "pack-pinned-dependency-requirement" and issue.severity == "warning" for issue in report.issues)
+
+
+def test_manual_dependency_version_mismatch_remains_blocking(tmp_path) -> None:
+    instance_dir = tmp_path / "manual-instance"
+    (instance_dir / "mods").mkdir(parents=True)
+    instance = Instance(instance_id="manual", name="Manual", version_id="1.19.2", instance_dir=instance_dir, mod_loader=("forge", "43.4.0"))
+    dependency = ModInfo(
+        path=tmp_path / "curios.jar",
+        file_name="curios.jar",
+        enabled=True,
+        mod_id="curios",
+        name="Curios API",
+        version="2.0.0",
+        loader="forge",
+        managed_by_modpack=False,
+    )
+    consumer = ModInfo(
+        path=tmp_path / "elytra-slot.jar",
+        file_name="elytra-slot.jar",
+        enabled=True,
+        mod_id="elytraslot",
+        name="Elytra Slot",
+        version="6.1.0",
+        loader="forge",
+        dependencies={"curios": "[3.0.0,)"},
+        managed_by_modpack=True,
+    )
+
+    report = ModCompatibilityManager.scan(instance, mods=[dependency, consumer])
+
+    assert any(issue.code == "dependency-version" and issue.severity == "error" for issue in report.issues)
 
 def test_neoforge_loader_dependency_matches_installed_version(tmp_path):
     instance_dir = tmp_path / "neoforge-instance"
@@ -216,3 +374,105 @@ def test_quilt_instance_rejects_forge_only_mod(tmp_path):
     report = ModCompatibilityManager.scan(instance)
 
     assert any(issue.code == "loader-mismatch" for issue in report.issues)
+
+
+def test_jarjar_provided_mod_satisfies_required_dependency(tmp_path) -> None:
+    instance_dir = tmp_path / "jarjar-instance"
+    (instance_dir / "mods").mkdir(parents=True)
+    instance = Instance(instance_id="jarjar", name="JarJar", version_id="1.19.2", instance_dir=instance_dir, mod_loader=("forge", "43.4.0"))
+    provider = ModInfo(
+        path=instance_dir / "mods" / "kotlinforforge-3.9.1-all.jar",
+        file_name="kotlinforforge-3.9.1-all.jar",
+        enabled=True,
+        mod_id="unknown",
+        name="kotlinforforge-3.9.1-all",
+        version="3.9.1",
+        loader="forge",
+        metadata_format="MANIFEST.MF:FMLModType=LIBRARY",
+        provided_mods=(("kotlinforforge", "3.9.1"),),
+        managed_by_modpack=True,
+    )
+    consumer = ModInfo(
+        path=instance_dir / "mods" / "sliceanddice.jar",
+        file_name="sliceanddice.jar",
+        enabled=True,
+        mod_id="sliceanddice",
+        name="Create Slice & Dice",
+        version="2.4.0",
+        loader="forge",
+        dependencies={"kotlinforforge": "[3.9.1,)"},
+        managed_by_modpack=True,
+    )
+
+    report = ModCompatibilityManager.scan(instance, mods=[provider, consumer])
+
+    assert not any(issue.code in {"dependency-missing", "dependency-version"} and "kotlinforforge" in issue.mod_ids for issue in report.issues)
+
+
+def test_java_dependency_is_launcher_environment_capability(tmp_path) -> None:
+    instance_dir = tmp_path / "java-capability"
+    (instance_dir / "mods").mkdir(parents=True)
+    instance = Instance(instance_id="java-capability", name="Java Capability", version_id="1.20.1", instance_dir=instance_dir, mod_loader=("forge", "47.3.0"))
+    consumer = ModInfo(
+        path=instance_dir / "mods" / "consumer.jar",
+        file_name="consumer.jar",
+        enabled=True,
+        mod_id="consumer",
+        name="Consumer",
+        version="1.0.0",
+        loader="forge",
+        dependencies={"java": "[17,)"},
+    )
+
+    report = ModCompatibilityManager.scan(instance, mods=[consumer])
+
+    assert not any(issue.code.startswith("dependency-") and "java" in issue.mod_ids for issue in report.issues)
+
+
+def test_active_fabric_loader_alias_is_environment_capability(tmp_path) -> None:
+    instance_dir = tmp_path / "fabric-capability"
+    (instance_dir / "mods").mkdir(parents=True)
+    instance = Instance(instance_id="fabric-capability", name="Fabric Capability", version_id="1.20.1", instance_dir=instance_dir, mod_loader=("fabric", "0.16.0"))
+    consumer = ModInfo(
+        path=instance_dir / "mods" / "consumer.jar",
+        file_name="consumer.jar",
+        enabled=True,
+        mod_id="consumer",
+        name="Consumer",
+        version="1.0.0",
+        loader="fabric",
+        dependencies={"fabric": ">=0.15.0"},
+    )
+
+    report = ModCompatibilityManager.scan(instance, mods=[consumer])
+
+    assert not any(issue.code.startswith("dependency-") and "fabric" in issue.mod_ids for issue in report.issues)
+
+
+def test_forge_parser_does_not_promote_other_mod_dependency_group(tmp_path) -> None:
+    from src.core.mod.mod_manager import ModManager
+
+    path = tmp_path / "multi-component.jar"
+    metadata = (
+        'modLoader="javafml"\n'
+        'loaderVersion="[47,)"\n'
+        'license="MIT"\n\n'
+        '[[mods]]\n'
+        'modId="primary"\n'
+        'version="1.0.0"\n'
+        'displayName="Primary"\n\n'
+        '[[dependencies.secondary]]\n'
+        'modId="fabricloader"\n'
+        'mandatory=true\n'
+        'versionRange="[0.15,)"\n'
+        'ordering="NONE"\n'
+        'side="BOTH"\n'
+    )
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("META-INF/mods.toml", metadata)
+
+    mod = ModManager.read_mod(path, preferred_loader="forge")
+
+    assert mod.mod_id == "primary"
+    assert "fabricloader" not in mod.dependencies
+    assert mod.dependencies["forge"] == "[47,)"

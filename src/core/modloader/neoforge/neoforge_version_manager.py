@@ -137,6 +137,25 @@ class NeoForgeVersionManager:
             if not target.is_file() or target.stat().st_size != client.stat().st_size:
                 shutil.copy2(client, target)
 
+        for library in (base_version.raw_json or {}).get("libraries", []):
+            if not isinstance(library, dict):
+                continue
+            artifact = library.get("downloads", {}).get("artifact") if isinstance(library.get("downloads"), dict) else None
+            relative = str(artifact.get("path") or "").strip() if isinstance(artifact, dict) else ""
+            if not relative:
+                try:
+                    relative = NeoForgeVersionManager._maven_path(str(library.get("name") or "")).as_posix()
+                except RuntimeError:
+                    continue
+            source = Paths.libraries() / Path(relative)
+            if not source.is_file():
+                continue
+            target = staging / "libraries" / Path(relative)
+            if target.is_file() and target.stat().st_size == source.stat().st_size:
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, target)
+
     @staticmethod
     def _run_installer(base_version: Version, neoforge_version: str, installer: Path, staging: Path, reporter: ProgressReporter | None, preferred_java_path: str | Path | None = None) -> None:
         log_path = Paths.neoforge_root() / "logs" / f"neoforge-{base_version.id}-{neoforge_version}.log"

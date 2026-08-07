@@ -1,4 +1,5 @@
 from pathlib import Path
+import io
 import json
 import zipfile
 
@@ -561,3 +562,393 @@ def test_dual_quilt_and_fabric_metadata_prefers_instance_loader(tmp_path):
     assert quilt_mod.name == "Quilt View"
     assert fabric_mod.loader == "fabric"
     assert fabric_mod.name == "Fabric View"
+
+
+def test_reads_mod_id_provided_by_forge_jarjar_library(tmp_path):
+    nested_buffer = io.BytesIO()
+    nested_metadata = (
+        'modLoader="javafml"\n'
+        'loaderVersion="[43,)"\n'
+        'license="LGPL-2.1"\n\n'
+        '[[mods]]\n'
+        'modId="kotlinforforge"\n'
+        'version="3.9.1"\n'
+        'displayName="Kotlin for Forge"\n'
+    )
+    with zipfile.ZipFile(nested_buffer, "w") as nested:
+        nested.writestr("META-INF/mods.toml", nested_metadata)
+
+    source = tmp_path / "kotlinforforge-3.9.1-all.jar"
+    jarjar = {"jars": [{"path": "META-INF/jarjar/kffmod-3.9.1.jar"}]}
+    with zipfile.ZipFile(source, "w") as archive:
+        archive.writestr(
+            "META-INF/MANIFEST.MF",
+            "Manifest-Version: 1.0\nFMLModType: LIBRARY\nImplementation-Version: 3.9.1\n",
+        )
+        archive.writestr("META-INF/jarjar/metadata.json", json.dumps(jarjar))
+        archive.writestr("META-INF/jarjar/kffmod-3.9.1.jar", nested_buffer.getvalue())
+
+    mod = ModManager.read_mod(source, preferred_loader="forge", provider_version="3.9.1")
+
+    assert mod.mod_id == "unknown"
+    assert mod.status == "Ready"
+    assert mod.metadata_format == "MANIFEST.MF:FMLModType=LIBRARY"
+    assert mod.provided_mods == (("kotlinforforge", "3.9.1"),)
+
+
+def test_scans_legacy_forge_version_mod_directory(tmp_path):
+    instance = make_instance(tmp_path, loader=("forge", "14.23.5.2860"))
+    instance.version_id = "1.12.2"
+    version_dir = ModManager.mods_dir(instance) / "1.12.2"
+    version_dir.mkdir(parents=True)
+    metadata = [{"modid": "reskillable", "name": "Reskillable", "version": "1.13.0", "mcversion": "1.12.2"}]
+    with zipfile.ZipFile(version_dir / "Reskillable-1.12.2-1.13.0.jar", "w") as archive:
+        archive.writestr("mcmod.info", json.dumps(metadata))
+
+    mods = ModManager.list_mods(instance)
+
+    assert len(mods) == 1
+    assert mods[0].mod_id == "reskillable"
+    assert mods[0].version == "1.13.0"
+    assert mods[0].path.parent == version_dir
+
+
+def test_legacy_forge_metadata_preserves_additional_declared_mod_ids(tmp_path):
+    path = tmp_path / "legacy-library-bundle.jar"
+    metadata = [
+        {"modid": "primarymod", "name": "Primary Mod", "version": "1.0.0", "mcversion": "1.12.2"},
+        {"modid": "bundledlibrary", "name": "Bundled Library", "version": "2.0.0", "mcversion": "1.12.2"},
+    ]
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("mcmod.info", json.dumps(metadata))
+
+    mod = ModManager.read_mod(path, preferred_loader="forge")
+
+    assert mod.mod_id == "primarymod"
+    assert mod.provided_mods == (("bundledlibrary", "2.0.0"),)
+
+
+def test_curseforge_pack_file_uses_verified_provider_identity_for_dependency_audit(tmp_path):
+    from hashlib import sha1
+
+    from src.core.curseforge.curseforge_pack_registry import CurseForgePackRegistry
+    from src.core.mod.mod_compatibility_manager import ModCompatibilityManager
+    from src.models.mod.mod_info import ModInfo
+
+    instance_dir = tmp_path / "legacy-instance"
+    mods_dir = instance_dir / "mods"
+    mods_dir.mkdir(parents=True)
+    instance = Instance(instance_id="legacy-id", name="RLCraft", version_id="1.12.2", instance_dir=instance_dir, mod_loader=("forge", "14.23.5.2860"))
+    target = mods_dir / "Reskillable-1.12.2-1.13.0.jar"
+    with zipfile.ZipFile(target, "w") as archive:
+        archive.writestr("META-INF/MANIFEST.MF", "Manifest-Version: 1.0\nFMLCorePluginContainsFMLMod: true\n")
+        archive.writestr("codersafterdark/reskillable/Reskillable.class", b"legacy bytecode placeholder")
+    digest = sha1(target.read_bytes(), usedforsecurity=False).hexdigest()
+    CurseForgePackRegistry.save(instance, {"managedFiles": [{
+        "projectId": 286382,
+        "fileId": 2815686,
+        "fileName": target.name,
+        "path": f"mods/{target.name}",
+        "displayName": "Reskillable",
+        "projectName": "Reskillable",
+        "sha1": digest,
+        "size": target.stat().st_size,
+        "manualImport": False,
+        "expectedModIds": ["reskillable"],
+        "selectionReason": "pack_manifest",
+    }]})
+
+    installed = ModManager.list_mods(instance)
+
+    assert len(installed) == 1
+    assert installed[0].mod_id == "reskillable"
+    assert installed[0].status == "Ready"
+    assert installed[0].metadata_format == "CurseForge provider SHA-1 identity"
+    assert installed[0].managed_by_modpack is True
+    assert installed[0].source_pack_provider == "curseforge"
+
+    consumer = ModInfo(
+        path=mods_dir / "CompatSkills.jar",
+        file_name="CompatSkills.jar",
+        enabled=True,
+        mod_id="compatskills",
+        name="CompatSkills",
+        version="1.17.0",
+        loader="forge",
+        dependencies={"reskillable": "*"},
+        managed_by_modpack=True,
+        source_pack_provider="curseforge",
+    )
+    report = ModCompatibilityManager.scan(instance, installed + [consumer])
+
+    assert not any(issue.code in {"dependency-missing", "dependency-disabled", "dependency-version"} for issue in report.issues)
+
+
+def test_manual_provider_identity_overlay_requires_matching_sha1(tmp_path):
+    from src.core.curseforge.curseforge_pack_registry import CurseForgePackRegistry
+
+    instance_dir = tmp_path / "legacy-wrong-hash"
+    mods_dir = instance_dir / "mods"
+    mods_dir.mkdir(parents=True)
+    instance = Instance(instance_id="legacy-id", name="Legacy", version_id="1.12.2", instance_dir=instance_dir, mod_loader=("forge", "14.23.5.2860"))
+    target = mods_dir / "legacy-unverified.jar"
+    with zipfile.ZipFile(target, "w") as archive:
+        archive.writestr("META-INF/MANIFEST.MF", "Manifest-Version: 1.0\n")
+        archive.writestr("example/Legacy.class", b"legacy bytecode placeholder")
+    CurseForgePackRegistry.save(instance, {"managedFiles": [{
+        "projectId": 1,
+        "fileId": 2,
+        "fileName": target.name,
+        "path": f"mods/{target.name}",
+        "displayName": "Expected Mod",
+        "sha1": "0" * 40,
+        "size": target.stat().st_size,
+        "manualImport": True,
+        "expectedModIds": ["expectedmod"],
+    }]})
+
+    installed = ModManager.list_mods(instance)
+
+    assert len(installed) == 1
+    assert installed[0].mod_id == "unknown"
+    assert installed[0].status == "Unverified"
+
+
+def test_curseforge_provider_identity_applies_to_ready_forge_library(tmp_path):
+    from hashlib import sha1
+
+    from src.core.curseforge.curseforge_pack_registry import CurseForgePackRegistry
+
+    instance_dir = tmp_path / "legacy-ready-library"
+    mods_dir = instance_dir / "mods"
+    mods_dir.mkdir(parents=True)
+    instance = Instance(instance_id="legacy-id", name="RLCraft", version_id="1.12.2", instance_dir=instance_dir, mod_loader=("forge", "14.23.5.2860"))
+    target = mods_dir / "Reskillable-1.12.2-1.13.0.jar"
+    with zipfile.ZipFile(target, "w") as archive:
+        archive.writestr(
+            "META-INF/MANIFEST.MF",
+            "Manifest-Version: 1.0\nFMLModType: LIBRARY\nImplementation-Version: 1.13.0\n",
+        )
+        archive.writestr("codersafterdark/reskillable/Reskillable.class", b"legacy bytecode placeholder")
+    digest = sha1(target.read_bytes(), usedforsecurity=False).hexdigest()
+    CurseForgePackRegistry.save(instance, {"managedFiles": [{
+        "projectId": 286382,
+        "fileId": 2815686,
+        "fileName": target.name,
+        "path": f"mods/{target.name}",
+        "displayName": "Reskillable",
+        "projectName": "Reskillable",
+        "sha1": digest,
+        "size": target.stat().st_size,
+        "manualImport": False,
+        "expectedModIds": ["reskillable"],
+        "selectionReason": "pack_manifest",
+    }]})
+
+    raw = ModManager.read_mod(target, preferred_loader="forge")
+    assert raw.status == "Ready"
+    assert raw.mod_id == "unknown"
+
+    installed = ModManager.list_mods(instance)
+
+    assert len(installed) == 1
+    assert installed[0].mod_id == "reskillable"
+    assert installed[0].status == "Ready"
+    assert installed[0].metadata_format == "CurseForge provider SHA-1 identity"
+    assert installed[0].version == "1.13.0"
+
+
+def test_manual_curseforge_provider_identity_preserves_parsed_primary_mod_id(tmp_path):
+    from hashlib import sha1
+
+    from src.core.curseforge.curseforge_pack_registry import CurseForgePackRegistry
+
+    instance_dir = tmp_path / "legacy-parsed-primary"
+    mods_dir = instance_dir / "mods"
+    mods_dir.mkdir(parents=True)
+    instance = Instance(instance_id="legacy-id", name="Legacy", version_id="1.12.2", instance_dir=instance_dir, mod_loader=("forge", "14.23.5.2860"))
+    target = mods_dir / "legacy-bundle.jar"
+    with zipfile.ZipFile(target, "w") as archive:
+        archive.writestr("mcmod.info", json.dumps([{"modid": "parsedhelper", "name": "Parsed Helper", "version": "1.0.0"}]))
+    digest = sha1(target.read_bytes(), usedforsecurity=False).hexdigest()
+    CurseForgePackRegistry.save(instance, {"managedFiles": [{
+        "projectId": 1,
+        "fileId": 2,
+        "fileName": target.name,
+        "path": f"mods/{target.name}",
+        "displayName": "Provider Project",
+        "sha1": digest,
+        "size": target.stat().st_size,
+        "manualImport": True,
+        "expectedModIds": ["provideridentity"],
+    }]})
+
+    installed = ModManager.list_mods(instance)
+
+    assert installed[0].mod_id == "parsedhelper"
+    assert ("provideridentity", "1.0.0") in installed[0].provided_mods
+    assert installed[0].metadata_format == "mcmod.info + CurseForge provider SHA-1 identity"
+
+
+def test_curseforge_sha1_identity_recovers_parser_broken_legacy_jar_for_dependency_audit(tmp_path):
+    from hashlib import sha1
+
+    from src.core.curseforge.curseforge_pack_registry import CurseForgePackRegistry
+    from src.core.mod.mod_compatibility_manager import ModCompatibilityManager
+    from src.models.mod.mod_info import ModInfo
+
+    instance_dir = tmp_path / "legacy-broken-parser"
+    mods_dir = instance_dir / "mods"
+    mods_dir.mkdir(parents=True)
+    instance = Instance(instance_id="legacy-id", name="RLCraft", version_id="1.12.2", instance_dir=instance_dir, mod_loader=("forge", "14.23.5.2860"))
+    target = mods_dir / "Reskillable-1.12.2-1.13.0.jar"
+    target.write_bytes(b"provider fixture whose generic ZIP parser rejects it")
+    digest = sha1(target.read_bytes(), usedforsecurity=False).hexdigest()
+    CurseForgePackRegistry.save(instance, {"managedFiles": [{
+        "projectId": 286382,
+        "fileId": 2815686,
+        "fileName": target.name,
+        "path": f"mods/{target.name}",
+        "displayName": "Reskillable",
+        "projectName": "Reskillable",
+        "sha1": digest,
+        "size": target.stat().st_size,
+        "manualImport": True,
+        "expectedModIds": ["reskillable"],
+        "selectionReason": "pack_manifest",
+    }]})
+
+    raw = ModManager.read_mod(target, preferred_loader="forge")
+    assert raw.status == "Broken JAR"
+    assert raw.mod_id == "unknown"
+
+    installed = ModManager.list_mods(instance)
+
+    assert len(installed) == 1
+    assert installed[0].mod_id == "reskillable"
+    assert installed[0].status == "Ready"
+    assert installed[0].error == ""
+    assert installed[0].metadata_format == "CurseForge provider SHA-1 identity"
+    assert installed[0].managed_by_modpack is True
+
+    consumer = ModInfo(
+        path=mods_dir / "CompatSkills.jar",
+        file_name="CompatSkills.jar",
+        enabled=True,
+        mod_id="compatskills",
+        name="CompatSkills",
+        version="1.17.0",
+        loader="forge",
+        dependencies={"reskillable": "*"},
+        managed_by_modpack=True,
+        source_pack_provider="curseforge",
+    )
+    report = ModCompatibilityManager.scan(instance, installed + [consumer])
+
+    assert not any(issue.code in {"dependency-missing", "dependency-disabled", "dependency-version"} for issue in report.issues)
+
+
+def test_broken_jar_provider_identity_is_not_used_when_sha1_does_not_match(tmp_path):
+    from src.core.curseforge.curseforge_pack_registry import CurseForgePackRegistry
+
+    instance_dir = tmp_path / "legacy-broken-wrong-hash"
+    mods_dir = instance_dir / "mods"
+    mods_dir.mkdir(parents=True)
+    instance = Instance(instance_id="legacy-id", name="Legacy", version_id="1.12.2", instance_dir=instance_dir, mod_loader=("forge", "14.23.5.2860"))
+    target = mods_dir / "legacy-broken.jar"
+    target.write_bytes(b"not a zip")
+    CurseForgePackRegistry.save(instance, {"managedFiles": [{
+        "projectId": 1,
+        "fileId": 2,
+        "fileName": target.name,
+        "path": f"mods/{target.name}",
+        "sha1": "0" * 40,
+        "size": target.stat().st_size,
+        "expectedModIds": ["expectedmod"],
+    }]})
+
+    installed = ModManager.list_mods(instance)
+
+    assert installed[0].mod_id == "unknown"
+    assert installed[0].status == "Broken JAR"
+
+
+def test_mixed_forge_neoforge_metadata_uses_active_loader_metadata(tmp_path):
+    source = tmp_path / "mixed-forge-neoforge.jar"
+    forge_metadata = (
+        'modLoader="javafml"\n'
+        'loaderVersion="[47,)"\n'
+        'license="MIT"\n\n'
+        '[[mods]]\n'
+        'modId="forge_view"\n'
+        'version="1.0.0"\n'
+        'displayName="Forge View"\n\n'
+        '[[dependencies.forge_view]]\n'
+        'modId="forge"\n'
+        'mandatory=true\n'
+        'versionRange="[47,)"\n'
+        'ordering="NONE"\n'
+        'side="BOTH"\n'
+    )
+    neoforge_metadata = (
+        'modLoader="javafml"\n'
+        'loaderVersion="[21,)"\n'
+        'license="MIT"\n\n'
+        '[[mods]]\n'
+        'modId="neoforge_view"\n'
+        'version="2.0.0"\n'
+        'displayName="NeoForge View"\n\n'
+        '[[dependencies.neoforge_view]]\n'
+        'modId="neoforge"\n'
+        'type="required"\n'
+        'versionRange="[21,)"\n'
+        'ordering="NONE"\n'
+        'side="BOTH"\n'
+    )
+    with zipfile.ZipFile(source, "w") as archive:
+        archive.writestr("META-INF/mods.toml", forge_metadata)
+        archive.writestr("META-INF/neoforge.mods.toml", neoforge_metadata)
+
+    forge = ModManager.read_mod(source, preferred_loader="forge")
+    neoforge = ModManager.read_mod(source, preferred_loader="neoforge")
+
+    assert forge.loader == "forge"
+    assert forge.mod_id == "forge_view"
+    assert "forge" in forge.dependencies
+    assert "neoforge" not in forge.dependencies
+    assert neoforge.loader == "neoforge"
+    assert neoforge.mod_id == "neoforge_view"
+    assert "neoforge" in neoforge.dependencies
+
+
+def test_legacy_mcmod_info_allows_unescaped_control_characters(tmp_path):
+    import zipfile
+
+    jar = tmp_path / "legacy-control-char.jar"
+    raw = b'[{"modid":"legacy_control","name":"Legacy Control","version":"1.0.0","description":"line one\nline two"}]'
+    with zipfile.ZipFile(jar, "w") as archive:
+        archive.writestr("mcmod.info", raw)
+
+    mod = ModManager.read_mod(jar, preferred_loader="forge")
+
+    assert mod.status == "Ready"
+    assert mod.mod_id == "legacy_control"
+    assert mod.version == "1.0.0"
+    assert "mcmod.info" in mod.metadata_format
+
+
+def test_legacy_mcmod_info_salvages_identity_when_json_is_malformed(tmp_path):
+    import zipfile
+
+    jar = tmp_path / "switchbow-1.6.8.jar"
+    raw = b'[{"modid":"switchbow","name":"Switch-Bow","version":"1.6.8","description":}]'
+    with zipfile.ZipFile(jar, "w") as archive:
+        archive.writestr("mcmod.info", raw)
+
+    mod = ModManager.read_mod(jar, preferred_loader="forge")
+
+    assert mod.status == "Ready"
+    assert mod.mod_id == "switchbow"
+    assert mod.version == "1.6.8"
+    assert mod.metadata_format == "mcmod.info (tolerant)"
+    assert mod.error == ""

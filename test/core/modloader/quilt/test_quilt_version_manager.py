@@ -1,4 +1,5 @@
 from pathlib import Path
+from threading import Barrier, get_ident
 
 import httpx
 import pytest
@@ -288,3 +289,26 @@ def test_requires_asm_9_9_for_java_26(tmp_path):
 
     with pytest.raises(RuntimeError, match=r"Java 26.*ASM 9\.9"):
         QuiltVersionManager._validate_bytecode_support(base, "0.30.0", metadata, {})
+
+
+def test_missing_library_metadata_is_resolved_concurrently(monkeypatch):
+    profile = {
+        "libraries": [
+            {"name": "example:first:1.0", "url": "https://example.invalid/"},
+            {"name": "example:second:1.0", "url": "https://example.invalid/"},
+        ]
+    }
+    barrier = Barrier(2)
+    worker_threads: set[int] = set()
+
+    def load_metadata(artifact, force=False, reporter=None):
+        worker_threads.add(get_ident())
+        barrier.wait(timeout=1)
+        return "e" * 40, 123
+
+    monkeypatch.setattr(QuiltVersionManager, "_load_artifact_metadata", load_metadata)
+
+    normalized = QuiltVersionManager._normalize_profile_libraries(profile)
+
+    assert len(worker_threads) == 2
+    assert [item["name"] for item in normalized["libraries"]] == ["example:first:1.0", "example:second:1.0"]

@@ -6,6 +6,7 @@ from src.core.curseforge.curseforge_pack_registry import CurseForgePackRegistry
 from src.core.curseforge.curseforge_registry import CurseForgeRegistry
 from src.core.instance.instance_run_lock import InstanceRunLock
 from src.core.mod.mod_manager import ModManager
+from src.core.network.download_pause import download_pause_controller
 from src.models.curseforge.manual_download import CurseForgeManualDownload
 from src.models.instance.instance import Instance
 
@@ -99,11 +100,11 @@ def test_manual_batch_matches_required_file_by_sha1_and_adds_extra_mod(tmp_path,
     monkeypatch.setattr(InstanceRunLock, "is_active", staticmethod(lambda _instance: False))
     imported: list[tuple[object, object]] = []
 
-    def fake_install(_instance, matched_requirement, source):
+    def fake_install(_instance, matched_requirement, source, launch_lock_token=None):
         imported.append((matched_requirement, source))
         return "installed-required.jar"
 
-    def fake_add_mods(_instance, paths, replace=False, allow_unverified=False):
+    def fake_add_mods(_instance, paths, replace=False, allow_unverified=False, launch_lock_token=None):
         assert replace is False
         assert allow_unverified is True
         source = list(paths)[0]
@@ -244,3 +245,41 @@ def test_manual_batch_accepts_matching_hash_with_different_extension_and_renames
     assert result.added_mods == ()
     assert result.rejected == ()
     assert (instance_dir / "resourcepacks" / "archive.zip").read_bytes() == content
+
+
+def test_manual_import_can_use_owned_preparing_launch_lock(tmp_path, monkeypatch):
+    instance_dir = tmp_path / "instance"
+    instance_dir.mkdir()
+    instance = Instance(instance_id="id", name="Pack", version_id="1.12.2", instance_dir=instance_dir, mod_loader=("forge", "14.23.5.2860"))
+    source = tmp_path / "restricted.jar"
+    content = b"manual during paused launch"
+    source.write_bytes(content)
+    digest = sha1(content, usedforsecurity=False).hexdigest()
+    CurseForgePackRegistry.save(instance, {"managedFiles": [{"projectId": 10, "fileId": 20, "fileName": source.name, "path": f"mods/{source.name}", "sha1": digest, "size": len(content)}]})
+    requirement = CurseForgeManualDownload(project_id=10, file_id=20, project_name="Restricted", file_name=source.name, file_size=len(content), sha1=digest, project_url="https://example.invalid", reason="manual", managed_kind="pack", managed_path=f"mods/{source.name}")
+
+    monkeypatch.setattr(InstanceRunLock, "is_active", staticmethod(lambda _instance: True))
+    monkeypatch.setattr(InstanceRunLock, "owns_preparing_lock", staticmethod(lambda _instance, token: token == "owned-token"))
+    download_pause_controller.begin()
+    assert download_pause_controller.request_pause() is True
+    try:
+        assert CurseForgeManualInstaller.install(instance, requirement, source, launch_lock_token="owned-token") == source.name
+    finally:
+        download_pause_controller.finish()
+
+
+def test_manual_import_rejects_unowned_active_launch_lock(tmp_path, monkeypatch):
+    import pytest
+
+    instance_dir = tmp_path / "instance"
+    instance_dir.mkdir()
+    instance = Instance(instance_id="id", name="Pack", version_id="1.12.2", instance_dir=instance_dir, mod_loader=("forge", "14.23.5.2860"))
+    source = tmp_path / "restricted.jar"
+    source.write_bytes(b"manual")
+    requirement = CurseForgeManualDownload(project_id=10, file_id=20, project_name="Restricted", file_name=source.name, file_size=0, sha1="", project_url="https://example.invalid", reason="manual", managed_kind="pack", managed_path=f"mods/{source.name}")
+
+    monkeypatch.setattr(InstanceRunLock, "is_active", staticmethod(lambda _instance: True))
+    monkeypatch.setattr(InstanceRunLock, "owns_preparing_lock", staticmethod(lambda _instance, _token: False))
+
+    with pytest.raises(RuntimeError, match="Close Minecraft"):
+        CurseForgeManualInstaller.install(instance, requirement, source, launch_lock_token="wrong-token")

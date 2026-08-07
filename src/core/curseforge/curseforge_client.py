@@ -321,9 +321,15 @@ class CurseForgeClient:
     @staticmethod
     def latest_compatible_file(project_id: int | str, game_version: str, loader: str = "forge", release_types: tuple[str, ...] | list[str] | set[str] | None = None) -> CurseForgeFile:
         files = CurseForgeClient.list_files(project_id, game_version=game_version, loader=loader, release_types=release_types)
-        if not files:
-            raise RuntimeError(f"No allowed {loader.title()} file is available for CurseForge project {project_id}.")
-        return files[0]
+        normalized_game_version = str(game_version).strip()
+        for file in files:
+            loader_status = CurseForgeClient.loader_compatibility(file, loader)
+            if loader_status not in {"compatible", "universal", "unknown"}:
+                continue
+            if normalized_game_version and file.game_versions and normalized_game_version not in file.game_versions:
+                continue
+            return file
+        raise RuntimeError(f"No compatible {loader.title()} file for Minecraft {game_version} is available for CurseForge project {project_id}.")
 
     @staticmethod
     def normalize_loader(loader: str) -> str:
@@ -360,7 +366,7 @@ class CurseForgeClient:
     def _loader_compatibility(loaders: tuple[str, ...] | list[str] | set[str], loader: str) -> str:
         normalized_loader = CurseForgeClient.normalize_loader(loader)
         normalized = {str(value).strip().casefold() for value in loaders if str(value).strip()}
-        if {"fabric", "forge"}.issubset(normalized):
+        if normalized_loader in {"fabric", "forge"} and {"fabric", "forge"}.issubset(normalized):
             return "universal"
         if normalized_loader and normalized_loader in normalized:
             return "compatible"

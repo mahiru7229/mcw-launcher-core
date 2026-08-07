@@ -23,6 +23,8 @@ from src.core.modloader.forge.forge_preflight_manager import ForgePreflightManag
 from src.core.modloader.forge.compatibility_confirmation import CompatibilityConfirmationRequired
 from src.core.curseforge.curseforge_content_manager import CurseForgeContentManager
 from src.core.modrinth.modrinth_content_manager import ModrinthContentManager
+from src.core.mod.modpack_dependency_resolver import ModpackDependencyResolver
+from src.models.mod.dependency_resolution import DependencyResolutionResult
 from src.core.runtime.process_supervisor import ProcessSupervisor
 from src.core.minecraft.version_manager import VersionManager
 from src.core.minecraft.version_manifest_manager import (
@@ -960,6 +962,50 @@ def test_fabric_instance_uses_resolved_knot_client(monkeypatch: pytest.MonkeyPat
     assert result["minecraftVersion"] == "fabric-loader-0.19.3-1.21.1"
     assert result["minecraftJavaMajorVersion"] == 21
 
+
+def test_complete_managed_dependencies_repeats_until_graph_converges(monkeypatch: pytest.MonkeyPatch):
+    instance = make_instance()
+    reporter = object()
+    resolutions = iter((
+        DependencyResolutionResult(added_files=("Dependency A",)),
+        DependencyResolutionResult(added_files=("Dependency B",)),
+        DependencyResolutionResult(),
+    ))
+    calls: list[str] = []
+
+    monkeypatch.setattr(ModpackDependencyResolver, "resolve", lambda received_instance, received_reporter: calls.append("resolve") or next(resolutions))
+    monkeypatch.setattr(ModrinthContentManager, "ensure", lambda *args, **kwargs: calls.append("modrinth") or ("modrinth warning",))
+    monkeypatch.setattr(CurseForgeContentManager, "ensure", lambda *args, **kwargs: calls.append("curseforge") or ("curseforge warning",))
+
+    result, modrinth_warnings, curseforge_warnings = MinecraftExecutor._complete_managed_dependencies(
+        instance,
+        reporter,
+        True,
+        True,
+        "launch-token",
+        ("initial Modrinth warning",),
+        ("initial CurseForge warning",),
+    )
+
+    assert result.changed is False
+    assert calls == ["resolve", "modrinth", "curseforge", "resolve", "modrinth", "curseforge", "resolve"]
+    assert modrinth_warnings == ("initial Modrinth warning", "modrinth warning", "modrinth warning")
+    assert curseforge_warnings == ("initial CurseForge warning", "curseforge warning", "curseforge warning")
+
+
+def test_complete_managed_dependencies_surfaces_late_manual_requirement(monkeypatch: pytest.MonkeyPatch):
+    instance = make_instance()
+    expected = RuntimeError("manual dependency required")
+
+    monkeypatch.setattr(ModpackDependencyResolver, "resolve", lambda *_args, **_kwargs: DependencyResolutionResult(added_files=("Manual dependency",)))
+    monkeypatch.setattr(ModrinthContentManager, "ensure", lambda *args, **kwargs: ())
+    monkeypatch.setattr(CurseForgeContentManager, "ensure", lambda *args, **kwargs: (_ for _ in ()).throw(expected))
+
+    with pytest.raises(RuntimeError) as error:
+        MinecraftExecutor._complete_managed_dependencies(instance, object(), True, True, "launch-token", (), ())
+
+    assert error.value is expected
+
 def test_run_uses_instance_failure_policies_before_launcher_defaults(monkeypatch: pytest.MonkeyPatch):
     patch_pipeline(monkeypatch)
     settings = SimpleNamespace(
@@ -1197,3 +1243,18 @@ def test_start_with_java_recovery_retries_and_resets_custom_path(monkeypatch: py
     assert launched == [preferred, recovered]
     assert updated_paths == [""]
     assert warnings and "switched this instance back to Automatic" in warnings[0]
+
+
+def test_complete_managed_dependencies_reuses_initial_resolution_when_no_download_was_pending(monkeypatch: pytest.MonkeyPatch):
+    initial = DependencyResolutionResult()
+    monkeypatch.setattr(ModpackDependencyResolver, "resolve", lambda *_args, **_kwargs: pytest.fail("unchanged initial dependency resolution must not be repeated"))
+    monkeypatch.setattr(ModrinthContentManager, "ensure", lambda *_args, **_kwargs: pytest.fail("no additional provider pass is needed"))
+    monkeypatch.setattr(CurseForgeContentManager, "ensure", lambda *_args, **_kwargs: pytest.fail("no additional provider pass is needed"))
+
+    result, modrinth_warnings, curseforge_warnings = MinecraftExecutor._complete_managed_dependencies(
+        make_instance(), object(), True, True, "launch-token", ("m",), ("c",), initial_resolution=initial, refresh_after_initial_ensure=False
+    )
+
+    assert result is initial
+    assert modrinth_warnings == ("m",)
+    assert curseforge_warnings == ("c",)

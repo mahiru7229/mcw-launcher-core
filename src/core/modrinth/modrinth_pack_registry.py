@@ -201,6 +201,8 @@ class ModrinthPackRegistry:
                 "requiredBy": ModrinthPackRegistry._normalize_required_by(item.get("requiredBy", [])),
                 "displayName": str(item.get("displayName") or item.get("title") or relative.name).strip(),
                 "versionNumber": str(item.get("versionNumber") or "").strip(),
+                "providesModId": str(item.get("providesModId") or "").strip().casefold(),
+                "requestedVersionRanges": ModrinthPackRegistry._normalize_required_by(item.get("requestedVersionRanges", [])),
             }
         return sorted(normalized.values(), key=lambda item: item["path"].casefold())
 

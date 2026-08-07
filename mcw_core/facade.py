@@ -49,6 +49,7 @@ class MCWCore:
                 on_progress=request.on_progress,
                 on_exit=request.on_exit,
                 allow_compatibility_issues_once=request.allow_compatibility_issues_once,
+                on_manual_content_required=request.on_manual_content_required,
             )
             return LaunchResult.from_legacy(result)
         finally:

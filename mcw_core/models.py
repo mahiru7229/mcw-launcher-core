@@ -28,6 +28,7 @@ class LaunchRequest:
     debug_mode: bool = False
     on_progress: ProgressCallback | None = None
     on_exit: Callable[[GameExitResult], None] | None = None
+    on_manual_content_required: Callable[[Exception], None] | None = None
     allow_compatibility_issues_once: bool = False
 
 

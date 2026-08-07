@@ -12,6 +12,7 @@ class ModrinthManagedFilesRequired(RuntimeError):
         self.instance_name = instance.name
         self.instance_dir = Path(instance.instance_dir)
         self.requirements = requirements
+        self.launch_lock_token = ""
 
 
 class ModrinthModpackManualDownloadRequired(RuntimeError):

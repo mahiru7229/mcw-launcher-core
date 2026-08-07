@@ -95,6 +95,11 @@ def test_headless_facade_launches_an_offline_instance(monkeypatch: pytest.Monkey
 
 
 
+def test_optifine_service_is_available_from_public_facade(tmp_path: Path) -> None:
+    core = MCWCore(CorePaths.from_root(tmp_path))
+    assert core.optifine.OFFICIAL_DOWNLOADS_URL == "https://optifine.net/downloads"
+
+
 def test_instance_state_types_are_public() -> None:
     assert InstanceState.RUNNING.value == "running"
     status = InstanceStatus(instance_id="id", name="Example", state=InstanceState.READY)
@@ -138,6 +143,7 @@ def test_core_has_no_gui_or_qt_dependency() -> None:
                 if module == "src.gui" or module.startswith("src.gui.") or module in {"PySide6", "PyQt6", "PyQt5"} or module.startswith(("PySide6.", "PyQt6.", "PyQt5.")):
                     violations.append(f"{path.relative_to(PROJECT_ROOT)} -> {module}")
     assert not violations, "Core dependency violations:\n" + "\n".join(violations)
+
 
 
 def test_headless_distribution_excludes_gui_and_pyside_dependency() -> None:

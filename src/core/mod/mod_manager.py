@@ -272,7 +272,12 @@ class ModManager:
                 has_fabric = "fabric.mod.json" in names
                 has_quilt = "quilt.mod.json" in names
                 has_forge = "META-INF/mods.toml" in names
+                has_neoforge = "META-INF/neoforge.mods.toml" in names
 
+                if normalized_preference == ModLoaderManager.NEOFORGE and has_neoforge:
+                    return finalize(ModManager._read_forge_mod(path, file_name, enabled, archive.read("META-INF/neoforge.mods.toml"), loader="neoforge", metadata_format="neoforge.mods.toml", manifest=manifest, provider_version=provider_version))
+                if normalized_preference == ModLoaderManager.FORGE and has_forge:
+                    return finalize(ModManager._read_forge_mod(path, file_name, enabled, archive.read("META-INF/mods.toml"), loader="forge", metadata_format="mods.toml", manifest=manifest, provider_version=provider_version))
                 if has_quilt and (normalized_preference == ModLoaderManager.QUILT or not has_fabric):
                     return finalize(ModManager._read_quilt_mod(path, file_name, enabled, archive.read("quilt.mod.json"), manifest, provider_version))
                 if has_fabric and has_forge:
@@ -293,7 +298,7 @@ class ModManager:
                     return finalize(fabric)
                 if has_quilt:
                     return finalize(ModManager._read_quilt_mod(path, file_name, enabled, archive.read("quilt.mod.json"), manifest, provider_version))
-                if "META-INF/neoforge.mods.toml" in names:
+                if has_neoforge:
                     return finalize(ModManager._read_forge_mod(path, file_name, enabled, archive.read("META-INF/neoforge.mods.toml"), loader="neoforge", metadata_format="neoforge.mods.toml", manifest=manifest, provider_version=provider_version))
                 if has_forge:
                     loader = ModLoaderManager.NEOFORGE if normalized_preference == ModLoaderManager.NEOFORGE else ModLoaderManager.FORGE
@@ -531,10 +536,17 @@ class ModManager:
 
     @staticmethod
     def _read_legacy_forge_mod(path: Path, file_name: str, enabled: bool, raw_metadata: bytes) -> ModInfo:
+        metadata_format = "mcmod.info"
         try:
-            data = json.loads(raw_metadata.decode("utf-8-sig"))
-        except (UnicodeError, json.JSONDecodeError) as error:
-            return ModManager._invalid_mod(path, file_name, enabled, "Broken JAR", f"Invalid mcmod.info: {error}", loader="forge", metadata_format="mcmod.info")
+            text = raw_metadata.decode("utf-8-sig")
+            data = json.loads(text, strict=False)
+        except UnicodeError as error:
+            return ModManager._invalid_mod(path, file_name, enabled, "Broken JAR", f"Invalid mcmod.info: {error}", loader="forge", metadata_format=metadata_format)
+        except json.JSONDecodeError as error:
+            data = ModManager._salvage_legacy_mcmod_info(text)
+            if data is None:
+                return ModManager._invalid_mod(path, file_name, enabled, "Broken JAR", f"Invalid mcmod.info: {error}", loader="forge", metadata_format=metadata_format)
+            metadata_format = "mcmod.info (tolerant)"
 
         if isinstance(data, dict):
             entries = data.get("modList") if isinstance(data.get("modList"), list) else [data]
@@ -568,7 +580,7 @@ class ModManager:
             name=str(metadata.get("name") or mod_id).strip(),
             version=str(metadata.get("version") or "Unknown").strip(),
             loader="forge",
-            metadata_format="mcmod.info",
+            metadata_format=metadata_format,
             description=str(metadata.get("description") or "").strip(),
             environment="*",
             authors=ModManager._parse_authors(metadata.get("authorList") or metadata.get("authors")),
@@ -582,6 +594,41 @@ class ModManager:
             error="",
             provided_mods=tuple(sorted(provided.items())),
         )
+
+    @staticmethod
+    def _salvage_legacy_mcmod_info(text: str) -> list[dict] | None:
+        def field(*names: str) -> str:
+            alternatives = "|".join(re.escape(name) for name in names)
+            match = re.search(rf'"(?:{alternatives})"\s*:\s*"((?:\\.|[^"\\])*)"', text, flags=re.IGNORECASE | re.DOTALL)
+            if match is None:
+                return ""
+            try:
+                return json.loads(f'"{match.group(1)}"', strict=False)
+            except json.JSONDecodeError:
+                return match.group(1).replace('\\"', '"').replace('\\\\', '\\')
+
+        mod_id = field("modid", "modId").strip()
+        if not mod_id:
+            return None
+
+        metadata: dict[str, object] = {
+            "modid": mod_id,
+            "name": field("name").strip() or mod_id,
+            "version": field("version").strip() or "Unknown",
+        }
+        for key in ("description", "mcversion", "license"):
+            value = field(key).strip()
+            if value:
+                metadata[key] = value
+
+        for key in ("requiredMods", "dependencies", "dependants"):
+            match = re.search(rf'"{re.escape(key)}"\s*:\s*\[(.*?)\]', text, flags=re.IGNORECASE | re.DOTALL)
+            if match is None:
+                continue
+            values = re.findall(r'"((?:\\.|[^"\\])*)"', match.group(1))
+            if values:
+                metadata[key] = values
+        return [metadata]
 
     @staticmethod
     def _discover_mod_paths(instance: Instance, directory: Path) -> list[Path]:
@@ -610,9 +657,10 @@ class ModManager:
         required: dict[str, object] = {}
         optional: dict[str, object] = {}
         groups = data.get("dependencies") if isinstance(data.get("dependencies"), dict) else {}
+        # Dependencies are scoped to the selected top-level mod ID. Falling
+        # back to another dependency table can promote metadata from a sibling
+        # or nested component and create false dependencies for the active mod.
         entries = groups.get(mod_id) if isinstance(groups.get(mod_id), list) else []
-        if not entries:
-            entries = next((value for value in groups.values() if isinstance(value, list)), [])
         for entry in entries:
             if not isinstance(entry, dict):
                 continue

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from pathlib import Path
 from threading import Lock
@@ -21,6 +22,7 @@ from src.models.progress.progress_stage import ProgressStage
 
 class QuiltVersionManager:
     CACHE_SCHEMA_VERSION = 2
+    MAX_METADATA_WORKERS = 6
     _locks: dict[str, Lock] = {}
     _locks_guard = Lock()
 
@@ -181,7 +183,8 @@ class QuiltVersionManager:
     @staticmethod
     def _normalize_profile_libraries(profile: dict, reporter: ProgressReporter | None = None, force_artifact_refresh: bool = False) -> dict:
         normalized = deepcopy(profile)
-        normalized_libraries: list[dict] = []
+        normalized_libraries: list[dict | None] = []
+        pending: list[tuple[int, dict, MavenArtifact]] = []
         for library in profile.get("libraries", []):
             if not isinstance(library, dict):
                 continue
@@ -193,10 +196,28 @@ class QuiltVersionManager:
             coordinate = str(item.get("name", "")).strip()
             repository_url = str(item.get("url") or QuiltVersionManager._repository_for_coordinate(coordinate))
             artifact = MavenArtifact.from_coordinate(coordinate, repository_url)
-            sha1, size = QuiltVersionManager._load_artifact_metadata(artifact, force_artifact_refresh, reporter)
+            pending.append((len(normalized_libraries), item, artifact))
+            normalized_libraries.append(None)
+
+        metadata_reporter = reporter if len(pending) <= 1 else None
+
+        def resolve(entry: tuple[int, dict, MavenArtifact]) -> tuple[int, dict]:
+            index, item, artifact = entry
+            sha1, size = QuiltVersionManager._load_artifact_metadata(artifact, force_artifact_refresh, metadata_reporter)
             item["downloads"] = {"artifact": {"path": artifact.path.as_posix(), "sha1": sha1, "size": size, "url": artifact.url}}
-            normalized_libraries.append(item)
-        normalized["libraries"] = normalized_libraries
+            return index, item
+
+        if pending:
+            workers = min(QuiltVersionManager.MAX_METADATA_WORKERS, len(pending))
+            if workers == 1:
+                for index, item in map(resolve, pending):
+                    normalized_libraries[index] = item
+            else:
+                with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="quilt-meta") as executor:
+                    for index, item in executor.map(resolve, pending):
+                        normalized_libraries[index] = item
+
+        normalized["libraries"] = [item for item in normalized_libraries if item is not None]
         return normalized
 
     @staticmethod

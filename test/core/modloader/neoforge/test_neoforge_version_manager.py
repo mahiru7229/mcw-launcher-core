@@ -187,3 +187,22 @@ def test_run_installer_reports_java_runner_output_on_failure(monkeypatch, tmp_pa
         NeoForgeVersionManager._run_installer(make_version(tmp_path), "21.1.200", installer, tmp_path / "staging", None)
 
     assert "final NeoForge detail" in (neoforge_root / "logs" / "neoforge-1.21.1-21.1.200.log").read_text(encoding="utf-8")
+
+
+def test_prepare_staging_reuses_cached_vanilla_libraries(monkeypatch, tmp_path: Path) -> None:
+    version = make_version(tmp_path)
+    cached_client = tmp_path / "cache" / f"{version.id}.jar"
+    cached_client.parent.mkdir(parents=True, exist_ok=True)
+    cached_client.write_bytes(b"client")
+    libraries = tmp_path / "libraries"
+    cached_library = libraries / "com/example/base/1.0/base-1.0.jar"
+    cached_library.parent.mkdir(parents=True, exist_ok=True)
+    cached_library.write_bytes(b"cached-base-library")
+    monkeypatch.setattr(Paths, "client", staticmethod(lambda current: cached_client))
+    monkeypatch.setattr(Paths, "libraries", staticmethod(lambda: libraries))
+
+    staging = tmp_path / "staging-cache"
+    staging.mkdir()
+    NeoForgeVersionManager._prepare_staging(version, staging)
+
+    assert (staging / "libraries/com/example/base/1.0/base-1.0.jar").read_bytes() == b"cached-base-library"

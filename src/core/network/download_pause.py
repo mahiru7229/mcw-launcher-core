@@ -91,6 +91,12 @@ class DownloadPauseController:
             if self._active and self._cancel_requested:
                 raise DownloadCancelledError("Download cancelled by user.")
 
+    def raise_if_cancel_requested(self) -> None:
+        """Raise for cancellation without waiting for a paused session to resume."""
+        with self._condition:
+            if self._active and self._cancel_requested:
+                raise DownloadCancelledError("Download cancelled by user.")
+
     def wait(self, seconds: float) -> None:
         """Cooperative delay that respects pause, resume, and cancel requests."""
         deadline = monotonic() + max(0.0, float(seconds))

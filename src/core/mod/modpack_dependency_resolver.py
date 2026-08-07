@@ -9,6 +9,7 @@ from typing import Callable, TypeVar
 
 from src.core.curseforge.curseforge_client import CurseForgeClient
 from src.core.curseforge.curseforge_pack_registry import CurseForgePackRegistry
+from src.core.mod.mod_capability_index import ModCapabilityIndex
 from src.core.mod.mod_compatibility_manager import ModCompatibilityManager
 from src.core.mod.mod_manager import ModManager
 from src.core.mod.mod_provenance_registry import ModProvenanceRegistry
@@ -436,18 +437,30 @@ class ModpackDependencyResolver:
                 continue
             changed |= ModpackDependencyResolver._hydrate_curseforge_entry(entry, file)
             selected.setdefault(project_id, entry)
-            files[file_id] = file
+            if ModpackDependencyResolver._curseforge_dependency_metadata_in_scope(file, loader_name):
+                files[file_id] = file
+            else:
+                declared = ", ".join(file.loaders) or "unknown"
+                warnings.append(
+                    f"Ignored CurseForge dependency metadata for {entry.get('fileName') or file.file_name}: "
+                    f"declared loader(s) {declared} are outside the active {loader_name} context."
+                )
             ModpackDependencyResolver._report(reporter, "Resolving CurseForge modpack dependencies...", completed, max(1, len(mod_entries)))
 
-        queue: deque[tuple[CurseForgeFile, int, str]] = deque(
-            (file, 0, ModpackDependencyResolver._entry_label(selected.get(file.project_id, {}), str(file.project_id)))
+        queue: deque[tuple[CurseForgeFile, int, str, bool]] = deque(
+            (
+                file,
+                0,
+                ModpackDependencyResolver._entry_label(selected.get(file.project_id, {}), str(file.project_id)),
+                str(selected.get(file.project_id, {}).get("selectionReason") or "pack_manifest") == "pack_manifest",
+            )
             for file in files.values()
         )
         visited_files: set[int] = set()
         discovered = 0
 
         while queue:
-            file, depth, parent_label = queue.popleft()
+            file, depth, parent_label, parent_pack_pinned = queue.popleft()
             if file.file_id in visited_files:
                 continue
             if depth > ModpackDependencyResolver.MAX_DEPTH:
@@ -471,7 +484,18 @@ class ModpackDependencyResolver:
                         )
                     )
                 except Exception as error:
-                    unresolved.append(f"{parent_label} requires CurseForge project {dependency.project_id}: {error}")
+                    message = f"{parent_label} requires CurseForge project {dependency.project_id}: {error}"
+                    if not parent_pack_pinned:
+                        unresolved.append(message)
+                    continue
+                if not ModpackDependencyResolver._curseforge_dependency_metadata_in_scope(dependency_file, loader_name):
+                    declared = ", ".join(dependency_file.loaders) or "unknown"
+                    message = (
+                        f"{parent_label} requires CurseForge project {dependency.project_id}, but file {dependency_file.file_id} "
+                        f"declares loader(s) {declared} outside the active {loader_name} context."
+                    )
+                    if not parent_pack_pinned:
+                        unresolved.append(message)
                     continue
                 if dependency_file.project_id in selected:
                     changed |= ModpackDependencyResolver._append_required_by(selected[dependency_file.project_id], parent_label)
@@ -491,7 +515,7 @@ class ModpackDependencyResolver:
                 project_identities = ModpackDependencyResolver._project_identities(project) if project is not None else {ModpackDependencyResolver._canonical_identity(project_name)}
                 project_identities.discard("")
                 if project_identities & installed_identities:
-                    queue.append((dependency_file, depth + 1, project_name or dependency_file.file_name))
+                    queue.append((dependency_file, depth + 1, project_name or dependency_file.file_name, False))
                     continue
                 path = ModpackDependencyResolver._unique_mod_path(entries, dependency_file.file_name, str(dependency_file.project_id), dependency_file.sha1)
                 target = {
@@ -523,13 +547,18 @@ class ModpackDependencyResolver:
                 added.append(project_name or target["fileName"])
                 discovered += 1
                 changed = True
-                queue.append((dependency_file, depth + 1, project_name or target["fileName"]))
+                queue.append((dependency_file, depth + 1, project_name or target["fileName"], False))
 
         if changed or unresolved:
             registry["managedFiles"] = entries
             registry["dependencyResolution"] = ModpackDependencyResolver._resolution_payload(added, unresolved)
             CurseForgePackRegistry.save(Path(instance.instance_dir), registry)
         return DependencyResolutionResult(tuple(added), tuple(warnings), tuple(unresolved))
+
+    @staticmethod
+    def _curseforge_dependency_metadata_in_scope(file: CurseForgeFile, loader_name: str) -> bool:
+        status = CurseForgeClient.loader_compatibility(file, loader_name)
+        return status in {"compatible", "universal", "unknown"}
 
     @staticmethod
     def _resolve_cross_provider_missing(instance: Instance, reporter: ProgressReporter | None) -> DependencyResolutionResult:
@@ -759,13 +788,20 @@ class ModpackDependencyResolver:
             mods = ModManager.list_mods(instance)
         except (AttributeError, FileNotFoundError, OSError):
             return set()
-        return {
+        identities = {
             identity
             for mod in mods
             if mod.enabled
             for raw in ([mod.mod_id] if mod.mod_id != "unknown" else []) + [mod_id for mod_id, _version in mod.provided_mods]
             if (identity := ModpackDependencyResolver._canonical_identity(raw))
         }
+        capabilities = ModCapabilityIndex.build(instance, mods)
+        identities.update(
+            identity
+            for mod_id in capabilities
+            if (identity := ModpackDependencyResolver._canonical_identity(mod_id))
+        )
+        return identities
 
     @staticmethod
     def _prune_redundant_embedded_dependencies(instance: Instance) -> tuple[str, ...]:
@@ -781,34 +817,65 @@ class ModpackDependencyResolver:
                 normalized = str(mod_id or "").strip().casefold()
                 if normalized:
                     embedded_providers.setdefault(normalized, []).append(mod)
-        if not embedded_providers:
-            return ()
+
+        by_filename = {mod.file_name.casefold(): mod for mod in mods}
+        try:
+            capabilities = ModCapabilityIndex.build(instance, mods)
+        except (AttributeError, FileNotFoundError, OSError):
+            capabilities = {}
+        for mod_id, entries in capabilities.items():
+            for capability in entries:
+                if capability.source == "top_level":
+                    continue
+                owner = by_filename.get(capability.owner_file.casefold())
+                if owner is not None:
+                    embedded_providers.setdefault(mod_id, []).append(owner)
 
         provenance = ModProvenanceRegistry.entries_by_file(instance)
-        redundant = []
+        pack_manifest_projects: dict[tuple[str, str], list] = {}
         for mod in mods:
-            if not mod.enabled or mod.mod_id.casefold() not in embedded_providers:
+            source = provenance.get(mod.file_name.casefold(), {})
+            if not isinstance(source, dict) or str(source.get("selectionReason") or "").strip().casefold() != "pack_manifest":
+                continue
+            provider = str(source.get("provider") or mod.source or mod.source_pack_provider or "").strip().casefold()
+            project_id = str(source.get("projectId") or mod.source_project_id or "").strip()
+            if provider and project_id:
+                pack_manifest_projects.setdefault((provider, project_id), []).append(mod)
+
+        redundant: list[tuple[object, object | None, str]] = []
+        for mod in mods:
+            if not mod.enabled:
                 continue
             source = provenance.get(mod.file_name.casefold(), {})
             if not isinstance(source, dict) or str(source.get("selectionReason") or "").strip().casefold() != "required_dependency":
                 continue
-            providers = [provider for provider in embedded_providers[mod.mod_id.casefold()] if provider.path != mod.path]
+            normalized_id = mod.mod_id.casefold()
+            providers = [provider for provider in embedded_providers.get(normalized_id, ()) if provider.path != mod.path]
             if providers:
-                redundant.append((mod, providers[0]))
+                redundant.append((mod, providers[0], f"{providers[0].name} already provides mod ID '{mod.mod_id}'"))
+                continue
+            provider = str(source.get("provider") or mod.source or mod.source_pack_provider or "").strip().casefold()
+            project_id = str(source.get("projectId") or mod.source_project_id or "").strip()
+            manifest_matches = [candidate for candidate in pack_manifest_projects.get((provider, project_id), ()) if candidate.path != mod.path]
+            if manifest_matches:
+                redundant.append((mod, manifest_matches[0], f"the pack manifest already pins {manifest_matches[0].file_name}"))
         if not redundant:
             return ()
 
         mods_dir = ModManager.mods_dir(instance).resolve()
         messages: list[str] = []
-        removed: list[tuple[object, object]] = []
-        for mod, provider in redundant:
+        removed: list[tuple[object, object | None]] = []
+        for mod, provider, reason in redundant:
             try:
                 candidate = mod.path.resolve()
                 if candidate.parent != mods_dir:
                     continue
+                expected_sha1 = str(provenance.get(mod.file_name.casefold(), {}).get("sha1") or "").strip().casefold()
+                if expected_sha1 and ModpackDependencyResolver._file_sha1(candidate) != expected_sha1:
+                    continue
                 candidate.unlink(missing_ok=True)
                 removed.append((mod, provider))
-                messages.append(f"Removed redundant standalone dependency {mod.name}; {provider.name} already provides mod ID '{mod.mod_id}'.")
+                messages.append(f"Removed redundant standalone dependency {mod.name}; {reason}.")
             except OSError:
                 continue
         if not removed:
@@ -1026,5 +1093,12 @@ class ModpackDependencyResolver:
 
     @staticmethod
     def _report(reporter: ProgressReporter | None, message: str, current: int, total: int) -> None:
-        if reporter is not None:
-            reporter.files(stage=ProgressStage.CHECKING_MODPACK, message=message, current=current, total=total)
+        if reporter is None:
+            return
+        normalized_total = max(1, int(total))
+        normalized_current = max(0, min(int(current), normalized_total))
+        if normalized_total > 20 and normalized_current not in {0, normalized_total}:
+            step = max(1, normalized_total // 20)
+            if normalized_current % step != 0:
+                return
+        reporter.files(stage=ProgressStage.CHECKING_MODPACK, message=message, current=normalized_current, total=normalized_total)

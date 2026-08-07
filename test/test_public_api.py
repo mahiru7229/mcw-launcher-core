@@ -1,14 +1,14 @@
 from importlib.metadata import PackageNotFoundError, version
 
 import mcw_core
-from mcw_core import LaunchRequest
+from mcw_core import LaunchRequest, get_default_core
 from mcw_core.api.config.managed_content_policy import ManagedContentPolicy
 from mcw_core.api.hardware.first_run_recommendation_service import FirstRunRecommendationService
 from mcw_core.api.theme.theme_palette import DEFAULT_THEME_PALETTE, derive_custom_text, is_readable_text
 
 
-def test_bundled_core_runtime_version_follows_launcher_stable() -> None:
-    assert mcw_core.__version__ == "1.1.0"
+def test_bundled_core_runtime_version_follows_launcher_release() -> None:
+    assert mcw_core.__version__ == "1.1.2"
 
 
 def test_distribution_version_when_installed() -> None:
@@ -16,7 +16,13 @@ def test_distribution_version_when_installed() -> None:
         installed = version("mcw-core")
     except PackageNotFoundError:
         return
-    assert installed == "1.1.0"
+    assert installed == "1.1.2"
+
+
+def test_optifine_public_api_is_import_only() -> None:
+    service = get_default_core().optifine
+    assert callable(service.inspect_file)
+    assert not hasattr(service, "list_versions")
 
 
 def test_new_public_api_defaults() -> None:

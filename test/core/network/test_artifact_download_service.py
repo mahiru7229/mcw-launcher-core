@@ -101,6 +101,40 @@ def test_safe_destination_rejects_unsafe_paths(tmp_path: Path, path: str) -> Non
         ArtifactDownloadService.safe_destination(tmp_path, path)
 
 
+def test_manual_copy_owned_by_paused_launch_can_continue_without_resuming_downloads(tmp_path: Path) -> None:
+    content = b"manual recovery while launch is paused"
+    source = tmp_path / "source.bin"
+    source.write_bytes(content)
+    destination = tmp_path / "mods" / "expected.zip"
+    artifact = request(tmp_path, destination=destination, expected_size=len(content), hashes={"sha1": sha1(content, usedforsecurity=False).hexdigest()})
+    download_pause_controller.begin()
+    assert download_pause_controller.request_pause() is True
+    try:
+        installed = ArtifactDownloadService().accept_manual_file(artifact, source, allow_while_paused=True)
+    finally:
+        download_pause_controller.finish()
+
+    assert installed == destination
+    assert destination.read_bytes() == content
+
+
+def test_manual_copy_bypassing_pause_still_honors_cancel(tmp_path: Path) -> None:
+    content = b"cancelled manual recovery"
+    source = tmp_path / "source.bin"
+    source.write_bytes(content)
+    destination = tmp_path / "mods" / "expected.zip"
+    artifact = request(tmp_path, destination=destination, expected_size=len(content), hashes={"sha1": sha1(content, usedforsecurity=False).hexdigest()})
+    download_pause_controller.begin()
+    download_pause_controller.request_cancel()
+    try:
+        with pytest.raises(DownloadCancelledError):
+            ArtifactDownloadService().accept_manual_file(artifact, source, allow_while_paused=True)
+    finally:
+        download_pause_controller.finish()
+
+    assert not destination.exists()
+
+
 def test_cancelled_manual_copy_removes_partial_file(tmp_path: Path) -> None:
     content = b"cancelled"
     source = tmp_path / "source.bin"

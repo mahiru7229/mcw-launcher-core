@@ -13,6 +13,10 @@ from src.core.java.java_selector import JavaSelector
 from src.core.minecraft.version_manager import VersionManager
 from src.core.minecraft.version_manifest_manager import VersionManifestManager
 from src.core.modrinth.modrinth_pack_registry import ModrinthPackRegistry
+from src.core.modrinth.modrinth_content_manager import ModrinthContentManager
+from src.core.curseforge.curseforge_content_manager import CurseForgeContentManager
+from src.core.mod.modpack_dependency_resolver import ModpackDependencyResolver
+from src.models.mod.dependency_resolution import DependencyResolutionResult
 from src.core.repair.repair_service import RepairService
 from src.models.repair.repair_models import (
     RepairComponent,
@@ -252,3 +256,25 @@ def test_version_for_scan_loads_quilt_profile(monkeypatch: pytest.MonkeyPatch, t
 
     assert issue is None
     assert resolved.id == "quilt-loader-0.28.0-1.20.1"
+
+
+def test_modpack_repair_repeats_dependency_completion_until_stable(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    instance = SimpleNamespace(instance_id="repair-pack", name="Repair Pack", version_id="1.12.2", instance_dir=tmp_path / "instance", mod_loader=("forge", "14.23.5.2860"))
+    instance.instance_dir.mkdir(parents=True)
+    resolutions = iter((
+        DependencyResolutionResult(added_files=("Dependency A",)),
+        DependencyResolutionResult(added_files=("Dependency B",)),
+        DependencyResolutionResult(),
+    ))
+    calls: list[str] = []
+
+    monkeypatch.setattr(ModrinthPackRegistry, "load", lambda _instance: {})
+    monkeypatch.setattr(CurseForgePackRegistry, "load", lambda _instance: {})
+    monkeypatch.setattr(ModpackDependencyResolver, "resolve", lambda *_args, **_kwargs: calls.append("resolve") or next(resolutions))
+    monkeypatch.setattr(ModrinthContentManager, "ensure", lambda *args, **kwargs: calls.append("modrinth") or ())
+    monkeypatch.setattr(CurseForgeContentManager, "ensure", lambda *args, **kwargs: calls.append("curseforge") or ())
+    monkeypatch.setattr(ModpackDependencyResolver, "raise_for_required_dependencies", lambda *_args, **_kwargs: calls.append("raise"))
+
+    RepairService._repair_component(instance, RepairComponent.MODPACK, object())
+
+    assert calls == ["resolve", "modrinth", "curseforge", "resolve", "modrinth", "curseforge", "resolve", "raise"]
