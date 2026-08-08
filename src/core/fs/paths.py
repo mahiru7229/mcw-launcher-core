@@ -174,6 +174,19 @@ class Paths:
         return directory / "journal.json"
 
     @staticmethod
+    def content_store_root() -> Path:
+        directory = Paths.CACHE_ROOT / "content-store" / "sha256"
+        directory.mkdir(parents=True, exist_ok=True)
+        return directory
+
+    @staticmethod
+    def content_store_blob(sha256: str) -> Path:
+        digest = str(sha256 or "").strip().casefold()
+        if len(digest) != 64 or any(character not in "0123456789abcdef" for character in digest):
+            raise ValueError("Content store SHA-256 must contain exactly 64 hexadecimal characters.")
+        return Paths.content_store_root() / digest[:2] / digest
+
+    @staticmethod
     def update_root() -> Path:
         directory = Paths.CACHE_ROOT / "updates"
         directory.mkdir(parents=True, exist_ok=True)
@@ -486,9 +499,21 @@ class Paths:
         return directory
 
     @staticmethod
+    def ftb_api_cache_root() -> Path:
+        directory = Paths.ftb_root() / "api-v1"
+        directory.mkdir(parents=True, exist_ok=True)
+        return directory
+
+    @staticmethod
+    def ftb_artifact_cache_root() -> Path:
+        directory = Paths.ftb_root() / "files"
+        directory.mkdir(parents=True, exist_ok=True)
+        return directory
+
+    @staticmethod
     def ftb_file_cache(project_id: int | str, version_id: int | str, filename: str) -> Path:
         safe_name = Path(str(filename)).name or "download.bin"
-        return Paths.ftb_root() / "files" / str(project_id) / str(version_id) / safe_name
+        return Paths.ftb_artifact_cache_root() / str(project_id) / str(version_id) / safe_name
 
     @staticmethod
     def ftb_pack_registry(instance: Instance) -> Path:
@@ -497,6 +522,12 @@ class Paths:
     @staticmethod
     def atlauncher_root() -> Path:
         directory = Paths.CACHE_ROOT / "content" / "atlauncher"
+        directory.mkdir(parents=True, exist_ok=True)
+        return directory
+
+    @staticmethod
+    def atlauncher_api_cache_root() -> Path:
+        directory = Paths.atlauncher_root() / "api"
         directory.mkdir(parents=True, exist_ok=True)
         return directory
 
@@ -511,13 +542,25 @@ class Paths:
         return directory
 
     @staticmethod
+    def curseforge_api_cache_root() -> Path:
+        directory = Paths.curseforge_root() / "api-v2"
+        directory.mkdir(parents=True, exist_ok=True)
+        return directory
+
+    @staticmethod
+    def curseforge_artifact_cache_root() -> Path:
+        directory = Paths.curseforge_root() / "files"
+        directory.mkdir(parents=True, exist_ok=True)
+        return directory
+
+    @staticmethod
     def curseforge_api_cache(cache_key: str) -> Path:
-        return Paths.curseforge_root() / "api" / f"{cache_key}.json"
+        return Paths.curseforge_api_cache_root() / "entries" / f"{cache_key}.json"
 
     @staticmethod
     def curseforge_file_cache(project_id: int | str, file_id: int | str, filename: str) -> Path:
         safe_name = Path(str(filename)).name or "download.bin"
-        return Paths.curseforge_root() / "files" / str(project_id) / str(file_id) / safe_name
+        return Paths.curseforge_artifact_cache_root() / str(project_id) / str(file_id) / safe_name
 
     @staticmethod
     def curseforge_pack_cache(project_id: int | str, file_id: int | str, filename: str) -> Path:
@@ -635,8 +678,20 @@ class Paths:
         return directory
 
     @staticmethod
+    def modrinth_api_cache_root() -> Path:
+        directory = Paths.modrinth_root() / "api"
+        directory.mkdir(parents=True, exist_ok=True)
+        return directory
+
+    @staticmethod
+    def modrinth_artifact_cache_root() -> Path:
+        directory = Paths.modrinth_root() / "files"
+        directory.mkdir(parents=True, exist_ok=True)
+        return directory
+
+    @staticmethod
     def modrinth_api_cache(cache_key: str) -> Path:
-        return Paths.modrinth_root() / "api" / f"{cache_key}.json"
+        return Paths.modrinth_api_cache_root() / f"{cache_key}.json"
 
     @staticmethod
     def modrinth_file_cache(project_id: str, version_id: str, filename: str) -> Path:
@@ -645,7 +700,7 @@ class Paths:
         project = quote(str(project_id).strip(), safe="") or "unknown-project"
         version = quote(str(version_id).strip(), safe="") or "unknown-version"
         safe_name = Path(str(filename)).name or "download.bin"
-        return Paths.modrinth_root() / "files" / project / version / safe_name
+        return Paths.modrinth_artifact_cache_root() / project / version / safe_name
 
     @staticmethod
     def modrinth_pack_cache(project_id: str, version_id: str, filename: str) -> Path:

@@ -38,7 +38,7 @@ class CurseForgeManualInstaller:
         loader_name, _ = ModLoaderManager.normalize(instance.mod_loader)
         metadata = ModManager.read_mod(cache, preferred_loader=loader_name)
         compatibility_warning = ModManager.compatibility_warning(instance, metadata)
-        added = ModManager.add_mods(instance, [cache], replace=True, launch_lock_token=launch_lock_token, allow_unverified=True)
+        added = ModManager.add_mods(instance, [cache], replace=True, launch_lock_token=launch_lock_token, allow_unverified=True, managed_source=True)
         if not added:
             raise RuntimeError("The selected file could not be added to the instance.")
         installed_name = added[0].file_name

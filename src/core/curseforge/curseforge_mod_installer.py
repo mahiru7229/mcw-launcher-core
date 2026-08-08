@@ -180,6 +180,7 @@ class CurseForgeModInstaller:
                     [item.cache_path],
                     replace=True,
                     allow_unverified=item.allow_unverified,
+                    managed_source=True,
                 )
                 if not added:
                     raise RuntimeError(f"'{item.project.name}' was downloaded but could not be added to the instance.")

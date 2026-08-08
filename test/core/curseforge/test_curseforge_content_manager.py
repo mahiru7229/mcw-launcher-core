@@ -41,12 +41,13 @@ def test_download_round_forwards_launch_lock_token_to_managed_mod_install(tmp_pa
         destination.write_bytes(b"jar")
         return destination
 
-    def fake_add_mods(current_instance, source_paths, replace=False, launch_lock_token=None, allow_unverified=False):
+    def fake_add_mods(current_instance, source_paths, replace=False, launch_lock_token=None, allow_unverified=False, managed_source=False):
         received["instance"] = current_instance
         received["paths"] = list(source_paths)
         received["replace"] = replace
         received["token"] = launch_lock_token
         received["allow_unverified"] = allow_unverified
+        received["managed_source"] = managed_source
         return [SimpleNamespace(file_name="example.jar")]
 
     monkeypatch.setattr(CurseForgeDownloader, "download_file", staticmethod(fake_download))
@@ -72,6 +73,7 @@ def test_download_round_forwards_launch_lock_token_to_managed_mod_install(tmp_pa
         "replace": True,
         "token": "owned-token",
         "allow_unverified": True,
+        "managed_source": True,
     }
     assert entry["pendingDownload"] is False
     assert entry["lastDownloadError"] == ""
@@ -89,6 +91,8 @@ def test_download_round_places_manifest_managed_zip_without_mod_validation(tmp_p
     file = CurseForgeFile(file_id=4, project_id=3, display_name="Archive", file_name="archive.zip", release_type="release", file_date="", file_length=len(content), download_url="https://example.invalid/archive.zip", sha1=digest, game_versions=("1.18.2",), dependencies=(), loaders=())
 
     monkeypatch.setattr(Paths, "curseforge_file_cache", staticmethod(lambda *args: cache_path))
+    store_root = tmp_path / "content-store"
+    monkeypatch.setattr(Paths, "content_store_blob", staticmethod(lambda digest: store_root / digest[:2] / digest))
 
     def fake_download(_file, destination, **kwargs):
         destination.parent.mkdir(parents=True, exist_ok=True)

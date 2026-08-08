@@ -16,6 +16,7 @@ from src.core.network.artifact_download_service import artifact_download_service
 from src.core.network.download_pause import download_pause_controller, is_download_paused
 from src.core.progress.file_batch_progress import FileBatchProgress
 from src.core.progress.progress_reporter import ProgressReporter
+from src.core.storage.content_store import ContentStore
 from src.models.curseforge.file import CurseForgeFile
 from src.models.curseforge.manual_download import CurseForgeManualDownload
 from src.models.instance.instance import Instance
@@ -225,7 +226,8 @@ class CurseForgeContentManager:
                         requested_path = "" if bool(entry.get("resolvePathFromProvider", False)) else str(item["path"])
                         target, relative = CurseForgePackRegistry.managed_path(instance, requested_path, file.file_name)
                         request = CurseForgeContentManager._artifact_request(file, target, item)
-                        artifact_download_service.accept_manual_file(request, cache)
+                        artifact_download_service.verify_manual_file(request, cache)
+                        ContentStore.materialize(cache, target, adopt_source=True, prefer_hardlink=True)
                         entry["fileName"] = target.name
                         entry["path"] = relative
                         if target.suffix.casefold() == ".jar":
@@ -240,7 +242,7 @@ class CurseForgeContentManager:
                         loader_name, _ = ModLoaderManager.normalize(instance.mod_loader)
                         metadata = ModManager.read_mod(cache, preferred_loader=loader_name, provider_version=file.display_name)
                         compatibility_warning = ModManager.compatibility_warning(instance, metadata)
-                        added = ModManager.add_mods(instance, [cache], replace=True, launch_lock_token=launch_lock_token, allow_unverified=True)
+                        added = ModManager.add_mods(instance, [cache], replace=True, launch_lock_token=launch_lock_token, allow_unverified=True, managed_source=True)
                         if not added:
                             raise RuntimeError("Downloaded file could not be added to the instance.")
                         compatibility_warning = CurseForgeContentManager._merge_warnings(

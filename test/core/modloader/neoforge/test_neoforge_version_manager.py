@@ -206,3 +206,50 @@ def test_prepare_staging_reuses_cached_vanilla_libraries(monkeypatch, tmp_path: 
     NeoForgeVersionManager._prepare_staging(version, staging)
 
     assert (staging / "libraries/com/example/base/1.0/base-1.0.jar").read_bytes() == b"cached-base-library"
+
+
+def test_install_removes_staging_after_success(monkeypatch, tmp_path: Path) -> None:
+    base = make_version(tmp_path)
+    cache_path = tmp_path / "neoforge-profile.json"
+    staging = tmp_path / "neoforge-staging"
+    installer = tmp_path / "neoforge-installer.jar"
+    installer.write_bytes(b"installer")
+
+    monkeypatch.setattr(Paths, "neoforge_version_json", staticmethod(lambda game, loader: cache_path))
+    monkeypatch.setattr(Paths, "neoforge_staging_dir", staticmethod(lambda game, loader: staging))
+    monkeypatch.setattr(NeoForgeVersionManager, "_load_cached", staticmethod(lambda *args: None))
+    monkeypatch.setattr(NeoForgeVersionManager, "_download_installer", staticmethod(lambda *args, **kwargs: installer))
+    monkeypatch.setattr(NeoForgeVersionManager, "_prepare_staging", staticmethod(lambda version, target: (target / "prepared").write_text("yes", encoding="utf-8")))
+    monkeypatch.setattr(NeoForgeVersionManager, "_run_installer", staticmethod(lambda *args, **kwargs: None))
+    monkeypatch.setattr(NeoForgeVersionManager, "_find_profile", staticmethod(lambda *args: {"libraries": []}))
+    monkeypatch.setattr(NeoForgeVersionManager, "_import_libraries", staticmethod(lambda *args, **kwargs: None))
+    monkeypatch.setattr(NeoForgeVersionManager, "_normalize_libraries", staticmethod(lambda profile: profile))
+    monkeypatch.setattr(NeoForgeVersionManager, "_merge_profiles", staticmethod(lambda *args: base.raw_json))
+    monkeypatch.setattr(NeoForgeVersionManager, "validate_installation", staticmethod(lambda *args, **kwargs: []))
+    monkeypatch.setattr(NeoForgeVersionManager, "_write_json", staticmethod(lambda *args: None))
+    monkeypatch.setattr("src.core.modloader.neoforge.neoforge_version_manager.VersionManager._parse_version", staticmethod(lambda *args: base))
+
+    result = NeoForgeVersionManager.install(base, "21.1.200")
+
+    assert result is base
+    assert not staging.exists()
+
+
+def test_install_removes_staging_after_installer_failure(monkeypatch, tmp_path: Path) -> None:
+    base = make_version(tmp_path)
+    cache_path = tmp_path / "neoforge-profile.json"
+    staging = tmp_path / "neoforge-staging"
+    installer = tmp_path / "neoforge-installer.jar"
+    installer.write_bytes(b"installer")
+
+    monkeypatch.setattr(Paths, "neoforge_version_json", staticmethod(lambda game, loader: cache_path))
+    monkeypatch.setattr(Paths, "neoforge_staging_dir", staticmethod(lambda game, loader: staging))
+    monkeypatch.setattr(NeoForgeVersionManager, "_load_cached", staticmethod(lambda *args: None))
+    monkeypatch.setattr(NeoForgeVersionManager, "_download_installer", staticmethod(lambda *args, **kwargs: installer))
+    monkeypatch.setattr(NeoForgeVersionManager, "_prepare_staging", staticmethod(lambda version, target: (target / "prepared").write_text("yes", encoding="utf-8")))
+    monkeypatch.setattr(NeoForgeVersionManager, "_run_installer", staticmethod(lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("processor failed"))))
+
+    with pytest.raises(RuntimeError, match="processor failed"):
+        NeoForgeVersionManager.install(base, "21.1.200")
+
+    assert not staging.exists()

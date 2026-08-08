@@ -86,3 +86,18 @@ def test_clear_removes_entries_but_preserves_usable_cache(monkeypatch, tmp_path:
     assert CurseForgeCache.get(key, ttl_seconds=3600) is None
     assert CurseForgeCache.status().cache_size_bytes == 0
     assert CurseForgeCache.index_path().is_file()
+
+
+def test_api_cache_clear_never_removes_downloaded_artifacts(tmp_path, monkeypatch) -> None:
+    api_root = tmp_path / "api-v2"
+    artifact = tmp_path / "files" / "10" / "20" / "mod.jar"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_bytes(b"managed-binary")
+    monkeypatch.setattr(CurseForgeCache, "root", staticmethod(lambda: api_root))
+
+    key = CurseForgeCache.make_key("project", "/mod", {"modId": 10})
+    CurseForgeCache.put(key, "project", {"data": {"id": 10}}, ttl_seconds=3600)
+    CurseForgeCache.clear()
+
+    assert CurseForgeCache.get(key, ttl_seconds=3600) is None
+    assert artifact.read_bytes() == b"managed-binary"

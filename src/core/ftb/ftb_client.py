@@ -6,7 +6,7 @@ from typing import Iterable
 import httpx
 
 from src.config import FTB_USER_AGENT
-from src.core.ftb.ftb_cache import FTBCache, FTBCacheLookup
+from src.core.ftb.ftb_cache import FTBApiCache, FTBApiCacheLookup
 from src.core.network.httpx_downloader import HttpDownloader
 from src.models.ftb.cache import FTBCacheInfo
 from src.models.ftb.project import FTBProject, FTBSearchResult
@@ -32,12 +32,22 @@ class FTBClient:
     FAILOVER_STATUS_CODES = frozenset({404, 408, 425, 429, *range(500, 600)})
 
     @staticmethod
+    def api_cache_status() -> FTBCacheInfo:
+        return FTBApiCache.status()
+
+    @staticmethod
+    def clear_api_cache() -> None:
+        FTBApiCache.clear()
+
+    @staticmethod
     def cache_status() -> FTBCacheInfo:
-        return FTBCache.status()
+        """Compatibility alias for the pre-v1.3 API-cache name."""
+        return FTBClient.api_cache_status()
 
     @staticmethod
     def clear_cache() -> None:
-        FTBCache.clear()
+        """Compatibility alias; clears provider API metadata only."""
+        FTBClient.clear_api_cache()
 
     @staticmethod
     def search_projects(query: str = "", index: int = 0, page_size: int = 25, sort: str = "popularity", force_refresh: bool = False) -> FTBSearchResult:
@@ -141,12 +151,12 @@ class FTBClient:
         return FTBClient._parse_version(project_identifier, payload)
 
     @staticmethod
-    def _request_json(path: str, params: dict[str, object] | None = None, ttl: int = 0, force_refresh: bool = False, allow_stale_on_error: bool = False, namespace: str = "api") -> FTBCacheLookup:
+    def _request_json(path: str, params: dict[str, object] | None = None, ttl: int = 0, force_refresh: bool = False, allow_stale_on_error: bool = False, namespace: str = "api") -> FTBApiCacheLookup:
         normalized_path = "/" + str(path).lstrip("/")
         normalized_params = dict(params or {})
-        cache_key = FTBCache.make_key(namespace, normalized_path, normalized_params)
+        cache_key = FTBApiCache.make_key(namespace, normalized_path, normalized_params)
         if not force_refresh:
-            cached = FTBCache.get(cache_key, ttl)
+            cached = FTBApiCache.get(cache_key, ttl)
             if cached is not None:
                 return cached
         errors: list[str] = []
@@ -166,14 +176,14 @@ class FTBClient:
                 error_message = FTBClient._payload_error(payload)
                 if error_message:
                     raise RuntimeError(error_message)
-                return FTBCache.put(cache_key, namespace, payload, ttl)
+                return FTBApiCache.put(cache_key, namespace, payload, ttl)
             except (httpx.HTTPError, ValueError, RuntimeError) as error:
                 errors.append(str(error) or type(error).__name__)
                 continue
         detail = "; ".join(dict.fromkeys(value for value in errors if value)) or "No official FTB API endpoint responded."
-        FTBCache.record_failure(detail)
+        FTBApiCache.record_failure(detail)
         if allow_stale_on_error:
-            stale = FTBCache.get(cache_key, ttl, allow_stale=True)
+            stale = FTBApiCache.get(cache_key, ttl, allow_stale=True)
             if stale is not None:
                 return stale
         raise RuntimeError(f"Could not contact the FTB modpack service: {detail}")

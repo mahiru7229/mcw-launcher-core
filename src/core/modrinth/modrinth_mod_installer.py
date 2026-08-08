@@ -99,7 +99,7 @@ class ModrinthModInstaller:
 
             metadata = ModManager.read_mod(cache_path, preferred_loader=loader_name, provider_version=version.version_number)
             ModManager.validate_mod_for_instance(instance, metadata)
-            added = ModManager.add_mods(instance, [cache_path], replace=True)
+            added = ModManager.add_mods(instance, [cache_path], replace=True, managed_source=True)
             if not added:
                 raise RuntimeError(f"Mod '{project.title}' was downloaded but could not be added to the instance.")
 

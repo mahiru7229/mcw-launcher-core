@@ -301,9 +301,9 @@ class ModrinthContentManager:
                         f"but dependency metadata requires '{expected_mod_id}'."
                     )
                 if launch_lock_token is None:
-                    added = ModManager.add_mods(instance, [downloaded_path], replace=True)
+                    added = ModManager.add_mods(instance, [downloaded_path], replace=True, managed_source=True)
                 else:
-                    added = ModManager.add_mods(instance, [downloaded_path], replace=True, launch_lock_token=launch_lock_token)
+                    added = ModManager.add_mods(instance, [downloaded_path], replace=True, launch_lock_token=launch_lock_token, managed_source=True)
                 if not added:
                     raise RuntimeError("The downloaded mod could not be added to the instance.")
                 entry["fileName"] = added[0].file_name

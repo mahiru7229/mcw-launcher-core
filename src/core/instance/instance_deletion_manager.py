@@ -41,6 +41,17 @@ class InstanceDeletionManager:
             return True
 
         cls._stop_normal_runtime(instance)
+        if not GameRuntimeManager.wait_for_exit_processing(instance, timeout=3.0):
+            cls.schedule(instance)
+            raise InstanceDeletionError(
+                instance_name=instance.name,
+                instance_dir=target,
+                locked_path=None,
+                attempts=0,
+                processes=((os.getpid(), "MCW Launcher", "runtime exit finalization"),),
+                detail="MCW is still finalizing the previous game session. The instance deletion was queued and can be retried after finalization completes.",
+                scheduled=True,
+            )
         success, last_error, locked_path, locking_processes = cls._delete_target(target)
         if success:
             InstanceRunLock.remove_for(instance, force=True)

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import json
 import shutil
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -100,3 +102,60 @@ def test_refuses_to_delete_path_outside_instance_root(deletion_paths: Path) -> N
 
     with pytest.raises(RuntimeError, match="outside the configured instance root"):
         InstanceDeletionManager.delete(instance)
+
+
+def test_delete_queues_when_runtime_exit_processing_is_still_active(deletion_paths: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    instance = InstanceManager.create("Finalizing Pack", SimpleNamespace(id="1.20.1"))
+    monkeypatch.setattr(GameRuntimeManager, "wait_for_exit_processing", classmethod(lambda cls, received_instance, timeout=3.0: False))
+
+    with pytest.raises(InstanceDeletionError) as captured:
+        InstanceManager.delete_instance(instance.name)
+
+    assert captured.value.scheduled is True
+    assert "finalizing" in str(captured.value).casefold()
+    assert instance.instance_dir.exists()
+    assert InstanceManager.is_instance_exist(instance.name)
+
+
+
+class _RuntimeProcessFinishingDuringDelete:
+    def __init__(self) -> None:
+        self.pid = 65432
+        self.returncode = None
+
+    def poll(self):
+        return self.returncode
+
+    def terminate(self) -> None:
+        self.returncode = 0
+
+    def kill(self) -> None:
+        self.returncode = -9
+
+
+def test_delete_waits_for_runtime_exit_processing_before_removing_instance_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = tmp_path / "instances"
+    monkeypatch.setattr(Paths, "INSTANCES_ROOT", root)
+    monkeypatch.setattr(Paths, "INSTANCE_LOCKS_ROOT", root / ".runtime" / "locks")
+    monkeypatch.setattr(GameRuntimeManager, "POLL_INTERVAL_SECONDS", 0.05)
+    monkeypatch.setattr("src.core.runtime.game_runtime_manager.JavaRuntime.log_path", classmethod(lambda cls, process: Path(root / "Runtime Delete" / "logs" / "minecraft.log")))
+    monkeypatch.setattr("src.core.runtime.game_runtime_manager.JavaRuntime.close_process_log", classmethod(lambda cls, process: None))
+
+    GameRuntimeManager._active_processes.clear()
+    GameRuntimeManager._watcher_threads.clear()
+    instance = InstanceManager.create("Runtime Delete", SimpleNamespace(id="1.20.1"))
+    (instance.instance_dir / ".mcw" / "provider").mkdir(parents=True)
+    (instance.instance_dir / ".mcw" / "provider" / "metadata.json").write_text("{}", encoding="utf-8")
+    crash_dir = instance.instance_dir / "crash-reports"
+    crash_dir.mkdir()
+    (crash_dir / "crash-old.txt").write_text("old", encoding="utf-8")
+    (instance.instance_dir / "mods").mkdir()
+    (instance.instance_dir / "mods" / "example.jar").write_bytes(b"mod")
+
+    process = _RuntimeProcessFinishingDuringDelete()
+    finished = threading.Event()
+    assert GameRuntimeManager.watch(process, instance, "1.20.1", datetime.now(timezone.utc), lambda result: finished.set(), crash_report_snapshot={}) is True
+
+    assert InstanceManager.delete_instance(instance.name) is True
+    assert finished.wait(1.0) is True
+    assert not instance.instance_dir.exists()

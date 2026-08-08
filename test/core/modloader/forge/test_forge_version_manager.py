@@ -708,3 +708,53 @@ def test_prepare_staging_reuses_cached_vanilla_libraries(monkeypatch, tmp_path: 
     ForgeVersionManager._prepare_staging(version, staging)
 
     assert (staging / "libraries/com/example/base/1.0/base-1.0.jar").read_bytes() == b"cached-base-library"
+
+
+def test_install_removes_staging_after_success(monkeypatch, tmp_path: Path) -> None:
+    base = make_version(tmp_path)
+    cache_path = tmp_path / "forge-profile.json"
+    staging = tmp_path / "forge-staging"
+    installer = tmp_path / "forge-installer.jar"
+    installer.write_bytes(b"installer")
+
+    monkeypatch.setattr(Paths, "forge_version_json", staticmethod(lambda game, loader: cache_path))
+    monkeypatch.setattr(Paths, "forge_staging_dir", staticmethod(lambda game, loader: staging))
+    monkeypatch.setattr(ForgeVersionManager, "_load_cached", staticmethod(lambda *args: None))
+    monkeypatch.setattr(ForgeVersionManager, "_load_structurally_valid_cache", staticmethod(lambda *args: None))
+    monkeypatch.setattr(ForgeVersionManager, "_download_installer", staticmethod(lambda *args, **kwargs: installer))
+    monkeypatch.setattr(ForgeVersionManager, "_prepare_staging", staticmethod(lambda version, target: (target / "prepared").write_text("yes", encoding="utf-8")))
+    monkeypatch.setattr(ForgeVersionManager, "_run_installer", staticmethod(lambda *args, **kwargs: None))
+    monkeypatch.setattr(ForgeVersionManager, "_find_profile", staticmethod(lambda *args: {"libraries": []}))
+    monkeypatch.setattr(ForgeVersionManager, "_import_libraries", staticmethod(lambda *args, **kwargs: None))
+    monkeypatch.setattr(ForgeVersionManager, "_normalize_libraries", staticmethod(lambda profile, reporter=None: profile))
+    monkeypatch.setattr(ForgeVersionManager, "_merge_profiles", staticmethod(lambda *args: base.raw_json))
+    monkeypatch.setattr(ForgeVersionManager, "_write_json", staticmethod(lambda *args: None))
+    monkeypatch.setattr("src.core.modloader.forge.forge_version_manager.VersionManager._parse_version", staticmethod(lambda *args: base))
+
+    result = ForgeVersionManager.install(base, "47.3.0")
+
+    assert result is base
+    assert not staging.exists()
+
+
+def test_install_removes_staging_after_installer_failure(monkeypatch, tmp_path: Path) -> None:
+    import pytest
+
+    base = make_version(tmp_path)
+    cache_path = tmp_path / "forge-profile.json"
+    staging = tmp_path / "forge-staging"
+    installer = tmp_path / "forge-installer.jar"
+    installer.write_bytes(b"installer")
+
+    monkeypatch.setattr(Paths, "forge_version_json", staticmethod(lambda game, loader: cache_path))
+    monkeypatch.setattr(Paths, "forge_staging_dir", staticmethod(lambda game, loader: staging))
+    monkeypatch.setattr(ForgeVersionManager, "_load_cached", staticmethod(lambda *args: None))
+    monkeypatch.setattr(ForgeVersionManager, "_load_structurally_valid_cache", staticmethod(lambda *args: None))
+    monkeypatch.setattr(ForgeVersionManager, "_download_installer", staticmethod(lambda *args, **kwargs: installer))
+    monkeypatch.setattr(ForgeVersionManager, "_prepare_staging", staticmethod(lambda version, target: (target / "prepared").write_text("yes", encoding="utf-8")))
+    monkeypatch.setattr(ForgeVersionManager, "_run_installer", staticmethod(lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("processor failed"))))
+
+    with pytest.raises(RuntimeError, match="processor failed"):
+        ForgeVersionManager.install(base, "47.3.0")
+
+    assert not staging.exists()

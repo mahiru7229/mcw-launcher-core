@@ -8,7 +8,7 @@ from mcw_core.api.theme.theme_palette import DEFAULT_THEME_PALETTE, derive_custo
 
 
 def test_bundled_core_runtime_version_follows_launcher_release() -> None:
-    assert mcw_core.__version__ == "1.2.0"
+    assert mcw_core.__version__ == "1.3.0"
 
 
 def test_distribution_version_when_installed() -> None:
@@ -16,7 +16,7 @@ def test_distribution_version_when_installed() -> None:
         installed = version("mcw-core")
     except PackageNotFoundError:
         return
-    assert installed == "1.2.0"
+    assert installed == "1.3.0"
 
 
 def test_optifine_public_api_is_import_only() -> None:

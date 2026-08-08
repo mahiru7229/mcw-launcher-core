@@ -23,6 +23,7 @@ class GameRuntimeManager:
     HISTORY_LIMIT = 50
     POLL_INTERVAL_SECONDS = 0.5
     _active_processes: dict[str, object] = {}
+    _watcher_threads: dict[str, set[threading.Thread]] = {}
     _active_processes_lock = threading.RLock()
 
     @classmethod
@@ -34,7 +35,13 @@ class GameRuntimeManager:
         cls._register_process(instance, process)
         snapshot = dict(crash_report_snapshot) if crash_report_snapshot is not None else cls.crash_report_snapshot(instance)
         watcher = threading.Thread(target=cls._watch_process, args=(process, instance, minecraft_version, started_at, on_exit, session_id, snapshot), name=f"game-runtime-{instance.name}", daemon=True)
-        watcher.start()
+        cls._register_watcher(instance, watcher)
+        try:
+            watcher.start()
+        except Exception:
+            cls._unregister_watcher(instance, watcher)
+            cls._unregister_process(instance, process)
+            raise
         return True
 
     @classmethod
@@ -78,6 +85,7 @@ class GameRuntimeManager:
                         pass
         finally:
             cls._unregister_process(instance, process)
+            cls._unregister_watcher(instance, threading.current_thread())
 
     @classmethod
     def stop(cls, instance: Instance, graceful_timeout: float = 2.5) -> bool:
@@ -118,6 +126,42 @@ class GameRuntimeManager:
         if cls._wait_process(process, 2.0):
             cls._unregister_process(instance, process)
         return True
+
+    @classmethod
+    def wait_for_exit_processing(cls, instance: Instance, timeout: float = 3.0) -> bool:
+        deadline = time.monotonic() + max(0.0, float(timeout))
+        current = threading.current_thread()
+        while True:
+            with cls._active_processes_lock:
+                watchers = tuple(cls._watcher_threads.get(cls._instance_key(instance), ()))
+            watchers = tuple(watcher for watcher in watchers if watcher is not current)
+            if not watchers:
+                return True
+            for watcher in watchers:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return False
+                watcher.join(remaining)
+            if time.monotonic() >= deadline:
+                with cls._active_processes_lock:
+                    return not cls._watcher_threads.get(cls._instance_key(instance))
+
+    @classmethod
+    def _register_watcher(cls, instance: Instance, watcher: threading.Thread) -> None:
+        key = cls._instance_key(instance)
+        with cls._active_processes_lock:
+            cls._watcher_threads.setdefault(key, set()).add(watcher)
+
+    @classmethod
+    def _unregister_watcher(cls, instance: Instance, watcher: threading.Thread) -> None:
+        key = cls._instance_key(instance)
+        with cls._active_processes_lock:
+            watchers = cls._watcher_threads.get(key)
+            if watchers is None:
+                return
+            watchers.discard(watcher)
+            if not watchers:
+                cls._watcher_threads.pop(key, None)
 
     @classmethod
     def _register_process(cls, instance: Instance, process: object) -> None:

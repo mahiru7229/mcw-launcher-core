@@ -7,8 +7,8 @@ from mcw_core.api.hardware.first_run_recommendation_service import FirstRunRecom
 from mcw_core.api.theme.theme_palette import DEFAULT_THEME_PALETTE, derive_custom_text, is_readable_text
 
 
-def test_runtime_version_is_stable_1_2_0() -> None:
-    assert mcw_core.__version__ == "1.2.0"
+def test_runtime_version_is_stable_1_3_0() -> None:
+    assert mcw_core.__version__ == "1.3.0"
 
 
 def test_distribution_version_when_installed() -> None:
@@ -16,7 +16,7 @@ def test_distribution_version_when_installed() -> None:
         installed = version("mcw-core")
     except PackageNotFoundError:
         return
-    assert installed == "1.2.0"
+    assert installed == "1.3.0"
 
 
 def test_new_public_api_defaults() -> None:

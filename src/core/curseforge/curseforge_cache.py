@@ -21,7 +21,7 @@ class CacheLookup:
     cache_info: CurseForgeCacheInfo
 
 
-class CurseForgeCache:
+class CurseForgeApiCache:
     SCHEMA_VERSION = 1
     MAX_SIZE_BYTES = CURSEFORGE_CACHE_MAX_BYTES
     TARGET_SIZE_BYTES = int(CURSEFORGE_CACHE_MAX_BYTES * 0.8)
@@ -32,19 +32,19 @@ class CurseForgeCache:
 
     @staticmethod
     def root() -> Path:
-        directory = Paths.curseforge_root() / "api-v2"
+        directory = Paths.curseforge_api_cache_root()
         directory.mkdir(parents=True, exist_ok=True)
         return directory
 
     @staticmethod
     def entries_root() -> Path:
-        directory = CurseForgeCache.root() / "entries"
+        directory = CurseForgeApiCache.root() / "entries"
         directory.mkdir(parents=True, exist_ok=True)
         return directory
 
     @staticmethod
     def index_path() -> Path:
-        return CurseForgeCache.root() / "index.json"
+        return CurseForgeApiCache.root() / "index.json"
 
     @staticmethod
     def make_key(namespace: str, path: str, params: dict[str, object] | None = None, body: object | None = None) -> str:
@@ -63,16 +63,16 @@ class CurseForgeCache:
 
     @staticmethod
     def get(cache_key: str, ttl_seconds: int, allow_stale: bool = False) -> CacheLookup | None:
-        with CurseForgeCache._lock:
-            index = CurseForgeCache._load_index()
+        with CurseForgeApiCache._lock:
+            index = CurseForgeApiCache._load_index()
             metadata = index.get("entries", {}).get(cache_key)
             if not isinstance(metadata, dict):
                 return None
-            path = CurseForgeCache.entries_root() / f"{cache_key}.json"
-            entry = CurseForgeCache._read_json(path)
-            if not isinstance(entry, dict) or entry.get("schemaVersion") != CurseForgeCache.SCHEMA_VERSION or "payload" not in entry:
-                CurseForgeCache._remove_entry(index, cache_key, path)
-                CurseForgeCache._write_index(index)
+            path = CurseForgeApiCache.entries_root() / f"{cache_key}.json"
+            entry = CurseForgeApiCache._read_json(path)
+            if not isinstance(entry, dict) or entry.get("schemaVersion") != CurseForgeApiCache.SCHEMA_VERSION or "payload" not in entry:
+                CurseForgeApiCache._remove_entry(index, cache_key, path)
+                CurseForgeApiCache._write_index(index)
                 return None
 
             now = time()
@@ -83,13 +83,13 @@ class CurseForgeCache:
                 return None
 
             metadata["lastAccessedAt"] = now
-            metadata["size"] = CurseForgeCache._safe_file_size(path)
+            metadata["size"] = CurseForgeApiCache._safe_file_size(path)
             index["entries"][cache_key] = metadata
-            CurseForgeCache._recalculate_size(index)
-            CurseForgeCache._write_index(index)
+            CurseForgeApiCache._recalculate_size(index)
+            CurseForgeApiCache._write_index(index)
             return CacheLookup(
                 payload=entry.get("payload"),
-                cache_info=CurseForgeCache._cache_info(
+                cache_info=CurseForgeApiCache._cache_info(
                     index,
                     refreshed_at=refreshed_at,
                     from_cache=True,
@@ -101,20 +101,20 @@ class CurseForgeCache:
     @staticmethod
     def put(cache_key: str, namespace: str, payload: object, ttl_seconds: int) -> CacheLookup:
         now = time()
-        path = CurseForgeCache.entries_root() / f"{cache_key}.json"
-        with CurseForgeCache._lock:
-            index = CurseForgeCache._load_index()
+        path = CurseForgeApiCache.entries_root() / f"{cache_key}.json"
+        with CurseForgeApiCache._lock:
+            index = CurseForgeApiCache._load_index()
             existing = index.get("entries", {}).get(cache_key)
             created_at = float(existing.get("createdAt", now) or now) if isinstance(existing, dict) else now
             entry = {
-                "schemaVersion": CurseForgeCache.SCHEMA_VERSION,
+                "schemaVersion": CurseForgeApiCache.SCHEMA_VERSION,
                 "namespace": str(namespace).strip().casefold(),
                 "createdAt": created_at,
                 "refreshedAt": now,
                 "expiresAt": now + max(0, int(ttl_seconds)),
                 "payload": payload,
             }
-            CurseForgeCache._write_json_atomic(path, entry)
+            CurseForgeApiCache._write_json_atomic(path, entry)
             index.setdefault("entries", {})[cache_key] = {
                 "namespace": str(namespace).strip().casefold(),
                 "path": path.name,
@@ -122,22 +122,22 @@ class CurseForgeCache:
                 "refreshedAt": now,
                 "expiresAt": entry["expiresAt"],
                 "lastAccessedAt": now,
-                "size": CurseForgeCache._safe_file_size(path),
+                "size": CurseForgeApiCache._safe_file_size(path),
             }
-            provider = index.setdefault("provider", CurseForgeCache._empty_provider())
+            provider = index.setdefault("provider", CurseForgeApiCache._empty_provider())
             provider["lastSuccessfulRefreshAt"] = now
             provider["lastRefreshError"] = ""
             provider["consecutiveFailures"] = 0
             provider["nextManualRefreshAt"] = max(
                 float(provider.get("nextManualRefreshAt", 0) or 0),
-                now + CurseForgeCache.MANUAL_REFRESH_COOLDOWN_SECONDS,
+                now + CurseForgeApiCache.MANUAL_REFRESH_COOLDOWN_SECONDS,
             )
-            CurseForgeCache._recalculate_size(index)
-            CurseForgeCache._evict(index)
-            CurseForgeCache._write_index(index)
+            CurseForgeApiCache._recalculate_size(index)
+            CurseForgeApiCache._evict(index)
+            CurseForgeApiCache._write_index(index)
             return CacheLookup(
                 payload=payload,
-                cache_info=CurseForgeCache._cache_info(
+                cache_info=CurseForgeApiCache._cache_info(
                     index,
                     refreshed_at=now,
                     from_cache=False,
@@ -148,77 +148,77 @@ class CurseForgeCache:
 
     @staticmethod
     def record_attempt(manual: bool = False) -> None:
-        with CurseForgeCache._lock:
-            index = CurseForgeCache._load_index()
-            provider = index.setdefault("provider", CurseForgeCache._empty_provider())
+        with CurseForgeApiCache._lock:
+            index = CurseForgeApiCache._load_index()
+            provider = index.setdefault("provider", CurseForgeApiCache._empty_provider())
             now = time()
             provider["lastRefreshAttemptAt"] = now
             if manual:
                 provider["nextManualRefreshAt"] = max(
                     float(provider.get("nextManualRefreshAt", 0) or 0),
-                    now + CurseForgeCache.MANUAL_REFRESH_COOLDOWN_SECONDS,
+                    now + CurseForgeApiCache.MANUAL_REFRESH_COOLDOWN_SECONDS,
                 )
-            CurseForgeCache._write_index(index)
+            CurseForgeApiCache._write_index(index)
 
     @staticmethod
     def record_failure(message: str, retry_after_seconds: int | None = None) -> None:
-        with CurseForgeCache._lock:
-            index = CurseForgeCache._load_index()
-            provider = index.setdefault("provider", CurseForgeCache._empty_provider())
+        with CurseForgeApiCache._lock:
+            index = CurseForgeApiCache._load_index()
+            provider = index.setdefault("provider", CurseForgeApiCache._empty_provider())
             failures = max(0, int(provider.get("consecutiveFailures", 0) or 0)) + 1
             provider["consecutiveFailures"] = failures
             provider["lastRefreshError"] = str(message).strip()[:500]
-            delay = CurseForgeCache.FAILURE_BACKOFF_SECONDS[min(failures - 1, len(CurseForgeCache.FAILURE_BACKOFF_SECONDS) - 1)]
+            delay = CurseForgeApiCache.FAILURE_BACKOFF_SECONDS[min(failures - 1, len(CurseForgeApiCache.FAILURE_BACKOFF_SECONDS) - 1)]
             if retry_after_seconds is not None:
                 delay = max(delay, max(0, int(retry_after_seconds)))
             provider["nextManualRefreshAt"] = max(float(provider.get("nextManualRefreshAt", 0) or 0), time() + delay)
-            CurseForgeCache._write_index(index)
+            CurseForgeApiCache._write_index(index)
 
     @staticmethod
     def manual_refresh_remaining_seconds() -> int:
-        with CurseForgeCache._lock:
-            provider = CurseForgeCache._load_index().get("provider", {})
+        with CurseForgeApiCache._lock:
+            provider = CurseForgeApiCache._load_index().get("provider", {})
             return max(0, int(float(provider.get("nextManualRefreshAt", 0) or 0) - time() + 0.999))
 
     @staticmethod
     def assert_manual_refresh_allowed() -> None:
-        remaining = CurseForgeCache.manual_refresh_remaining_seconds()
+        remaining = CurseForgeApiCache.manual_refresh_remaining_seconds()
         if remaining > 0:
             raise RuntimeError(f"CurseForge refresh is on cooldown. Try again in {remaining} second(s).")
 
     @staticmethod
     def status() -> CurseForgeCacheInfo:
-        with CurseForgeCache._lock:
-            index = CurseForgeCache._load_index()
+        with CurseForgeApiCache._lock:
+            index = CurseForgeApiCache._load_index()
             provider = index.get("provider", {}) if isinstance(index.get("provider"), dict) else {}
             refreshed = float(provider.get("lastSuccessfulRefreshAt", 0) or 0)
             age = max(0, int(time() - refreshed)) if refreshed > 0 else 0
-            return CurseForgeCache._cache_info(index, refreshed_at=refreshed, from_cache=False, stale=False, age_seconds=age)
+            return CurseForgeApiCache._cache_info(index, refreshed_at=refreshed, from_cache=False, stale=False, age_seconds=age)
 
     @staticmethod
     def clear() -> None:
-        with CurseForgeCache._lock:
-            root = CurseForgeCache.entries_root()
+        with CurseForgeApiCache._lock:
+            root = CurseForgeApiCache.entries_root()
             for path in root.glob("*.json"):
                 try:
                     path.unlink()
                 except OSError:
                     pass
-            index = CurseForgeCache._empty_index()
-            CurseForgeCache._write_index(index)
+            index = CurseForgeApiCache._empty_index()
+            CurseForgeApiCache._write_index(index)
 
     @staticmethod
     def _cache_info(index: dict, refreshed_at: float, from_cache: bool, stale: bool, age_seconds: int) -> CurseForgeCacheInfo:
         provider = index.get("provider", {}) if isinstance(index.get("provider"), dict) else {}
         return CurseForgeCacheInfo(
-            refreshed_at=CurseForgeCache._iso(refreshed_at),
+            refreshed_at=CurseForgeApiCache._iso(refreshed_at),
             from_cache=bool(from_cache),
             stale=bool(stale),
             age_seconds=max(0, int(age_seconds)),
-            next_manual_refresh_at=CurseForgeCache._iso(float(provider.get("nextManualRefreshAt", 0) or 0)),
+            next_manual_refresh_at=CurseForgeApiCache._iso(float(provider.get("nextManualRefreshAt", 0) or 0)),
             last_error=str(provider.get("lastRefreshError") or ""),
             cache_size_bytes=max(0, int(index.get("totalSize", 0) or 0)),
-            cache_limit_bytes=CurseForgeCache.MAX_SIZE_BYTES,
+            cache_limit_bytes=CurseForgeApiCache.MAX_SIZE_BYTES,
         )
 
     @staticmethod
@@ -234,34 +234,34 @@ class CurseForgeCache:
     @staticmethod
     def _empty_index() -> dict[str, object]:
         return {
-            "schemaVersion": CurseForgeCache.SCHEMA_VERSION,
-            "maximumSize": CurseForgeCache.MAX_SIZE_BYTES,
-            "targetSize": CurseForgeCache.TARGET_SIZE_BYTES,
+            "schemaVersion": CurseForgeApiCache.SCHEMA_VERSION,
+            "maximumSize": CurseForgeApiCache.MAX_SIZE_BYTES,
+            "targetSize": CurseForgeApiCache.TARGET_SIZE_BYTES,
             "totalSize": 0,
             "lastCleanupAt": 0.0,
-            "provider": CurseForgeCache._empty_provider(),
+            "provider": CurseForgeApiCache._empty_provider(),
             "entries": {},
         }
 
     @staticmethod
     def _load_index() -> dict:
-        data = CurseForgeCache._read_json(CurseForgeCache.index_path())
-        if not isinstance(data, dict) or data.get("schemaVersion") != CurseForgeCache.SCHEMA_VERSION:
-            return CurseForgeCache._empty_index()
+        data = CurseForgeApiCache._read_json(CurseForgeApiCache.index_path())
+        if not isinstance(data, dict) or data.get("schemaVersion") != CurseForgeApiCache.SCHEMA_VERSION:
+            return CurseForgeApiCache._empty_index()
         data.setdefault("entries", {})
-        data.setdefault("provider", CurseForgeCache._empty_provider())
-        data["maximumSize"] = CurseForgeCache.MAX_SIZE_BYTES
-        data["targetSize"] = CurseForgeCache.TARGET_SIZE_BYTES
+        data.setdefault("provider", CurseForgeApiCache._empty_provider())
+        data["maximumSize"] = CurseForgeApiCache.MAX_SIZE_BYTES
+        data["targetSize"] = CurseForgeApiCache.TARGET_SIZE_BYTES
         return data
 
     @staticmethod
     def _write_index(index: dict) -> None:
-        CurseForgeCache._write_json_atomic(CurseForgeCache.index_path(), index)
+        CurseForgeApiCache._write_json_atomic(CurseForgeApiCache.index_path(), index)
 
     @staticmethod
     def _evict(index: dict) -> None:
-        CurseForgeCache._recalculate_size(index)
-        if int(index.get("totalSize", 0) or 0) <= CurseForgeCache.MAX_SIZE_BYTES:
+        CurseForgeApiCache._recalculate_size(index)
+        if int(index.get("totalSize", 0) or 0) <= CurseForgeApiCache.MAX_SIZE_BYTES:
             return
         entries = index.get("entries", {}) if isinstance(index.get("entries"), dict) else {}
         ordered = sorted(
@@ -272,10 +272,10 @@ class CurseForgeCache:
             ),
         )
         for cache_key, _metadata in ordered:
-            path = CurseForgeCache.entries_root() / f"{cache_key}.json"
-            CurseForgeCache._remove_entry(index, cache_key, path)
-            CurseForgeCache._recalculate_size(index)
-            if int(index.get("totalSize", 0) or 0) <= CurseForgeCache.TARGET_SIZE_BYTES:
+            path = CurseForgeApiCache.entries_root() / f"{cache_key}.json"
+            CurseForgeApiCache._remove_entry(index, cache_key, path)
+            CurseForgeApiCache._recalculate_size(index)
+            if int(index.get("totalSize", 0) or 0) <= CurseForgeApiCache.TARGET_SIZE_BYTES:
                 break
         index["lastCleanupAt"] = time()
 
@@ -295,8 +295,8 @@ class CurseForgeCache:
         total = 0
         missing: list[str] = []
         for cache_key, metadata in entries.items():
-            path = CurseForgeCache.entries_root() / f"{cache_key}.json"
-            size = CurseForgeCache._safe_file_size(path)
+            path = CurseForgeApiCache.entries_root() / f"{cache_key}.json"
+            size = CurseForgeApiCache._safe_file_size(path)
             if size <= 0 and not path.exists():
                 missing.append(cache_key)
                 continue
@@ -340,3 +340,7 @@ class CurseForgeCache:
         if timestamp <= 0:
             return ""
         return datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+# Backward-compatible alias for extensions/tests built before v1.3.
+CurseForgeCache = CurseForgeApiCache

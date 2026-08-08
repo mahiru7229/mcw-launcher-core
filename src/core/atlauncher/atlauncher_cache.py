@@ -15,12 +15,12 @@ from src.models.atlauncher.cache import ATLauncherCacheInfo
 
 
 @dataclass(frozen=True, slots=True)
-class ATLauncherCacheLookup:
+class ATLauncherApiCacheLookup:
     payload: Any
     cache_info: ATLauncherCacheInfo
 
 
-class ATLauncherCache:
+class ATLauncherApiCache:
     SCHEMA_VERSION = 1
     MAX_SIZE_BYTES = 10 * 1024 * 1024
     TARGET_SIZE_BYTES = 8 * 1024 * 1024
@@ -28,19 +28,19 @@ class ATLauncherCache:
 
     @staticmethod
     def root() -> Path:
-        directory = Paths.atlauncher_root() / "api"
+        directory = Paths.atlauncher_api_cache_root()
         directory.mkdir(parents=True, exist_ok=True)
         return directory
 
     @staticmethod
     def entries_root() -> Path:
-        directory = ATLauncherCache.root() / "entries"
+        directory = ATLauncherApiCache.root() / "entries"
         directory.mkdir(parents=True, exist_ok=True)
         return directory
 
     @staticmethod
     def index_path() -> Path:
-        return ATLauncherCache.root() / "index.json"
+        return ATLauncherApiCache.root() / "index.json"
 
     @staticmethod
     def make_key(namespace: str, path: str, params: dict[str, object] | None = None) -> str:
@@ -53,17 +53,17 @@ class ATLauncherCache:
         return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
     @staticmethod
-    def get(cache_key: str, ttl_seconds: int, allow_stale: bool = False) -> ATLauncherCacheLookup | None:
-        with ATLauncherCache._lock:
-            index = ATLauncherCache._load_index()
+    def get(cache_key: str, ttl_seconds: int, allow_stale: bool = False) -> ATLauncherApiCacheLookup | None:
+        with ATLauncherApiCache._lock:
+            index = ATLauncherApiCache._load_index()
             metadata = index.get("entries", {}).get(cache_key)
             if not isinstance(metadata, dict):
                 return None
-            path = ATLauncherCache.entries_root() / f"{cache_key}.json"
-            entry = ATLauncherCache._read_json(path)
-            if not isinstance(entry, dict) or entry.get("schemaVersion") != ATLauncherCache.SCHEMA_VERSION or "payload" not in entry:
-                ATLauncherCache._remove_entry(index, cache_key, path)
-                ATLauncherCache._write_index(index)
+            path = ATLauncherApiCache.entries_root() / f"{cache_key}.json"
+            entry = ATLauncherApiCache._read_json(path)
+            if not isinstance(entry, dict) or entry.get("schemaVersion") != ATLauncherApiCache.SCHEMA_VERSION or "payload" not in entry:
+                ATLauncherApiCache._remove_entry(index, cache_key, path)
+                ATLauncherApiCache._write_index(index)
                 return None
             refreshed_at = float(entry.get("refreshedAt", 0) or 0)
             age = max(0, int(time() - refreshed_at)) if refreshed_at > 0 else 2**31 - 1
@@ -71,72 +71,72 @@ class ATLauncherCache:
             if stale and not allow_stale:
                 return None
             metadata["lastAccessedAt"] = time()
-            metadata["size"] = ATLauncherCache._safe_size(path)
-            ATLauncherCache._recalculate(index)
-            ATLauncherCache._write_index(index)
-            return ATLauncherCacheLookup(
+            metadata["size"] = ATLauncherApiCache._safe_size(path)
+            ATLauncherApiCache._recalculate(index)
+            ATLauncherApiCache._write_index(index)
+            return ATLauncherApiCacheLookup(
                 payload=entry.get("payload"),
-                cache_info=ATLauncherCache._info(index, refreshed_at, True, stale, age),
+                cache_info=ATLauncherApiCache._info(index, refreshed_at, True, stale, age),
             )
 
     @staticmethod
-    def put(cache_key: str, namespace: str, payload: object, ttl_seconds: int) -> ATLauncherCacheLookup:
+    def put(cache_key: str, namespace: str, payload: object, ttl_seconds: int) -> ATLauncherApiCacheLookup:
         now = time()
-        path = ATLauncherCache.entries_root() / f"{cache_key}.json"
-        with ATLauncherCache._lock:
-            index = ATLauncherCache._load_index()
+        path = ATLauncherApiCache.entries_root() / f"{cache_key}.json"
+        with ATLauncherApiCache._lock:
+            index = ATLauncherApiCache._load_index()
             entry = {
-                "schemaVersion": ATLauncherCache.SCHEMA_VERSION,
+                "schemaVersion": ATLauncherApiCache.SCHEMA_VERSION,
                 "namespace": str(namespace).strip().casefold(),
                 "refreshedAt": now,
                 "expiresAt": now + max(0, int(ttl_seconds)),
                 "payload": payload,
             }
-            ATLauncherCache._write_json_atomic(path, entry)
+            ATLauncherApiCache._write_json_atomic(path, entry)
             index.setdefault("entries", {})[cache_key] = {
                 "namespace": entry["namespace"],
                 "refreshedAt": now,
                 "lastAccessedAt": now,
-                "size": ATLauncherCache._safe_size(path),
+                "size": ATLauncherApiCache._safe_size(path),
             }
             provider = index.setdefault("provider", {})
             provider["lastSuccessfulRefreshAt"] = now
             provider["lastRefreshError"] = ""
-            ATLauncherCache._recalculate(index)
-            ATLauncherCache._evict(index)
-            ATLauncherCache._write_index(index)
-            return ATLauncherCacheLookup(payload=payload, cache_info=ATLauncherCache._info(index, now, False, False, 0))
+            ATLauncherApiCache._recalculate(index)
+            ATLauncherApiCache._evict(index)
+            ATLauncherApiCache._write_index(index)
+            return ATLauncherApiCacheLookup(payload=payload, cache_info=ATLauncherApiCache._info(index, now, False, False, 0))
 
     @staticmethod
     def record_failure(message: str) -> None:
-        with ATLauncherCache._lock:
-            index = ATLauncherCache._load_index()
+        with ATLauncherApiCache._lock:
+            index = ATLauncherApiCache._load_index()
             index.setdefault("provider", {})["lastRefreshError"] = str(message).strip()[:500]
-            ATLauncherCache._write_index(index)
+            ATLauncherApiCache._write_index(index)
 
     @staticmethod
     def status() -> ATLauncherCacheInfo:
-        with ATLauncherCache._lock:
-            index = ATLauncherCache._load_index()
+        with ATLauncherApiCache._lock:
+            index = ATLauncherApiCache._load_index()
             provider = index.get("provider", {}) if isinstance(index.get("provider"), dict) else {}
             refreshed = float(provider.get("lastSuccessfulRefreshAt", 0) or 0)
             age = max(0, int(time() - refreshed)) if refreshed > 0 else 0
-            return ATLauncherCache._info(index, refreshed, False, False, age)
+            return ATLauncherApiCache._info(index, refreshed, False, False, age)
 
     @staticmethod
     def clear() -> None:
-        with ATLauncherCache._lock:
-            for path in ATLauncherCache.entries_root().glob("*.json"):
+        with ATLauncherApiCache._lock:
+            for path in ATLauncherApiCache.entries_root().glob("*.json"):
                 try:
                     path.unlink()
                 except OSError:
                     pass
-            ATLauncherCache._write_index(ATLauncherCache._empty_index())
+            ATLauncherApiCache._write_index(ATLauncherApiCache._empty_index())
 
     @staticmethod
     def _empty_index() -> dict[str, object]:
         return {
-            "schemaVersion": ATLauncherCache.SCHEMA_VERSION,
+            "schemaVersion": ATLauncherApiCache.SCHEMA_VERSION,
             "totalSize": 0,
             "provider": {"lastSuccessfulRefreshAt": 0.0, "lastRefreshError": ""},
             "entries": {},
@@ -144,28 +144,28 @@ class ATLauncherCache:
 
     @staticmethod
     def _load_index() -> dict:
-        data = ATLauncherCache._read_json(ATLauncherCache.index_path())
-        if not isinstance(data, dict) or data.get("schemaVersion") != ATLauncherCache.SCHEMA_VERSION:
-            return ATLauncherCache._empty_index()
+        data = ATLauncherApiCache._read_json(ATLauncherApiCache.index_path())
+        if not isinstance(data, dict) or data.get("schemaVersion") != ATLauncherApiCache.SCHEMA_VERSION:
+            return ATLauncherApiCache._empty_index()
         data.setdefault("entries", {})
         data.setdefault("provider", {})
         return data
 
     @staticmethod
     def _write_index(index: dict) -> None:
-        ATLauncherCache._write_json_atomic(ATLauncherCache.index_path(), index)
+        ATLauncherApiCache._write_json_atomic(ATLauncherApiCache.index_path(), index)
 
     @staticmethod
     def _evict(index: dict) -> None:
-        ATLauncherCache._recalculate(index)
-        if int(index.get("totalSize", 0) or 0) <= ATLauncherCache.MAX_SIZE_BYTES:
+        ATLauncherApiCache._recalculate(index)
+        if int(index.get("totalSize", 0) or 0) <= ATLauncherApiCache.MAX_SIZE_BYTES:
             return
         entries = index.get("entries", {}) if isinstance(index.get("entries"), dict) else {}
         ordered = sorted(entries.items(), key=lambda item: float(item[1].get("lastAccessedAt", 0) or 0) if isinstance(item[1], dict) else 0)
         for cache_key, _ in ordered:
-            ATLauncherCache._remove_entry(index, cache_key, ATLauncherCache.entries_root() / f"{cache_key}.json")
-            ATLauncherCache._recalculate(index)
-            if int(index.get("totalSize", 0) or 0) <= ATLauncherCache.TARGET_SIZE_BYTES:
+            ATLauncherApiCache._remove_entry(index, cache_key, ATLauncherApiCache.entries_root() / f"{cache_key}.json")
+            ATLauncherApiCache._recalculate(index)
+            if int(index.get("totalSize", 0) or 0) <= ATLauncherApiCache.TARGET_SIZE_BYTES:
                 break
 
     @staticmethod
@@ -184,11 +184,11 @@ class ATLauncherCache:
         total = 0
         missing: list[str] = []
         for key, metadata in entries.items():
-            path = ATLauncherCache.entries_root() / f"{key}.json"
+            path = ATLauncherApiCache.entries_root() / f"{key}.json"
             if not path.exists():
                 missing.append(key)
                 continue
-            size = ATLauncherCache._safe_size(path)
+            size = ATLauncherApiCache._safe_size(path)
             if isinstance(metadata, dict):
                 metadata["size"] = size
             total += size
@@ -200,13 +200,13 @@ class ATLauncherCache:
     def _info(index: dict, refreshed_at: float, from_cache: bool, stale: bool, age: int) -> ATLauncherCacheInfo:
         provider = index.get("provider", {}) if isinstance(index.get("provider"), dict) else {}
         return ATLauncherCacheInfo(
-            refreshed_at=ATLauncherCache._iso(refreshed_at),
+            refreshed_at=ATLauncherApiCache._iso(refreshed_at),
             from_cache=bool(from_cache),
             stale=bool(stale),
             age_seconds=max(0, int(age)),
             last_error=str(provider.get("lastRefreshError") or ""),
             cache_size_bytes=max(0, int(index.get("totalSize", 0) or 0)),
-            cache_limit_bytes=ATLauncherCache.MAX_SIZE_BYTES,
+            cache_limit_bytes=ATLauncherApiCache.MAX_SIZE_BYTES,
         )
 
     @staticmethod
@@ -242,3 +242,7 @@ class ATLauncherCache:
         if timestamp <= 0:
             return ""
         return datetime.fromtimestamp(timestamp, timezone.utc).isoformat()
+
+
+# Backward-compatible alias for extensions/tests built before v1.3.
+ATLauncherCache = ATLauncherApiCache

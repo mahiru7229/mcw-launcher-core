@@ -15,12 +15,12 @@ from src.models.ftb.cache import FTBCacheInfo
 
 
 @dataclass(frozen=True, slots=True)
-class FTBCacheLookup:
+class FTBApiCacheLookup:
     payload: Any
     cache_info: FTBCacheInfo
 
 
-class FTBCache:
+class FTBApiCache:
     SCHEMA_VERSION = 1
     MAX_SIZE_BYTES = 10 * 1024 * 1024
     TARGET_SIZE_BYTES = 8 * 1024 * 1024
@@ -28,19 +28,19 @@ class FTBCache:
 
     @staticmethod
     def root() -> Path:
-        directory = Paths.ftb_root() / "api-v1"
+        directory = Paths.ftb_api_cache_root()
         directory.mkdir(parents=True, exist_ok=True)
         return directory
 
     @staticmethod
     def entries_root() -> Path:
-        directory = FTBCache.root() / "entries"
+        directory = FTBApiCache.root() / "entries"
         directory.mkdir(parents=True, exist_ok=True)
         return directory
 
     @staticmethod
     def index_path() -> Path:
-        return FTBCache.root() / "index.json"
+        return FTBApiCache.root() / "index.json"
 
     @staticmethod
     def make_key(namespace: str, path: str, params: dict[str, object] | None = None) -> str:
@@ -53,17 +53,17 @@ class FTBCache:
         return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
     @staticmethod
-    def get(cache_key: str, ttl_seconds: int, allow_stale: bool = False) -> FTBCacheLookup | None:
-        with FTBCache._lock:
-            index = FTBCache._load_index()
+    def get(cache_key: str, ttl_seconds: int, allow_stale: bool = False) -> FTBApiCacheLookup | None:
+        with FTBApiCache._lock:
+            index = FTBApiCache._load_index()
             metadata = index.get("entries", {}).get(cache_key)
             if not isinstance(metadata, dict):
                 return None
-            path = FTBCache.entries_root() / f"{cache_key}.json"
-            entry = FTBCache._read_json(path)
-            if not isinstance(entry, dict) or entry.get("schemaVersion") != FTBCache.SCHEMA_VERSION or "payload" not in entry:
-                FTBCache._remove_entry(index, cache_key, path)
-                FTBCache._write_index(index)
+            path = FTBApiCache.entries_root() / f"{cache_key}.json"
+            entry = FTBApiCache._read_json(path)
+            if not isinstance(entry, dict) or entry.get("schemaVersion") != FTBApiCache.SCHEMA_VERSION or "payload" not in entry:
+                FTBApiCache._remove_entry(index, cache_key, path)
+                FTBApiCache._write_index(index)
                 return None
             refreshed_at = float(entry.get("refreshedAt", 0) or 0)
             age = max(0, int(time() - refreshed_at)) if refreshed_at > 0 else 2**31 - 1
@@ -71,72 +71,72 @@ class FTBCache:
             if stale and not allow_stale:
                 return None
             metadata["lastAccessedAt"] = time()
-            metadata["size"] = FTBCache._safe_size(path)
-            FTBCache._recalculate(index)
-            FTBCache._write_index(index)
-            return FTBCacheLookup(
+            metadata["size"] = FTBApiCache._safe_size(path)
+            FTBApiCache._recalculate(index)
+            FTBApiCache._write_index(index)
+            return FTBApiCacheLookup(
                 payload=entry.get("payload"),
-                cache_info=FTBCache._info(index, refreshed_at, True, stale, age),
+                cache_info=FTBApiCache._info(index, refreshed_at, True, stale, age),
             )
 
     @staticmethod
-    def put(cache_key: str, namespace: str, payload: object, ttl_seconds: int) -> FTBCacheLookup:
+    def put(cache_key: str, namespace: str, payload: object, ttl_seconds: int) -> FTBApiCacheLookup:
         now = time()
-        path = FTBCache.entries_root() / f"{cache_key}.json"
-        with FTBCache._lock:
-            index = FTBCache._load_index()
+        path = FTBApiCache.entries_root() / f"{cache_key}.json"
+        with FTBApiCache._lock:
+            index = FTBApiCache._load_index()
             entry = {
-                "schemaVersion": FTBCache.SCHEMA_VERSION,
+                "schemaVersion": FTBApiCache.SCHEMA_VERSION,
                 "namespace": str(namespace).strip().casefold(),
                 "refreshedAt": now,
                 "expiresAt": now + max(0, int(ttl_seconds)),
                 "payload": payload,
             }
-            FTBCache._write_json_atomic(path, entry)
+            FTBApiCache._write_json_atomic(path, entry)
             index.setdefault("entries", {})[cache_key] = {
                 "namespace": entry["namespace"],
                 "refreshedAt": now,
                 "lastAccessedAt": now,
-                "size": FTBCache._safe_size(path),
+                "size": FTBApiCache._safe_size(path),
             }
             provider = index.setdefault("provider", {})
             provider["lastSuccessfulRefreshAt"] = now
             provider["lastRefreshError"] = ""
-            FTBCache._recalculate(index)
-            FTBCache._evict(index)
-            FTBCache._write_index(index)
-            return FTBCacheLookup(payload=payload, cache_info=FTBCache._info(index, now, False, False, 0))
+            FTBApiCache._recalculate(index)
+            FTBApiCache._evict(index)
+            FTBApiCache._write_index(index)
+            return FTBApiCacheLookup(payload=payload, cache_info=FTBApiCache._info(index, now, False, False, 0))
 
     @staticmethod
     def record_failure(message: str) -> None:
-        with FTBCache._lock:
-            index = FTBCache._load_index()
+        with FTBApiCache._lock:
+            index = FTBApiCache._load_index()
             index.setdefault("provider", {})["lastRefreshError"] = str(message).strip()[:500]
-            FTBCache._write_index(index)
+            FTBApiCache._write_index(index)
 
     @staticmethod
     def status() -> FTBCacheInfo:
-        with FTBCache._lock:
-            index = FTBCache._load_index()
+        with FTBApiCache._lock:
+            index = FTBApiCache._load_index()
             provider = index.get("provider", {}) if isinstance(index.get("provider"), dict) else {}
             refreshed = float(provider.get("lastSuccessfulRefreshAt", 0) or 0)
             age = max(0, int(time() - refreshed)) if refreshed > 0 else 0
-            return FTBCache._info(index, refreshed, False, False, age)
+            return FTBApiCache._info(index, refreshed, False, False, age)
 
     @staticmethod
     def clear() -> None:
-        with FTBCache._lock:
-            for path in FTBCache.entries_root().glob("*.json"):
+        with FTBApiCache._lock:
+            for path in FTBApiCache.entries_root().glob("*.json"):
                 try:
                     path.unlink()
                 except OSError:
                     pass
-            FTBCache._write_index(FTBCache._empty_index())
+            FTBApiCache._write_index(FTBApiCache._empty_index())
 
     @staticmethod
     def _empty_index() -> dict[str, object]:
         return {
-            "schemaVersion": FTBCache.SCHEMA_VERSION,
+            "schemaVersion": FTBApiCache.SCHEMA_VERSION,
             "totalSize": 0,
             "provider": {"lastSuccessfulRefreshAt": 0.0, "lastRefreshError": ""},
             "entries": {},
@@ -144,28 +144,28 @@ class FTBCache:
 
     @staticmethod
     def _load_index() -> dict:
-        data = FTBCache._read_json(FTBCache.index_path())
-        if not isinstance(data, dict) or data.get("schemaVersion") != FTBCache.SCHEMA_VERSION:
-            return FTBCache._empty_index()
+        data = FTBApiCache._read_json(FTBApiCache.index_path())
+        if not isinstance(data, dict) or data.get("schemaVersion") != FTBApiCache.SCHEMA_VERSION:
+            return FTBApiCache._empty_index()
         data.setdefault("entries", {})
         data.setdefault("provider", {})
         return data
 
     @staticmethod
     def _write_index(index: dict) -> None:
-        FTBCache._write_json_atomic(FTBCache.index_path(), index)
+        FTBApiCache._write_json_atomic(FTBApiCache.index_path(), index)
 
     @staticmethod
     def _evict(index: dict) -> None:
-        FTBCache._recalculate(index)
-        if int(index.get("totalSize", 0) or 0) <= FTBCache.MAX_SIZE_BYTES:
+        FTBApiCache._recalculate(index)
+        if int(index.get("totalSize", 0) or 0) <= FTBApiCache.MAX_SIZE_BYTES:
             return
         entries = index.get("entries", {}) if isinstance(index.get("entries"), dict) else {}
         ordered = sorted(entries.items(), key=lambda item: float(item[1].get("lastAccessedAt", 0) or 0) if isinstance(item[1], dict) else 0)
         for cache_key, _ in ordered:
-            FTBCache._remove_entry(index, cache_key, FTBCache.entries_root() / f"{cache_key}.json")
-            FTBCache._recalculate(index)
-            if int(index.get("totalSize", 0) or 0) <= FTBCache.TARGET_SIZE_BYTES:
+            FTBApiCache._remove_entry(index, cache_key, FTBApiCache.entries_root() / f"{cache_key}.json")
+            FTBApiCache._recalculate(index)
+            if int(index.get("totalSize", 0) or 0) <= FTBApiCache.TARGET_SIZE_BYTES:
                 break
 
     @staticmethod
@@ -184,11 +184,11 @@ class FTBCache:
         total = 0
         missing: list[str] = []
         for key, metadata in entries.items():
-            path = FTBCache.entries_root() / f"{key}.json"
+            path = FTBApiCache.entries_root() / f"{key}.json"
             if not path.exists():
                 missing.append(key)
                 continue
-            size = FTBCache._safe_size(path)
+            size = FTBApiCache._safe_size(path)
             if isinstance(metadata, dict):
                 metadata["size"] = size
             total += size
@@ -200,13 +200,13 @@ class FTBCache:
     def _info(index: dict, refreshed_at: float, from_cache: bool, stale: bool, age: int) -> FTBCacheInfo:
         provider = index.get("provider", {}) if isinstance(index.get("provider"), dict) else {}
         return FTBCacheInfo(
-            refreshed_at=FTBCache._iso(refreshed_at),
+            refreshed_at=FTBApiCache._iso(refreshed_at),
             from_cache=bool(from_cache),
             stale=bool(stale),
             age_seconds=max(0, int(age)),
             last_error=str(provider.get("lastRefreshError") or ""),
             cache_size_bytes=max(0, int(index.get("totalSize", 0) or 0)),
-            cache_limit_bytes=FTBCache.MAX_SIZE_BYTES,
+            cache_limit_bytes=FTBApiCache.MAX_SIZE_BYTES,
         )
 
     @staticmethod
@@ -242,3 +242,7 @@ class FTBCache:
         if timestamp <= 0:
             return ""
         return datetime.fromtimestamp(timestamp, timezone.utc).isoformat()
+
+
+# Backward-compatible alias for extensions/tests built before v1.3.
+FTBCache = FTBApiCache

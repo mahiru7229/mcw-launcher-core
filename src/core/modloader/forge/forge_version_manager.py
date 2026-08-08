@@ -17,6 +17,7 @@ from src.core.modloader.forge.legacy_forge_installer import LegacyForgeInstaller
 from src.core.modloader.java_installer_runner import ModLoaderJavaRunner
 from src.core.network.httpx_downloader import HttpDownloader
 from src.core.progress.progress_reporter import ProgressReporter
+from src.core.storage.shared_file_materializer import SharedFileMaterializer
 from src.models.minecraft.version import Version
 from src.models.progress.progress_stage import ProgressStage
 
@@ -80,18 +81,21 @@ class ForgeVersionManager:
             if staging.exists():
                 shutil.rmtree(staging, ignore_errors=True)
             staging.mkdir(parents=True, exist_ok=True)
-            ForgeVersionManager._prepare_staging(base_version, staging)
-            ForgeVersionManager._run_installer(base_version, loader, installer, staging, reporter, preferred_java_path)
-            profile = ForgeVersionManager._find_profile(staging, loader)
-            ForgeVersionManager._import_libraries(staging, reporter)
-            normalized = ForgeVersionManager._normalize_libraries(profile, reporter)
-            merged = ForgeVersionManager._merge_profiles(base_version.raw_json, normalized, base_version.id, loader)
-            merged = ForgeVersionManager._normalize_libraries(merged, reporter)
-            ForgeVersionManager._write_json(cache_path, merged)
-            version = VersionManager._parse_version(merged, cache_path)
-            if version is None:
-                raise RuntimeError("The installed Forge profile could not be parsed.")
-            return version
+            try:
+                ForgeVersionManager._prepare_staging(base_version, staging)
+                ForgeVersionManager._run_installer(base_version, loader, installer, staging, reporter, preferred_java_path)
+                profile = ForgeVersionManager._find_profile(staging, loader)
+                ForgeVersionManager._import_libraries(staging, reporter)
+                normalized = ForgeVersionManager._normalize_libraries(profile, reporter)
+                merged = ForgeVersionManager._merge_profiles(base_version.raw_json, normalized, base_version.id, loader)
+                merged = ForgeVersionManager._normalize_libraries(merged, reporter)
+                ForgeVersionManager._write_json(cache_path, merged)
+                version = VersionManager._parse_version(merged, cache_path)
+                if version is None:
+                    raise RuntimeError("The installed Forge profile could not be parsed.")
+                return version
+            finally:
+                shutil.rmtree(staging, ignore_errors=True)
 
     @staticmethod
     def repair(base_version: Version, forge_version: str, reporter: ProgressReporter | None = None, preferred_java_path: str | Path | None = None) -> Version:
@@ -150,8 +154,8 @@ class ForgeVersionManager:
         client = Paths.client(base_version)
         if client.is_file():
             target = version_dir / f"{base_version.id}.jar"
-            if not target.is_file() or target.stat().st_size != client.stat().st_size:
-                shutil.copy2(client, target)
+            if not target.is_file() or not SharedFileMaterializer.same_content(client, target):
+                SharedFileMaterializer.link_or_copy(client, target)
 
         for library in (base_version.raw_json or {}).get("libraries", []):
             if not isinstance(library, dict):
@@ -167,10 +171,9 @@ class ForgeVersionManager:
             if not source.is_file():
                 continue
             target = staging / "libraries" / Path(relative)
-            if target.is_file() and target.stat().st_size == source.stat().st_size:
+            if target.is_file() and SharedFileMaterializer.same_content(source, target):
                 continue
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source, target)
+            SharedFileMaterializer.link_or_copy(source, target)
 
     @staticmethod
     def _run_installer(base_version: Version, forge_version: str, installer: Path, staging: Path, reporter: ProgressReporter | None, preferred_java_path: str | Path | None = None) -> None:
@@ -241,16 +244,7 @@ class ForgeVersionManager:
             reporter.files(stage=ProgressStage.INSTALLING_MOD_LOADER, message="Importing Forge libraries...", current=0, total=total)
         for index, path in enumerate(files, start=1):
             target = Paths.libraries() / path.relative_to(source)
-            target.parent.mkdir(parents=True, exist_ok=True)
-            if not target.is_file() or target.stat().st_size != path.stat().st_size:
-                temporary = target.with_suffix(target.suffix + ".part")
-                try:
-                    shutil.copy2(path, temporary)
-                    if temporary.stat().st_size != path.stat().st_size:
-                        raise RuntimeError(f"Forge library copy was incomplete: {path.name}")
-                    temporary.replace(target)
-                finally:
-                    temporary.unlink(missing_ok=True)
+            SharedFileMaterializer.publish_from_staging(path, target)
             if reporter is not None:
                 reporter.files(stage=ProgressStage.INSTALLING_MOD_LOADER, message="Importing Forge libraries...", current=index, total=total)
 

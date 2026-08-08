@@ -11,7 +11,7 @@ import httpx
 
 from src.config import CURSEFORGE_USER_AGENT, VERSION_ID
 from src.core.config.curseforge_config_manager import CurseForgeConfigManager
-from src.core.curseforge.curseforge_cache import CacheLookup, CurseForgeCache
+from src.core.curseforge.curseforge_cache import CacheLookup, CurseForgeApiCache
 from src.core.mod.provider_game_version_policy import provider_game_version_rank
 from src.core.network.httpx_downloader import HttpDownloader
 from src.models.curseforge.cache import CurseForgeCacheInfo, CurseForgeFileListResult
@@ -75,16 +75,26 @@ class CurseForgeClient:
         return CurseForgeClient.gateway_urls()[0]
 
     @staticmethod
+    def api_cache_status() -> CurseForgeCacheInfo:
+        return CurseForgeApiCache.status()
+
+    @staticmethod
+    def clear_api_cache() -> None:
+        CurseForgeApiCache.clear()
+
+    @staticmethod
     def cache_status() -> CurseForgeCacheInfo:
-        return CurseForgeCache.status()
+        """Compatibility alias for the pre-v1.3 API-cache name."""
+        return CurseForgeClient.api_cache_status()
 
     @staticmethod
     def clear_cache() -> None:
-        CurseForgeCache.clear()
+        """Compatibility alias; clears provider API metadata only."""
+        CurseForgeClient.clear_api_cache()
 
     @staticmethod
     def manual_refresh_remaining_seconds() -> int:
-        return CurseForgeCache.manual_refresh_remaining_seconds()
+        return CurseForgeApiCache.manual_refresh_remaining_seconds()
 
     @staticmethod
     def search_projects(project_type: str, query: str = "", game_version: str = "", loader: str = "forge", index: int = 0, page_size: int = 25, sort: str = "popularity", force_refresh: bool = False, manual_refresh: bool = False) -> CurseForgeSearchResult:
@@ -98,7 +108,7 @@ class CurseForgeClient:
                 total_count=0,
                 index=0,
                 page_size=min(max(1, int(page_size)), 50),
-                cache_info=CurseForgeCache.status(),
+                cache_info=CurseForgeApiCache.status(),
             )
         normalized_loader = CurseForgeClient.normalize_loader(loader) if kind in {"mod", "modpack"} else ""
         class_id = CurseForgeClient.CLASS_IDS[kind]
@@ -402,13 +412,13 @@ class CurseForgeClient:
     @staticmethod
     def _request_json(method: str, route: str, params: dict[str, object] | None = None, body: object | None = None, ttl: int = 0, force_refresh: bool = False, manual_refresh: bool = False, allow_stale_on_error: bool = True, cache_response: bool = True, namespace: str = "generic") -> CacheLookup:
         normalized_params = {str(key): value for key, value in (params or {}).items() if value not in {None, ""}}
-        cache_key = CurseForgeCache.make_key(namespace, route, normalized_params, body)
+        cache_key = CurseForgeApiCache.make_key(namespace, route, normalized_params, body)
         if cache_response and not force_refresh:
-            cached = CurseForgeCache.get(cache_key, ttl, allow_stale=False)
+            cached = CurseForgeApiCache.get(cache_key, ttl, allow_stale=False)
             if cached is not None:
                 return cached
         if manual_refresh:
-            CurseForgeCache.assert_manual_refresh_allowed()
+            CurseForgeApiCache.assert_manual_refresh_allowed()
 
         with CurseForgeClient._inflight_guard:
             in_flight = CurseForgeClient._inflight.get(cache_key)
@@ -428,15 +438,15 @@ class CurseForgeClient:
             return in_flight.result
 
         try:
-            CurseForgeCache.record_attempt(manual=manual_refresh)
+            CurseForgeApiCache.record_attempt(manual=manual_refresh)
             lookup = CurseForgeClient._perform_request(method, route, normalized_params, body, ttl, cache_key, namespace, cache_response)
             in_flight.result = lookup
             return lookup
         except Exception as error:
             retry_after = int(getattr(error, "retry_after_seconds", 0) or 0) or None
-            CurseForgeCache.record_failure(str(error), retry_after_seconds=retry_after)
+            CurseForgeApiCache.record_failure(str(error), retry_after_seconds=retry_after)
             if allow_stale_on_error and cache_response:
-                stale = CurseForgeCache.get(cache_key, ttl, allow_stale=True)
+                stale = CurseForgeApiCache.get(cache_key, ttl, allow_stale=True)
                 if stale is not None:
                     in_flight.result = stale
                     return stale
@@ -496,8 +506,8 @@ class CurseForgeClient:
                 raise converted from error
 
             if cache_response:
-                return CurseForgeCache.put(cache_key, namespace, payload, ttl)
-            return CacheLookup(payload=payload, cache_info=CurseForgeCache.status())
+                return CurseForgeApiCache.put(cache_key, namespace, payload, ttl)
+            return CacheLookup(payload=payload, cache_info=CurseForgeApiCache.status())
 
         if last_error is not None:
             error = RuntimeError("All configured CurseForge gateways are unavailable.")

@@ -1,29 +1,28 @@
-# MCW Core v1.2.0
+# MCW Core v1.3.0
 
 MCW Core is the GUI-independent runtime distributed with MCW Launcher.
 
 ## Package
 
-- Distribution: `mcw-core 1.2.0`
-- Runtime: `mcw_core.__version__ == "1.2.0"`
+- Distribution: `mcw-core 1.3.0`
+- Runtime: `mcw_core.__version__ == "1.3.0"`
 - Update channel metadata: `stable`
 - Python: 3.12 or newer
 - Wheel: pure Python `py3-none-any`
 
-## v1.2.0 highlights
+## v1.3.0 shared storage and cleanup
 
-MCW Core 1.2.0 keeps the dependency/loader hardening from v1.1.2 and adds the public-core support required by Instance Manager 2.0:
+The stable v1.3.0 release keeps the validated Shared Storage foundation from Beta 1, the instance-deletion finalization fix from Beta 2, and the narrow unused-version-JAR cleanup from Beta 3.
 
-- Instance library metadata: Favorite, Group and Tags with backward-compatible `instance.json` loading.
-- Public `InstanceService.set_library_metadata(...)` support.
-- Public `InstanceRuntimeProfile` and runtime-profile API for Minecraft, loader and Java requirements.
-- Public per-instance Java runtime selection with compatibility validation and run-lock protection.
-- Unified installed-content core support used by local mod/resource-pack/shader-pack import and ownership filters.
-- Retains loader-scoped dependency resolution, embedded/JarJar capability handling, safe stale managed-dependency cleanup and manual dependency pause/import/resume.
-- Retains bounded modpack download concurrency, tolerant legacy `mcmod.info`, modloader installation recovery and RC storage-failure handling.
+Final stable hardening adds:
+
+- configurable 1–365 day retention for unused Minecraft version JARs, defaulting to 14 days;
+- conservative detection and cleanup of legacy instance residue directories that have no `instance.json`, no registry reference, and contain only `.mcw` / `crash-reports`;
+- reference-aware revalidation before deletion;
+- provider API/metadata cache remains separate and protected from binary storage cleanup.
 
 ## Public API
 
-The supported entry point is `import mcw_core`. MCW Core remains independent from PySide6/GUI code.
+The supported entry point remains `import mcw_core`.
 
-See `docs/MCW_CORE_LIBRARY.md`, `docs/en/CORE_GUIDE.md`, `docs/vi/CORE_GUIDE.md`, and `RELEASE-v1.2.0.md` in the source archive.
+See `docs/MCW_CORE_LIBRARY.md`, `docs/en/CORE_GUIDE.md`, `docs/vi/CORE_GUIDE.md`, and `RELEASE-v1.3.0.md` in the source archive.

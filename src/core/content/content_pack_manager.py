@@ -16,6 +16,7 @@ from src.core.curseforge.curseforge_downloader import CurseForgeDownloader
 from src.core.fs.paths import Paths
 from src.core.instance.instance_run_lock import InstanceRunLock
 from src.core.modrinth.modrinth_client import ModrinthClient
+from src.core.storage.content_store import ContentStore
 from src.core.modrinth.modrinth_downloader import ModrinthDownloader
 from src.core.progress.progress_reporter import ProgressReporter
 from src.models.content.content_pack import ContentPackEntry, ContentPackInstallResult
@@ -342,7 +343,10 @@ class ContentPackManager:
                 if destination.exists():
                     destination.replace(backup)
                     moved_existing = True
-                copy2(source_path, staging)
+                if str(provider).strip().lower() in {"curseforge", "modrinth"}:
+                    ContentStore.materialize(source_path, staging, adopt_source=True, prefer_hardlink=True)
+                else:
+                    copy2(source_path, staging)
                 cls.validate_archive(staging, kind)
                 staging.replace(destination)
 

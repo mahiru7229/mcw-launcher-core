@@ -10,7 +10,7 @@ from urllib.parse import quote, urljoin
 import httpx
 
 from src.config import ATLAUNCHER_USER_AGENT
-from src.core.atlauncher.atlauncher_cache import ATLauncherCache, ATLauncherCacheLookup
+from src.core.atlauncher.atlauncher_cache import ATLauncherApiCache, ATLauncherApiCacheLookup
 from src.core.modloader.mod_loader_manager import ModLoaderManager
 from src.core.network.httpx_downloader import HttpDownloader
 from src.models.atlauncher.cache import ATLauncherCacheInfo
@@ -56,12 +56,22 @@ class ATLauncherClient:
     """
 
     @staticmethod
+    def api_cache_status() -> ATLauncherCacheInfo:
+        return ATLauncherApiCache.status()
+
+    @staticmethod
+    def clear_api_cache() -> None:
+        ATLauncherApiCache.clear()
+
+    @staticmethod
     def cache_status() -> ATLauncherCacheInfo:
-        return ATLauncherCache.status()
+        """Compatibility alias for the pre-v1.3 API-cache name."""
+        return ATLauncherClient.api_cache_status()
 
     @staticmethod
     def clear_cache() -> None:
-        ATLauncherCache.clear()
+        """Compatibility alias; clears provider API metadata only."""
+        ATLauncherClient.clear_api_cache()
 
     @staticmethod
     def search_projects(query: str = "", index: int = 0, page_size: int = 25, sort: str = "popularity", force_refresh: bool = False) -> ATLauncherSearchResult:
@@ -212,10 +222,10 @@ class ATLauncherClient:
         return aliases.get(name, name)
 
     @staticmethod
-    def _request_graphql(queries: tuple[str, ...], variables: dict[str, object], ttl: int, force_refresh: bool, allow_stale_on_error: bool, namespace: str) -> ATLauncherCacheLookup:
-        cache_key = ATLauncherCache.make_key(namespace, "graphql", {"variables": variables, "queries": queries})
+    def _request_graphql(queries: tuple[str, ...], variables: dict[str, object], ttl: int, force_refresh: bool, allow_stale_on_error: bool, namespace: str) -> ATLauncherApiCacheLookup:
+        cache_key = ATLauncherApiCache.make_key(namespace, "graphql", {"variables": variables, "queries": queries})
         if not force_refresh:
-            cached = ATLauncherCache.get(cache_key, ttl)
+            cached = ATLauncherApiCache.get(cache_key, ttl)
             if cached is not None:
                 return cached
         errors: list[str] = []
@@ -241,16 +251,16 @@ class ATLauncherClient:
                     raise RuntimeError(detail or "ATLauncher GraphQL request failed.")
                 if not isinstance(payload.get("data"), dict):
                     raise RuntimeError("ATLauncher GraphQL response did not contain data.")
-                return ATLauncherCache.put(cache_key, namespace, payload, ttl)
+                return ATLauncherApiCache.put(cache_key, namespace, payload, ttl)
             except (httpx.HTTPError, ValueError, RuntimeError) as error:
                 errors.append(str(error) or type(error).__name__)
         return ATLauncherClient._stale_or_error(cache_key, ttl, namespace, errors, allow_stale_on_error)
 
     @staticmethod
-    def _request_json(url: str, ttl: int, force_refresh: bool, allow_stale_on_error: bool, namespace: str) -> ATLauncherCacheLookup:
-        cache_key = ATLauncherCache.make_key(namespace, url)
+    def _request_json(url: str, ttl: int, force_refresh: bool, allow_stale_on_error: bool, namespace: str) -> ATLauncherApiCacheLookup:
+        cache_key = ATLauncherApiCache.make_key(namespace, url)
         if not force_refresh:
-            cached = ATLauncherCache.get(cache_key, ttl)
+            cached = ATLauncherApiCache.get(cache_key, ttl)
             if cached is not None:
                 return cached
         errors: list[str] = []
@@ -260,17 +270,17 @@ class ATLauncherClient:
             payload = response.json()
             if not isinstance(payload, (dict, list)):
                 raise RuntimeError("ATLauncher returned an unsupported JSON response.")
-            return ATLauncherCache.put(cache_key, namespace, payload, ttl)
+            return ATLauncherApiCache.put(cache_key, namespace, payload, ttl)
         except (httpx.HTTPError, ValueError, RuntimeError) as error:
             errors.append(str(error) or type(error).__name__)
         return ATLauncherClient._stale_or_error(cache_key, ttl, namespace, errors, allow_stale_on_error)
 
     @staticmethod
-    def _stale_or_error(cache_key: str, ttl: int, namespace: str, errors: list[str], allow_stale_on_error: bool) -> ATLauncherCacheLookup:
+    def _stale_or_error(cache_key: str, ttl: int, namespace: str, errors: list[str], allow_stale_on_error: bool) -> ATLauncherApiCacheLookup:
         detail = "; ".join(dict.fromkeys(item for item in errors if item)) or "No ATLauncher endpoint responded."
-        ATLauncherCache.record_failure(detail)
+        ATLauncherApiCache.record_failure(detail)
         if allow_stale_on_error:
-            stale = ATLauncherCache.get(cache_key, ttl, allow_stale=True)
+            stale = ATLauncherApiCache.get(cache_key, ttl, allow_stale=True)
             if stale is not None:
                 return stale
         raise RuntimeError(f"Could not contact the ATLauncher service ({namespace}): {detail}")
@@ -280,7 +290,7 @@ class ATLauncherClient:
         return {"User-Agent": ATLAUNCHER_USER_AGENT, "Accept": "application/json", "Content-Type": "application/json"}
 
     @staticmethod
-    def _search_v1(query: str, force_refresh: bool) -> tuple[ATLauncherCacheLookup, list]:
+    def _search_v1(query: str, force_refresh: bool) -> tuple[ATLauncherApiCacheLookup, list]:
         urls = (
             f"{ATLauncherClient.V1_BASE_URL}packs/full/public",
             f"{ATLauncherClient.CDN_BASE_URL}launcher/json/packsnew.json",

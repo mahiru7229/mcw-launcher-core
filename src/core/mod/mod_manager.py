@@ -15,6 +15,7 @@ from src.core.fs.paths import Paths
 from src.core.instance.errors import InstanceModChangeBlockedError
 from src.core.instance.instance_run_lock import InstanceRunLock
 from src.core.modloader.mod_loader_manager import ModLoaderManager
+from src.core.storage.content_store import ContentStore
 from src.core.mod.mod_provenance_registry import ModProvenanceRegistry
 from src.models.instance.instance import Instance
 from src.models.mod.mod_info import ModInfo
@@ -150,7 +151,7 @@ class ModManager:
         return digest.hexdigest().casefold()
 
     @staticmethod
-    def add_mods(instance: Instance, source_paths: Iterable[Path], replace: bool = False, launch_lock_token: str | None = None, allow_unverified: bool = False) -> list[ModInfo]:
+    def add_mods(instance: Instance, source_paths: Iterable[Path], replace: bool = False, launch_lock_token: str | None = None, allow_unverified: bool = False, managed_source: bool = False) -> list[ModInfo]:
         ModManager._ensure_modifiable(instance, launch_lock_token)
         destination_dir = ModManager.mods_dir(instance)
         installed = ModManager.list_mods(instance)
@@ -189,7 +190,10 @@ class ModManager:
 
             temporary_path = destination.with_name(destination.name + ".part")
             try:
-                shutil.copy2(source, temporary_path)
+                if managed_source:
+                    ContentStore.materialize(source, temporary_path, adopt_source=True, prefer_hardlink=True)
+                else:
+                    shutil.copy2(source, temporary_path)
                 copied = ModManager.read_mod(temporary_path, preferred_loader=loader_name)
                 ModManager.validate_mod_for_instance(instance, copied, allow_unverified=allow_unverified)
 

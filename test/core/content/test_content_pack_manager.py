@@ -269,3 +269,28 @@ def test_provider_replacement_is_blocked_while_running(instance: Instance, tmp_p
 
     with pytest.raises(RuntimeError, match="cannot be replaced"):
         ContentPackManager._install_verified_file(instance, "resourcepack", second, "modrinth", "project", "v2", "two", "Pack", "2", "", "", 0, "", "")
+
+
+def test_provider_content_pack_uses_shared_content_store(instance: Instance, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    cache_root = tmp_path / "cache"
+    monkeypatch.setattr("src.core.storage.content_store.Paths.CACHE_ROOT", cache_root)
+    source = write_resource_pack(tmp_path / "provider-cache" / "managed.zip", payload=b"managed-provider")
+
+    result = ContentPackManager._install_verified_file(instance, "resourcepack", source, "modrinth", "project", "version", "file", "Managed", "1.0", "", "", 0, "", "")
+
+    destination = instance.instance_dir / "resourcepacks" / result.file_name
+    blobs = list((cache_root / "content-store" / "sha256").rglob("*"))
+    blob_files = [path for path in blobs if path.is_file()]
+    assert len(blob_files) == 1
+    assert destination.read_bytes() == source.read_bytes()
+    assert blob_files[0].read_bytes() == source.read_bytes()
+
+
+def test_local_content_pack_does_not_enter_shared_content_store(instance: Instance, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    cache_root = tmp_path / "cache"
+    monkeypatch.setattr("src.core.storage.content_store.Paths.CACHE_ROOT", cache_root)
+    source = write_resource_pack(tmp_path / "local.zip", payload=b"local-user-file")
+
+    ContentPackManager.import_local(instance, "resourcepack", source)
+
+    assert not (cache_root / "content-store").exists()

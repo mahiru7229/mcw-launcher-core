@@ -64,10 +64,11 @@ def patch_mod_install(monkeypatch, tmp_path: Path, instance: Instance, content: 
     def fake_cache(project_id, version_id, filename):
         return cache_root / str(project_id) / str(version_id) / Path(filename).name
 
-    def fake_add_mods(current_instance, source_paths, replace=False):
+    def fake_add_mods(current_instance, source_paths, replace=False, managed_source=False, **_kwargs):
         source = Path(tuple(source_paths)[0])
         target = Path(current_instance.instance_dir) / "mods" / source.name
         target.parent.mkdir(parents=True, exist_ok=True)
+        assert managed_source is True
         shutil.copy2(source, target)
         return [SimpleNamespace(file_name=target.name)]
 
