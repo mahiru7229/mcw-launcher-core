@@ -10,9 +10,12 @@ from src.core.instance.instance_manager import InstanceManager
 from src.core.instance.instance_health_manager import InstanceHealthManager
 from src.core.instance.instance_run_lock import InstanceRunLock
 from src.core.instance.instance_status_manager import InstanceStatusManager
+from src.core.instance.settings_manager import SettingsManager
 from src.core.java.adoptium_client import AdoptiumClient
 from src.core.java.java_diagnostics_manager import JavaDiagnosticsManager
 from src.core.java.java_provisioner import JavaProvisioner
+from src.core.java.java_manager import JavaManager
+from src.core.java.java_major_policy import JavaMajorPolicy
 from src.core.minecraft.library_manager import DownloadLibraryManager
 from src.core.minecraft.version_manager import VersionManager
 from src.core.modloader.forge.forge_change_manager import ForgeChangeManager
@@ -30,7 +33,7 @@ from src.models.progress.progress_callback import ProgressCallback
 from src.models.package.modpack_export import ModpackExportOptions
 from src.models.optifine.optifine_models import OptiFineCompatibilityResult, OptiFineInstallMode, OptiFineInstallResult, OptiFineState, OptiFineVersion
 
-from mcw_core.models import InstanceCreateRequest
+from mcw_core.models import InstanceCreateRequest, InstanceRuntimeProfile
 
 
 class LoaderService:
@@ -104,6 +107,62 @@ class InstanceService:
     @staticmethod
     def reset_icon(name: str) -> Instance:
         return InstanceManager.reset_icon(name)
+
+    @staticmethod
+    def set_library_metadata(name: str, *, favorite: bool | None = None, group: str | None = None, tags: object | None = None) -> Instance:
+        return InstanceManager.set_library_metadata(name, favorite=favorite, group=group, tags=tags)
+
+    @staticmethod
+    def runtime_profile(name: str) -> InstanceRuntimeProfile:
+        instance = InstanceService.load(name)
+        version = VersionManager.load(instance.version_id)
+        settings = SettingsManager.load(instance)
+        loader_name, loader_version = ModLoaderManager.normalize(instance.mod_loader)
+        required_java_major = int((getattr(version, "java_version", None) or {}).get("majorVersion") or 8)
+        configured_java_path = str(getattr(settings, "java_path", "") or "").strip()
+        return InstanceRuntimeProfile(
+            instance_name=instance.name,
+            minecraft_version=instance.version_id,
+            loader_name=loader_name,
+            loader_version=loader_version,
+            required_java_major=required_java_major,
+            managed_java_major=JavaMajorPolicy.resolve(required_java_major),
+            java_automatic=not bool(configured_java_path),
+            configured_java_path=configured_java_path,
+        )
+
+    @staticmethod
+    def set_java_runtime(name: str, java_path: str | Path | None) -> InstanceRuntimeProfile:
+        instance = InstanceService.load(name)
+        if InstanceService.is_running(instance):
+            raise RuntimeError("Close Minecraft before changing this instance's Java runtime.")
+
+        profile = InstanceService.runtime_profile(name)
+        configured = str(java_path or "").strip()
+        if configured:
+            executable = JavaManager.normalize_executable(Path(configured))
+            if not executable.is_file():
+                raise RuntimeError(f"Java path does not exist: {executable}")
+            actual_major = JavaManager.get_major_version(executable)
+            if actual_major is None:
+                raise RuntimeError(f"Unable to determine the Java version at: {executable}")
+            accepted = JavaMajorPolicy.accepted_majors(profile.required_java_major)
+            if actual_major not in accepted:
+                expected = " or ".join(f"Java {major}" for major in accepted)
+                raise RuntimeError(f"Java {actual_major} is incompatible with this Minecraft runtime. Required: {expected}.")
+            configured = str(executable)
+
+        SettingsManager.update_java_path(instance, configured)
+        return InstanceRuntimeProfile(
+            instance_name=profile.instance_name,
+            minecraft_version=profile.minecraft_version,
+            loader_name=profile.loader_name,
+            loader_version=profile.loader_version,
+            required_java_major=profile.required_java_major,
+            managed_java_major=profile.managed_java_major,
+            java_automatic=not bool(configured),
+            configured_java_path=configured,
+        )
 
     def create(self, request: InstanceCreateRequest) -> Instance:
         name = InstanceManager.validate_name(request.name)

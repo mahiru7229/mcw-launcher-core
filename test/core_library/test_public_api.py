@@ -8,7 +8,7 @@ import tomllib
 
 import pytest
 
-from mcw_core import CorePaths, InstanceHealthReport, InstanceHealthState, InstanceState, InstanceStatus, LaunchRequest, MCWCore, ProcessSession, ProcessSessionState
+from mcw_core import CorePaths, InstanceHealthReport, InstanceHealthState, InstanceRuntimeProfile, InstanceState, InstanceStatus, LaunchRequest, MCWCore, ProcessSession, ProcessSessionState
 from src.core.fs.paths import Paths
 from src.models.instance.instance import Instance
 
@@ -165,3 +165,26 @@ def test_packaged_lan_agent_is_available_outside_project_root(tmp_path: Path) ->
     assert bundled.name == LanAgentManager.AGENT_FILENAME
     assert bundled.is_file()
     assert LanAgentManager._sha256(bundled) == LanAgentManager.AGENT_SHA256
+
+
+def test_instance_service_exposes_library_metadata(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from mcw_core.services import InstanceService
+
+    expected = Instance("id", "Organized", "1.20.1", tmp_path / "instances" / "Organized", ("forge", "47.4.0"), favorite=True, group="Modpacks", tags=("heavy",))
+    captured: dict[str, object] = {}
+
+    def fake_update(name: str, **changes):
+        captured["name"] = name
+        captured.update(changes)
+        return expected
+
+    monkeypatch.setattr("mcw_core.services.InstanceManager.set_library_metadata", fake_update)
+
+    result = InstanceService.set_library_metadata("Organized", favorite=True, group="Modpacks", tags=["heavy"])
+
+    assert result is expected
+    assert captured == {"name": "Organized", "favorite": True, "group": "Modpacks", "tags": ["heavy"]}
+
+
+def test_instance_runtime_profile_is_public() -> None:
+    assert InstanceRuntimeProfile.__dataclass_fields__["required_java_major"].type in {int, "int"}

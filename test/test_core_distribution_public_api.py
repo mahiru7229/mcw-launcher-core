@@ -1,14 +1,14 @@
 from importlib.metadata import PackageNotFoundError, version
 
 import mcw_core
-from mcw_core import LaunchRequest
+from mcw_core import InstanceRuntimeProfile, LaunchRequest
 from mcw_core.api.config.managed_content_policy import ManagedContentPolicy
 from mcw_core.api.hardware.first_run_recommendation_service import FirstRunRecommendationService
 from mcw_core.api.theme.theme_palette import DEFAULT_THEME_PALETTE, derive_custom_text, is_readable_text
 
 
-def test_runtime_version_is_stable_1_1_2() -> None:
-    assert mcw_core.__version__ == "1.1.2"
+def test_runtime_version_is_stable_1_2_0() -> None:
+    assert mcw_core.__version__ == "1.2.0"
 
 
 def test_distribution_version_when_installed() -> None:
@@ -16,10 +16,11 @@ def test_distribution_version_when_installed() -> None:
         installed = version("mcw-core")
     except PackageNotFoundError:
         return
-    assert installed == "1.1.2"
+    assert installed == "1.2.0"
 
 
 def test_new_public_api_defaults() -> None:
+    assert InstanceRuntimeProfile.__dataclass_fields__["required_java_major"].type in {int, "int"}
     assert ManagedContentPolicy.ASK == "ask"
     assert LaunchRequest.__dataclass_fields__["allow_compatibility_issues_once"].default is False
     recommendation = FirstRunRecommendationService.fallback()

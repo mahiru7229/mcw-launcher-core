@@ -1,31 +1,29 @@
-# MCW Core v1.1.2
+# MCW Core v1.2.0
 
 MCW Core is the GUI-independent runtime distributed with MCW Launcher.
 
 ## Package
 
-- Distribution: `mcw-core 1.1.2`
-- Runtime: `mcw_core.__version__ == "1.1.2"`
+- Distribution: `mcw-core 1.2.0`
+- Runtime: `mcw_core.__version__ == "1.2.0"`
 - Update channel metadata: `stable`
 - Python: 3.12 or newer
 - Wheel: pure Python `py3-none-any`
 
-## v1.1.2 highlights
+## v1.2.0 highlights
 
-MCW Core 1.1.2 synchronizes the complete core changes validated through the MCW Launcher v1.1.2 beta line:
+MCW Core 1.2.0 keeps the dependency/loader hardening from v1.1.2 and adds the public-core support required by Instance Manager 2.0:
 
-- Loader-scoped dependency parsing and environment-capability handling.
-- Pack-manifest authority for curated modpacks without foreign-loader false blockers.
-- Embedded/JarJar capability resolution, including nested dependencies such as `expandability`.
-- Correct primary-mod duplicate detection, safer stale managed-dependency cleanup, and improved Forge/Maven version matching.
-- Faster CurseForge modpack downloads and reduced dependency-progress event pressure.
-- Faster and more resilient Fabric, Quilt, Forge, and NeoForge installation paths.
-- Tolerant legacy `mcmod.info` parsing for salvageable metadata.
-- Same-session manual CurseForge/Modrinth dependency recovery with pause/import/resume semantics.
-- Manual import remains protected by the active instance preparing-lock token and still honors cancellation.
+- Instance library metadata: Favorite, Group and Tags with backward-compatible `instance.json` loading.
+- Public `InstanceService.set_library_metadata(...)` support.
+- Public `InstanceRuntimeProfile` and runtime-profile API for Minecraft, loader and Java requirements.
+- Public per-instance Java runtime selection with compatibility validation and run-lock protection.
+- Unified installed-content core support used by local mod/resource-pack/shader-pack import and ownership filters.
+- Retains loader-scoped dependency resolution, embedded/JarJar capability handling, safe stale managed-dependency cleanup and manual dependency pause/import/resume.
+- Retains bounded modpack download concurrency, tolerant legacy `mcmod.info`, modloader installation recovery and RC storage-failure handling.
 
 ## Public API
 
-The supported entry point is `import mcw_core`. Existing public contracts from v1.1.1 remain available. v1.1.2 extends launch requests with manual-content recovery support while retaining GUI-independent core behavior.
+The supported entry point is `import mcw_core`. MCW Core remains independent from PySide6/GUI code.
 
-See `docs/MCW_CORE_LIBRARY.md`, `docs/en/CORE_GUIDE.md`, `docs/vi/CORE_GUIDE.md`, and `RELEASE-v1.1.2.md` in the source archive.
+See `docs/MCW_CORE_LIBRARY.md`, `docs/en/CORE_GUIDE.md`, `docs/vi/CORE_GUIDE.md`, and `RELEASE-v1.2.0.md` in the source archive.

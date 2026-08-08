@@ -42,6 +42,59 @@ class InstalledContentLibraryManager:
         return InstalledContentLibrary(instance_name=instance.name, items=tuple(decorated))
 
     @classmethod
+    def import_local(cls, instance: Instance, content_type: str, source_paths: list[Path] | tuple[Path, ...], *, replace: bool = False) -> tuple[str, ...]:
+        sources = tuple(Path(path) for path in source_paths)
+        if not sources:
+            return ()
+
+        requested = str(content_type or "auto").strip().casefold()
+        if requested not in {"auto", cls.MOD, cls.RESOURCE_PACK, cls.SHADER_PACK}:
+            raise RuntimeError(f"Unsupported local content type: {content_type or 'unknown'}")
+
+        grouped: dict[str, list[Path]] = {cls.MOD: [], cls.RESOURCE_PACK: [], cls.SHADER_PACK: []}
+        for source in sources:
+            kind = cls.detect_local_content_type(source) if requested == "auto" else requested
+            grouped[kind].append(source)
+
+        imported: list[str] = []
+        if grouped[cls.MOD]:
+            added = ModManager.add_mods(instance, grouped[cls.MOD], replace=replace)
+            filenames = [mod.file_name for mod in added]
+            ModrinthRegistry.remove_by_filenames(instance, filenames)
+            CurseForgeRegistry.remove_by_filenames(instance, filenames)
+            imported.extend(filenames)
+
+        for kind in (cls.RESOURCE_PACK, cls.SHADER_PACK):
+            for source in grouped[kind]:
+                result = ContentPackManager.import_local(instance, kind, source)
+                imported.append(result.file_name)
+
+        return tuple(imported)
+
+    @classmethod
+    def detect_local_content_type(cls, source: Path) -> str:
+        path = Path(source)
+        if not path.is_file():
+            raise RuntimeError(f"Content file does not exist: {path}")
+        if path.suffix.casefold() == ".jar":
+            return cls.MOD
+        if path.suffix.casefold() != ".zip":
+            raise RuntimeError(f"Unsupported local content file: {path.name}")
+
+        matches: list[str] = []
+        for kind in (cls.RESOURCE_PACK, cls.SHADER_PACK):
+            try:
+                ContentPackManager.validate_archive(path, kind)
+            except RuntimeError:
+                continue
+            matches.append(kind)
+        if len(matches) == 1:
+            return matches[0]
+        if not matches:
+            raise RuntimeError(f"'{path.name}' is not a valid resource pack or shader pack archive.")
+        raise RuntimeError(f"'{path.name}' matches more than one content type. Select a specific content type before importing it.")
+
+    @classmethod
     def set_enabled(cls, instance: Instance, item_ids: list[str] | tuple[str, ...], enabled: bool) -> tuple[str, ...]:
         library = cls.scan(instance)
         selected = [item for item in library.items if item.item_id in set(item_ids)]
@@ -293,6 +346,9 @@ class InstalledContentLibraryManager:
         if provider == "modrinth":
             slug = "modpack" if content_type == InstalledContentLibraryManager.MODPACK else "mod"
             return f"https://modrinth.com/{slug}/{project}"
+        if provider == "curseforge":
+            slug = "modpacks" if content_type == InstalledContentLibraryManager.MODPACK else "mc-mods"
+            return f"https://www.curseforge.com/minecraft/{slug}/{project}"
         if provider == "atlauncher" and content_type == InstalledContentLibraryManager.MODPACK:
             return f"https://atlauncher.com/pack/{project}"
         return ""

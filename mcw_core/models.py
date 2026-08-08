@@ -69,6 +69,18 @@ class LaunchResult(Mapping[str, Any]):
 
 
 @dataclass(frozen=True, slots=True)
+class InstanceRuntimeProfile:
+    instance_name: str
+    minecraft_version: str
+    loader_name: str
+    loader_version: str
+    required_java_major: int
+    managed_java_major: int
+    java_automatic: bool
+    configured_java_path: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class InstanceCreateRequest:
     name: str
     version_id: str

@@ -320,4 +320,12 @@ class ArtifactDownloadService:
         return ""
 
 
+def is_local_artifact_storage_error(error: BaseException | None) -> bool:
+    """Return whether an artifact failure can only be fixed by freeing/fixing local storage."""
+    return isinstance(error, ArtifactDownloadError) and error.failure.reason in {
+        DownloadFailureReason.DISK_SPACE_ERROR,
+        DownloadFailureReason.FILE_ACCESS_ERROR,
+    }
+
+
 artifact_download_service = ArtifactDownloadService()

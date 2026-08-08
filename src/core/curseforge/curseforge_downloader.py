@@ -6,7 +6,7 @@ from pathlib import Path
 from src.core.curseforge.curseforge_client import CurseForgeClient
 from src.core.curseforge.curseforge_download_fallback import CurseForgeDownloadFallback
 from src.core.curseforge.curseforge_links import file_page_url, is_numeric_project_placeholder, normalize_project_page, project_search_url
-from src.core.network.artifact_download_service import ArtifactDownloadError, artifact_download_service
+from src.core.network.artifact_download_service import ArtifactDownloadError, artifact_download_service, is_local_artifact_storage_error
 from src.core.network.httpx_downloader import HttpDownloader
 from src.core.progress.progress_reporter import ProgressReporter
 from src.models.curseforge.file import CurseForgeFile
@@ -83,6 +83,8 @@ class CurseForgeDownloader:
                 client_provider=HttpDownloader.get_client,
             ).path
         except ArtifactDownloadError as error:
+            if is_local_artifact_storage_error(error):
+                raise
             raise CurseForgeManualDownloadRequired(CurseForgeDownloader._manual_requirement(resolved, name, error.failure, managed_kind, managed_path, gateway_error)) from error
 
 

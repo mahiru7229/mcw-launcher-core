@@ -87,6 +87,9 @@ class InstanceManager:
             "last_finished_at": str(existing.get("last_finished_at") or ""),
             "icon": str(instance.icon or existing.get("icon") or InstanceManager.DEFAULT_ICON),
             "notes": str(existing.get("notes") or ""),
+            "favorite": bool(getattr(instance, "favorite", existing.get("favorite", False))),
+            "group": str(getattr(instance, "group", existing.get("group", "")) or "").strip(),
+            "tags": list(InstanceManager._normalize_tags(getattr(instance, "tags", existing.get("tags", ())))),
             "launcher_version": VERSION_TAG,
             "metadata_version": InstanceManager.METADATA_VERSION,
         })
@@ -144,6 +147,9 @@ class InstanceManager:
             raw_state = str(data.get("last_launch_state") or "").strip().casefold()
             inferred_state = "crashed" if last_launch_crashed else "finished" if last_played else "ready"
             last_launch_state = raw_state if raw_state in {"ready", "finished", "crashed"} else inferred_state
+            favorite = bool(data.get("favorite", False))
+            group = str(data.get("group") or "").strip()
+            tags = InstanceManager._normalize_tags(data.get("tags", ()))
         except (KeyError, TypeError, ValueError) as error:
             raise RuntimeError(f"Invalid instance metadata: {source}") from error
         return Instance(
@@ -157,7 +163,39 @@ class InstanceManager:
             last_exit_code=last_exit_code,
             last_launch_crashed=last_launch_crashed,
             last_launch_state=last_launch_state,
+            favorite=favorite,
+            group=group,
+            tags=tags,
         )
+
+    @staticmethod
+    def _normalize_tags(values: object) -> tuple[str, ...]:
+        if isinstance(values, str):
+            values = values.split(",")
+        if not isinstance(values, (list, tuple, set)):
+            return ()
+        result: list[str] = []
+        seen: set[str] = set()
+        for value in values:
+            tag = str(value or "").strip()
+            key = tag.casefold()
+            if not tag or key in seen:
+                continue
+            seen.add(key)
+            result.append(tag)
+        return tuple(result)
+
+    @staticmethod
+    def set_library_metadata(name: str, *, favorite: bool | None = None, group: str | None = None, tags: object | None = None) -> Instance:
+        instance = InstanceManager.load(name)
+        if favorite is not None:
+            instance.favorite = bool(favorite)
+        if group is not None:
+            instance.group = str(group or "").strip()
+        if tags is not None:
+            instance.tags = InstanceManager._normalize_tags(tags)
+        InstanceManager._save_instance_metadata(instance)
+        return InstanceManager.load(name)
 
     @staticmethod
     def list_instances() -> list[Instance]:
@@ -859,6 +897,9 @@ class InstanceManager:
             last_exit_code=instance_data.get("last_exit_code"),
             last_launch_crashed=bool(instance_data.get("last_launch_crashed", False)),
             last_launch_state=str(instance_data.get("last_launch_state") or ("crashed" if instance_data.get("last_launch_crashed") else "finished" if instance_data.get("last_played") else "ready")),
+            favorite=bool(instance_data.get("favorite", False)),
+            group=str(instance_data.get("group") or "").strip(),
+            tags=InstanceManager._normalize_tags(instance_data.get("tags", ())),
         )
 
     @staticmethod

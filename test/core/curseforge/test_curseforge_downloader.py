@@ -4,8 +4,10 @@ from types import SimpleNamespace
 import pytest
 
 from src.core.curseforge.curseforge_downloader import CurseForgeDownloader, CurseForgeManualDownloadRequired
+from src.core.network.artifact_download_service import ArtifactDownloadError
 from src.core.network.download_models import DownloadResult
 from src.models.curseforge.file import CurseForgeFile
+from src.models.network.artifact import ArtifactDownloadFailure, DownloadFailureReason
 
 
 def make_file(**overrides) -> CurseForgeFile:
@@ -138,3 +140,24 @@ def test_project_url_resolution_uses_search_page_when_metadata_is_unavailable(mo
     resolved = CurseForgeDownloader._resolve_project_url(1234)
 
     assert resolved == "https://www.curseforge.com/minecraft/search?search=1234"
+
+
+def test_disk_full_is_terminal_instead_of_manual_download(monkeypatch, tmp_path: Path) -> None:
+    failure = ArtifactDownloadFailure(
+        provider="curseforge",
+        filename="example.jar",
+        reason=DownloadFailureReason.DISK_SPACE_ERROR,
+        detail="No space left on device",
+        retryable=False,
+    )
+    expected = ArtifactDownloadError(failure)
+    monkeypatch.setattr(
+        "src.core.curseforge.curseforge_downloader.artifact_download_service.download",
+        lambda *args, **kwargs: (_ for _ in ()).throw(expected),
+    )
+
+    with pytest.raises(ArtifactDownloadError) as captured:
+        CurseForgeDownloader.download_file(make_file(), tmp_path / "example.jar")
+
+    assert captured.value is expected
+    assert captured.value.failure.reason is DownloadFailureReason.DISK_SPACE_ERROR

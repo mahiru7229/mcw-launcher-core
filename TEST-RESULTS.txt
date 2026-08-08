@@ -1,38 +1,11 @@
-MCW Core v1.1.2
+MCW Core v1.2.0 stable validation
 
-Stable release validation
-
-- Runtime version: 1.1.2
-- Update channel metadata: stable
-- Python compileall: PASS for src, mcw_core, tools, and test
-- Core full regression: 1421 passed, 2 warnings
+- Python compileall: PASS
+- Core regression suite: 1437 passed
+- Warnings: 2 intentional duplicate ZIP member fixtures in package security tests
 - Wheel build: PASS
-- Wheel filename: mcw_core-1.1.2-py3-none-any.whl
-- Wheel install into isolated target: PASS
-- Installed distribution metadata: mcw-core 1.1.2
-- Installed runtime metadata: mcw_core.__version__ == 1.1.2
-- Wheel contains no src/gui, test, __pycache__, or .pyc entries
-- Bundled MCW LAN Agent resource present in wheel: PASS
-
-Warnings
-
-The two warnings are intentional duplicate-entry ZIP fixtures from package security tests:
-- test_extract_deduplicates_identical_archive_members
-- test_extract_rejects_conflicting_duplicate_archive_members
-
-Real-world validation from the v1.1.2 beta cycle
-
-- SkyFactory 5: launched successfully after loader-scoped/pack-pinned dependency fixes
-- All The Mods 9: launched successfully with embedded ExpandAbility capability recognized from Artifacts
-- RLCraft / Forge 1.12.2: used to validate legacy mcmod.info and manual dependency recovery flows
-
-Launcher stable validation (same core baseline)
-
-- MCW Launcher full regression: 1463 passed, 89 skipped, 2 warnings
-- Release preflight: PASS for v1.1.2 (stable)
-- Language parity: 1995 keys in en-US and vi-VN
-- Unresolved merge markers: 0
-
-Platform note
-
-The pure-Python MCW Core wheel is platform-independent. Windows launcher executable/updater packaging should still be produced and smoke-tested on Windows before publishing the final binary release.
+- Wheel runtime version: 1.2.0
+- Installed distribution version: 1.2.0
+- Wheel contains GUI: no
+- Wheel contains tests/__pycache__: no
+- Bundled MCW LAN Agent: yes

@@ -21,7 +21,7 @@ from src.core.modrinth.modrinth_client import ModrinthClient
 from src.core.modrinth.modrinth_downloader import ModrinthDownloader
 from src.core.modrinth.modrinth_errors import ModrinthModpackManualDownloadRequired
 from src.core.modrinth.modrinth_pack_registry import ModrinthPackRegistry
-from src.core.network.artifact_download_service import ArtifactDownloadError, artifact_download_service
+from src.core.network.artifact_download_service import ArtifactDownloadError, artifact_download_service, is_local_artifact_storage_error
 from src.core.network.download_pause import download_pause_controller
 from src.core.progress.progress_reporter import ProgressReporter
 from src.core.package.provider_package_store import ProviderPackageStore
@@ -77,6 +77,8 @@ class ModrinthPackInstaller:
                 version_id=version.version_id,
             )
         except ArtifactDownloadError as error:
+            if is_local_artifact_storage_error(error):
+                raise
             requirement = ModrinthManualDownload(
                 project_id=project.project_id,
                 version_id=version.version_id,

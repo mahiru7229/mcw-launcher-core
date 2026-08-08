@@ -470,3 +470,43 @@ def test_copy_commit_does_not_publish_instance_json_before_other_files(
     assert all(not published for _name, published in observations)
     assert (target / "instance.json").is_file()
     assert (target / "mods" / "example.jar").is_file()
+
+
+def test_instance_library_metadata_persists_without_schema_migration(temporary_paths: Path, fake_version) -> None:
+    import json
+
+    instance = InstanceManager.create(name="Library Metadata", version=fake_version)
+    updated = InstanceManager.set_library_metadata(
+        instance.name,
+        favorite=True,
+        group="Modpacks",
+        tags=["ATM", "Heavy", "atm", ""],
+    )
+
+    assert updated.favorite is True
+    assert updated.group == "Modpacks"
+    assert updated.tags == ("ATM", "Heavy")
+
+    payload = json.loads((updated.instance_dir / "instance.json").read_text(encoding="utf-8"))
+    assert payload["favorite"] is True
+    assert payload["group"] == "Modpacks"
+    assert payload["tags"] == ["ATM", "Heavy"]
+    assert payload["metadata_version"] == InstanceManager.METADATA_VERSION == 3
+
+
+def test_loading_v112_instance_defaults_library_metadata(temporary_paths: Path, fake_version) -> None:
+    import json
+
+    instance = InstanceManager.create(name="Stable Metadata", version=fake_version)
+    path = instance.instance_dir / "instance.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload.pop("favorite", None)
+    payload.pop("group", None)
+    payload.pop("tags", None)
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    loaded = InstanceManager.load(instance.name)
+
+    assert loaded.favorite is False
+    assert loaded.group == ""
+    assert loaded.tags == ()

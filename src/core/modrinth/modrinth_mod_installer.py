@@ -9,7 +9,7 @@ from src.core.modloader.mod_loader_manager import ModLoaderManager
 from src.core.modrinth.modrinth_client import ModrinthClient
 from src.core.modrinth.modrinth_downloader import ModrinthDownloader
 from src.core.modrinth.modrinth_registry import ModrinthRegistry
-from src.core.network.artifact_download_service import ArtifactDownloadError
+from src.core.network.artifact_download_service import ArtifactDownloadError, is_local_artifact_storage_error
 from src.core.progress.progress_reporter import ProgressReporter
 from src.models.instance.instance import Instance
 from src.models.modrinth.install_result import ModrinthModInstallResult
@@ -71,6 +71,8 @@ class ModrinthModInstaller:
                 else:
                     ModrinthDownloader.download_file(file, cache_path, reporter=reporter, progress_stage=ProgressStage.DOWNLOADING_MODS, progress_message=f"Downloading {project.title}...", purpose="mod", page_url=version_url, project_url=project_url, project_id=version.project_id, version_id=version.version_id)
             except ArtifactDownloadError as error:
+                if is_local_artifact_storage_error(error):
+                    raise
                 entry["pendingDownload"] = True
                 entry["lastDownloadError"] = str(error)
                 entry["downloadFailure"] = error.failure.to_dict()

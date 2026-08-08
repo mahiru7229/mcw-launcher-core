@@ -12,7 +12,7 @@ from src.core.curseforge.curseforge_registry import CurseForgeRegistry
 from src.core.fs.paths import Paths
 from src.core.mod.mod_manager import ModManager
 from src.core.modloader.mod_loader_manager import ModLoaderManager
-from src.core.network.artifact_download_service import artifact_download_service
+from src.core.network.artifact_download_service import artifact_download_service, is_local_artifact_storage_error
 from src.core.network.download_pause import download_pause_controller, is_download_paused
 from src.core.progress.file_batch_progress import FileBatchProgress
 from src.core.progress.progress_reporter import ProgressReporter
@@ -262,7 +262,7 @@ class CurseForgeContentManager:
                     downloaded += 1
                     accepted_unverified += int(bool(compatibility_warning))
                 except Exception as error:
-                    if is_download_paused(error):
+                    if is_download_paused(error) or is_local_artifact_storage_error(error):
                         raise
                     retryable = not isinstance(error, CurseForgeManualDownloadRequired) and not CurseForgeClient.is_permanent_error(error)
                     entry["pendingDownload"] = True

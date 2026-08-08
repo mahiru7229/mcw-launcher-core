@@ -24,6 +24,7 @@ from src.core.modloader.forge.compatibility_confirmation import CompatibilityCon
 from src.core.curseforge.curseforge_content_manager import CurseForgeContentManager
 from src.core.modrinth.modrinth_content_manager import ModrinthContentManager
 from src.core.mod.modpack_dependency_resolver import ModpackDependencyResolver
+from src.core.network.artifact_download_service import ArtifactDownloadError
 from src.models.mod.dependency_resolution import DependencyResolutionResult
 from src.core.runtime.process_supervisor import ProcessSupervisor
 from src.core.minecraft.version_manager import VersionManager
@@ -31,6 +32,7 @@ from src.core.minecraft.version_manifest_manager import (
     VersionManifestManager,
 )
 from src.models.progress.progress_stage import ProgressStage
+from src.models.network.artifact import ArtifactDownloadFailure, DownloadFailureReason
 from src.core.progress.progress_reporter import ProgressReporter
 
 
@@ -914,6 +916,37 @@ def test_run_tracks_java_process_with_instance_lock(monkeypatch: pytest.MonkeyPa
 
     assert run_lock.tracked_process is process
     assert run_lock.released is False
+
+
+def test_disk_full_during_managed_content_releases_preparing_lock_without_manual_pause(monkeypatch: pytest.MonkeyPatch):
+    run_lock = FakeRunLock()
+    failure = ArtifactDownloadFailure(
+        provider="curseforge",
+        filename="example.jar",
+        reason=DownloadFailureReason.DISK_SPACE_ERROR,
+        detail="No space left on device",
+        retryable=False,
+    )
+    expected = ArtifactDownloadError(failure)
+    manual_requests = []
+
+    patch_pipeline(monkeypatch)
+    monkeypatch.setattr(InstanceRunLock, "acquire", lambda instance: run_lock)
+    monkeypatch.setattr(ModrinthContentManager, "ensure", lambda *args, **kwargs: ())
+    monkeypatch.setattr(CurseForgeContentManager, "ensure", lambda *args, **kwargs: (_ for _ in ()).throw(expected))
+
+    with pytest.raises(ArtifactDownloadError) as captured:
+        MinecraftExecutor.run(
+            instance=make_instance(),
+            authentication=object(),
+            account=object(),
+            on_manual_content_required=manual_requests.append,
+        )
+
+    assert captured.value is expected
+    assert manual_requests == []
+    assert run_lock.released is True
+    assert run_lock.tracked_process is None
 
 
 def test_run_releases_instance_lock_when_preparation_fails(monkeypatch: pytest.MonkeyPatch):

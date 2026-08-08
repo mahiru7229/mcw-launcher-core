@@ -11,7 +11,7 @@ from src.core.modrinth.modrinth_errors import ModrinthManagedFilesRequired
 from src.core.modrinth.modrinth_pack_installer import ModrinthPackInstaller
 from src.core.modrinth.modrinth_pack_registry import ModrinthPackRegistry
 from src.core.modrinth.modrinth_registry import ModrinthRegistry
-from src.core.network.artifact_download_service import ArtifactDownloadError
+from src.core.network.artifact_download_service import ArtifactDownloadError, is_local_artifact_storage_error
 from src.core.network.download_pause import download_pause_controller, is_download_paused
 from src.core.progress.file_batch_progress import FileBatchProgress
 from src.core.progress.progress_reporter import ProgressReporter
@@ -43,7 +43,7 @@ class ModrinthContentManager:
                 ModrinthContentManager._hydrate_pack_downloads(instance, pack_registry, reporter)
                 pack_entries = ModrinthContentManager._pack_download_entries(pack_registry)
             except Exception as error:
-                if is_download_paused(error):
+                if is_download_paused(error) or is_local_artifact_storage_error(error):
                     raise
                 ModrinthContentManager._append_warning(warnings, f"Could not refresh Modrinth pack download sources: {error}")
 
@@ -230,7 +230,7 @@ class ModrinthContentManager:
                 )
                 entry.pop("downloadFailure", None)
             except Exception as error:
-                if is_download_paused(error):
+                if is_download_paused(error) or is_local_artifact_storage_error(error):
                     raise
                 errors[path] = str(error)
                 if isinstance(error, ArtifactDownloadError):
@@ -310,7 +310,7 @@ class ModrinthContentManager:
                 entry.pop("downloadFailure", None)
                 ModrinthContentManager._set_mod_download_state(entry, False, "")
             except Exception as error:
-                if is_download_paused(error):
+                if is_download_paused(error) or is_local_artifact_storage_error(error):
                     raise
                 error_message = str(error)
                 errors[key] = error_message

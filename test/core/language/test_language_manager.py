@@ -95,3 +95,14 @@ def test_builtin_language_packs_have_expected_names_and_matching_keys() -> None:
     }
     assert manager.missing_keys("vi-VN") == []
     assert manager.placeholder_mismatches("vi-VN") == {}
+
+
+def test_builtin_instance_library_summary_uses_real_line_breaks() -> None:
+    manager = LanguageManager(Path(__file__).resolve().parents[3] / "lang")
+
+    assert manager.translate(
+        "workspace.editor.library_summary",
+        favorite="Favorite",
+        group="Ungrouped",
+        tags="No tags",
+    ) == "Favorite\nGroup: Ungrouped\nTags: No tags"

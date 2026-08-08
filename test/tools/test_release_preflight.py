@@ -5,7 +5,7 @@ from pathlib import Path
 
 from src.config import VERSION_TAG
 import tools.release_preflight as release_preflight
-from tools.release_preflight import audit_language_packs, audit_private_gateway_bundling, audit_theme_contract, find_merge_markers
+from tools.release_preflight import audit_language_packs, audit_launcher_icon, audit_private_gateway_bundling, audit_theme_contract, find_merge_markers
 
 
 def write_pack(path: Path, locale: str, translations: dict[str, str]) -> None:
@@ -103,3 +103,20 @@ def test_private_gateway_audit_accepts_no_bundled_default(tmp_path: Path, monkey
 def test_current_theme_contract_audit_passes() -> None:
     project_root = Path(__file__).resolve().parents[2]
     assert audit_theme_contract(project_root) == []
+
+
+def test_current_launcher_icon_audit_passes() -> None:
+    project_root = Path(__file__).resolve().parents[2]
+    assert audit_launcher_icon(project_root) == []
+
+
+def test_launcher_icon_audit_reports_missing_assets(tmp_path: Path) -> None:
+    (tmp_path / "mcw_launcher.spec").write_text("# missing icon config\n", encoding="utf-8")
+    (tmp_path / "src" / "gui").mkdir(parents=True)
+    (tmp_path / "src" / "gui" / "application.py").write_text("# missing window icon\n", encoding="utf-8")
+    errors = audit_launcher_icon(tmp_path)
+    normalized_errors = [error.replace("\\", "/") for error in errors]
+    assert "Missing launcher icon asset: assets/icons/mcw_launcher.ico" in normalized_errors
+    assert "Missing launcher icon asset: assets/icons/mcw_launcher.png" in normalized_errors
+    assert "mcw_launcher.spec does not configure the Windows executable icon" in errors
+    assert "QApplication does not configure the launcher window icon" in errors

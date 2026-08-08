@@ -11,10 +11,12 @@ from src.core.modrinth.modrinth_content_manager import ModrinthContentManager
 from src.core.modrinth.modrinth_downloader import ModrinthDownloader
 from src.core.modrinth.modrinth_errors import ModrinthManagedFilesRequired
 from src.core.modrinth.modrinth_pack_registry import ModrinthPackRegistry
+from src.core.network.artifact_download_service import ArtifactDownloadError
 from src.core.network.download_pause import DownloadPausedError
 from src.core.modrinth.modrinth_registry import ModrinthRegistry
 from src.core.progress.progress_reporter import ProgressReporter
 from src.models.instance.instance import Instance
+from src.models.network.artifact import ArtifactDownloadFailure, DownloadFailureReason
 from src.models.progress.progress_stage import ProgressStage
 
 
@@ -395,3 +397,29 @@ def test_expected_dependency_mod_id_accepts_forge_jarjar_provided_mod(tmp_path, 
     saved = ModrinthRegistry.load(instance)["mods"]["manual-project"]
     assert saved["pendingDownload"] is False
     assert saved["lastDownloadError"] == ""
+
+
+def test_disk_full_aborts_modrinth_content_without_manual_pause(tmp_path, monkeypatch):
+    instance = make_instance(tmp_path)
+    save_pack_entry(instance, b"fabric-mod")
+    failure = ArtifactDownloadFailure(
+        provider="modrinth",
+        filename="example.jar",
+        reason=DownloadFailureReason.DISK_SPACE_ERROR,
+        detail="No space left on device",
+        retryable=False,
+    )
+    expected = ArtifactDownloadError(failure)
+    attempts = []
+
+    def disk_full(*args, **kwargs):
+        attempts.append(1)
+        raise expected
+
+    monkeypatch.setattr(ModrinthDownloader, "download_urls", disk_full)
+
+    with pytest.raises(ArtifactDownloadError) as captured:
+        ModrinthContentManager.ensure(instance)
+
+    assert captured.value is expected
+    assert attempts == [1]

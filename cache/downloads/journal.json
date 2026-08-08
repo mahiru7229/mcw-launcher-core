@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "entries": {
+    "03f21629075b40ec87265d676fd5c57a": {
+      "request_id": "03f21629075b40ec87265d676fd5c57a",
+      "operation_id": "",
+      "source": "java",
+      "display_name": "Java 21 archive",
+      "destination": "/tmp/pytest-of-root/pytest-2/test_java_download_cancel_remo0/java.zip",
+      "temporary_path": "/tmp/pytest-of-root/pytest-2/test_java_download_cancel_remo0/java.zip.part",
+      "host": "example.com",
+      "state": "cancelled",
+      "downloaded_bytes": 5,
+      "expected_size": 12,
+      "error": "Download cancelled by user.",
+      "updated_at": "2026-08-08T08:09:01.187008+00:00"
+    },
+    "f5ca62df460c4f9e897be76a66806e75": {
+      "request_id": "f5ca62df460c4f9e897be76a66806e75",
+      "operation_id": "",
+      "source": "legacy-stream",
+      "display_name": "example.jar",
+      "destination": "/tmp/pytest-of-root/pytest-2/test_http_download_pauses_and_0/example.jar",
+      "temporary_path": "/tmp/pytest-of-root/pytest-2/test_http_download_pauses_and_0/example.jar.part",
+      "host": "example.com",
+      "state": "downloading",
+      "downloaded_bytes": 3,
+      "expected_size": 6,
+      "error": "",
+      "updated_at": "2026-08-08T08:09:04.889217+00:00"
+    },
+    "aeaaf17e3cb94a469c87a2d82e8b4b10": {
+      "request_id": "aeaaf17e3cb94a469c87a2d82e8b4b10",
+      "operation_id": "",
+      "source": "http",
+      "display_name": "example.jar",
+      "destination": "/tmp/pytest-of-root/pytest-2/test_cancel_removes_partial_an0/example.jar",
+      "temporary_path": "/tmp/pytest-of-root/pytest-2/test_cancel_removes_partial_an0/example.jar.part",
+      "host": "example.com",
+      "state": "cancelled",
+      "downloaded_bytes": 3,
+      "expected_size": 6,
+      "error": "Download cancelled by user.",
+      "updated_at": "2026-08-08T08:09:04.893295+00:00"
+    },
+    "f65671d4da4a4243b86e38d4a82da944": {
+      "request_id": "f65671d4da4a4243b86e38d4a82da944",
+      "operation_id": "",
+      "source": "java",
+      "display_name": "Java 21 archive",
+      "destination": "/tmp/pytest-of-root/pytest-3/test_java_download_cancel_remo0/java.zip",
+      "temporary_path": "/tmp/pytest-of-root/pytest-3/test_java_download_cancel_remo0/java.zip.part",
+      "host": "example.com",
+      "state": "cancelled",
+      "downloaded_bytes": 5,
+      "expected_size": 12,
+      "error": "Download cancelled by user.",
+      "updated_at": "2026-08-08T08:09:29.005297+00:00"
+    },
+    "9d1216e14625437f8dcc29e17704f979": {
+      "request_id": "9d1216e14625437f8dcc29e17704f979",
+      "operation_id": "",
+      "source": "legacy-stream",
+      "display_name": "example.jar",
+      "destination": "/tmp/pytest-of-root/pytest-3/test_http_download_pauses_and_0/example.jar",
+      "temporary_path": "/tmp/pytest-of-root/pytest-3/test_http_download_pauses_and_0/example.jar.part",
+      "host": "example.com",
+      "state": "downloading",
+      "downloaded_bytes": 3,
+      "expected_size": 6,
+      "error": "",
+      "updated_at": "2026-08-08T08:09:32.765240+00:00"
+    },
+    "6e68bdc778424c7f9d478674424de9e7": {
+      "request_id": "6e68bdc778424c7f9d478674424de9e7",
+      "operation_id": "",
+      "source": "http",
+      "display_name": "example.jar",
+      "destination": "/tmp/pytest-of-root/pytest-3/test_cancel_removes_partial_an0/example.jar",
+      "temporary_path": "/tmp/pytest-of-root/pytest-3/test_cancel_removes_partial_an0/example.jar.part",
+      "host": "example.com",
+      "state": "cancelled",
+      "downloaded_bytes": 3,
+      "expected_size": 6,
+      "error": "Download cancelled by user.",
+      "updated_at": "2026-08-08T08:09:32.769093+00:00"
+    }
+  }
+}

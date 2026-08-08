@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcw-core"
-version = "1.1.2"
+version = "1.2.0"
 description = "Headless Minecraft runtime, instance, loader, modpack, repair, and launch core used by MCW Launcher"
 readme = "docs/MCW_CORE_LIBRARY.md"
 requires-python = ">=3.12"

@@ -16,3 +16,6 @@ class Instance:
     last_exit_code: int | None = None
     last_launch_crashed: bool = False
     last_launch_state: str = "ready"
+    favorite: bool = False
+    group: str = ""
+    tags: tuple[str, ...] = ()
