@@ -4,6 +4,8 @@ from uuid import uuid4
 import json
 import shutil
 
+from src.core.fs.paths import Paths
+from src.core.fs.windows_path import move_path, remove_tree
 from src.core.java.adoptium_client import AdoptiumClient
 from src.core.java.java_archive_downloader import JavaArchiveDownloader
 from src.core.java.java_archive_extractor import JavaArchiveExtractor
@@ -77,7 +79,7 @@ class JavaProvisioner:
     def _install_release(release: JavaRelease, archive_path: Path) -> Path:
         runtime_root = ManagedJavaRepository.root()
         target_dir = ManagedJavaRepository.runtime_dir(release.major)
-        staging_dir = runtime_root / f".java-{release.major}.installing-{uuid4().hex}"
+        staging_dir = Paths.create_short_workspace("jvm")
         backup_dir = runtime_root / f".java-{release.major}.backup-{uuid4().hex}"
         old_runtime_moved = False
         new_runtime_installed = False
@@ -88,7 +90,7 @@ class JavaProvisioner:
                 target_dir.replace(backup_dir)
                 old_runtime_moved = True
 
-            shutil.move(str(extracted_java_home), str(target_dir))
+            move_path(extracted_java_home, target_dir)
             new_runtime_installed = True
             JavaProvisioner._write_marker(target_dir, release)
             executable = target_dir / "bin" / "javaw.exe"
@@ -96,19 +98,18 @@ class JavaProvisioner:
                 raise RuntimeError(f"Java {release.major} installation finished without javaw.exe.")
 
             if backup_dir.exists():
-                shutil.rmtree(backup_dir, ignore_errors=True)
+                remove_tree(backup_dir, ignore_errors=True)
             return executable
         except Exception:
             if new_runtime_installed and target_dir.exists():
-                shutil.rmtree(target_dir, ignore_errors=True)
+                remove_tree(target_dir, ignore_errors=True)
             if old_runtime_moved and backup_dir.exists():
                 backup_dir.replace(target_dir)
             raise
         finally:
-            if staging_dir.exists():
-                shutil.rmtree(staging_dir, ignore_errors=True)
+            Paths.cleanup_short_workspace(staging_dir)
             if backup_dir.exists() and target_dir.exists():
-                shutil.rmtree(backup_dir, ignore_errors=True)
+                remove_tree(backup_dir, ignore_errors=True)
 
     @staticmethod
     def _write_marker(target_dir: Path, release: JavaRelease) -> None:

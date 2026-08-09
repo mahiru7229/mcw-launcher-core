@@ -11,6 +11,7 @@ import stat
 import zipfile
 
 from src.core.fs.paths import Paths
+from src.core.fs.windows_path import copy_tree, make_directory, open_file
 from src.core.instance.instance_manager import InstanceManager
 from src.core.instance.settings_manager import SettingsManager
 from src.core.instance.instance_artwork_manager import InstanceArtworkManager
@@ -189,7 +190,7 @@ class ModrinthPackInstaller:
 
     @staticmethod
     def _install_archive(project, version, pack_path: Path, normalized_name: str, install_optional_files: bool, reporter: ProgressReporter | None, expected_loader: str, settings_override: dict | None = None, apply_provider_artwork: bool = True) -> ModrinthModpackInstallResult:
-        staging = Paths.modrinth_staging_root() / uuid4().hex
+        staging = Paths.modrinth_staging_root() / uuid4().hex[:8]
         staging.mkdir(parents=True, exist_ok=False)
         created_instance = None
         try:
@@ -213,7 +214,7 @@ class ModrinthPackInstaller:
             created_instance = InstanceManager.create(name=normalized_name, version=base_version, mod_loader=resolved_loader)
             if settings_override is not None:
                 SettingsManager.save_dict(created_instance, settings_override)
-            shutil.copytree(staging, created_instance.instance_dir, dirs_exist_ok=True)
+            copy_tree(staging, created_instance.instance_dir)
             ModrinthPackInstaller._write_metadata(created_instance.instance_dir, project.project_id, version.version_id, project.title, version.version_number, minecraft_version, loader_name, loader_version, list(managed_files.values()), install_optional_files)
             ModProvenanceRegistry.synchronize(created_instance)
             if apply_provider_artwork and InstanceArtworkManager.apply_provider_artwork(created_instance, "modrinth", project.project_id, getattr(project, "icon_url", ""), reporter):
@@ -359,11 +360,11 @@ class ModrinthPackInstaller:
                 raise RuntimeError(f"The {prefix} layer is larger than the configured safety limit.")
             relative = ModrinthPackInstaller._safe_relative_path(name[len(normalized_prefix):])
             target = staging.joinpath(*relative.parts)
-            target.parent.mkdir(parents=True, exist_ok=True)
+            make_directory(target.parent)
             sha1 = hashlib.sha1(usedforsecurity=False)
             sha512 = hashlib.sha512()
             written = 0
-            with archive.open(info, "r") as source, target.open("wb") as output:
+            with archive.open(info, "r") as source, open_file(target, "wb") as output:
                 while True:
                     chunk = source.read(1024 * 1024)
                     if not chunk:

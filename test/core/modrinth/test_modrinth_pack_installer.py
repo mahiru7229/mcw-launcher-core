@@ -258,3 +258,29 @@ def test_local_mrpack_provider_lookup_is_best_effort_and_requires_modpack_projec
 
     monkeypatch.setattr(ModrinthClient, "get_version", staticmethod(lambda _value: (_ for _ in ()).throw(RuntimeError("offline"))))
     assert ModrinthPackInstaller._resolve_local_provider_metadata("version") == (None, None)
+
+
+def test_modrinth_archive_uses_short_mrd_workspace(monkeypatch, tmp_path: Path):
+    configure_paths(tmp_path, monkeypatch)
+    short_root = tmp_path / "short"
+    monkeypatch.setattr(Paths, "SHORT_WORKSPACE_ROOT", short_root)
+    pack_source = make_pack(tmp_path / "pack-short.mrpack")
+    project = ModrinthProject(project_id="pack-project", slug="pack", title="Test Pack", description="", project_type="modpack")
+    version = ModrinthVersion(version_id="pack-version", project_id="pack-project", name="1.0", version_number="1.0", version_type="release", game_versions=("1.20.1",), loaders=("fabric",), files=())
+    monkeypatch.setattr(VersionManager, "load", lambda version_id: SimpleNamespace(id=version_id))
+    monkeypatch.setattr(ModLoaderManager, "resolve", lambda game_version, loader_name, loader_version="auto": (loader_name, loader_version))
+    captured: list[Path] = []
+    original = ModrinthPackInstaller._extract_layer
+
+    def capture(archive, prefix, staging):
+        captured.append(staging)
+        return original(archive, prefix, staging)
+
+    monkeypatch.setattr(ModrinthPackInstaller, "_extract_layer", staticmethod(capture))
+
+    result = ModrinthPackInstaller._install_archive(project, version, pack_source, "Short Workspace", True, None, "")
+
+    assert result.instance.name == "Short Workspace"
+    assert captured
+    assert all(path.parent == short_root / "mrd" for path in captured)
+    assert all(not path.exists() for path in captured)

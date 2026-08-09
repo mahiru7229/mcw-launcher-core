@@ -15,6 +15,7 @@ from src.core.curseforge.curseforge_links import file_page_url
 from src.core.curseforge.curseforge_errors import CurseForgeModpackManualDownloadRequired
 from src.core.curseforge.curseforge_pack_registry import CurseForgePackRegistry
 from src.core.fs.paths import Paths
+from src.core.fs.windows_path import copy_tree, make_directory, open_file
 from src.core.instance.instance_manager import InstanceManager
 from src.core.instance.settings_manager import SettingsManager
 from src.core.instance.instance_artwork_manager import InstanceArtworkManager
@@ -83,7 +84,12 @@ class CurseForgePackInstaller:
             try:
                 if settings_override is not None:
                     SettingsManager.save_dict(instance, settings_override)
-                override_mods = CurseForgePackInstaller._extract_overrides(archive, str(manifest.get("overrides") or "overrides"), Path(instance.instance_dir), reporter)
+                override_staging = Paths.create_short_workspace("cfr")
+                try:
+                    override_mods = CurseForgePackInstaller._extract_overrides(archive, str(manifest.get("overrides") or "overrides"), override_staging, reporter)
+                    copy_tree(override_staging, Path(instance.instance_dir))
+                finally:
+                    Paths.cleanup_short_workspace(override_staging)
                 CurseForgePackRegistry.save(instance, {
                     "projectId": 0,
                     "fileId": 0,
@@ -199,7 +205,12 @@ class CurseForgePackInstaller:
             try:
                 if settings_override is not None:
                     SettingsManager.save_dict(instance, settings_override)
-                override_mods = CurseForgePackInstaller._extract_overrides(archive, str(manifest.get("overrides") or "overrides"), Path(instance.instance_dir), reporter)
+                override_staging = Paths.create_short_workspace("cfr")
+                try:
+                    override_mods = CurseForgePackInstaller._extract_overrides(archive, str(manifest.get("overrides") or "overrides"), override_staging, reporter)
+                    copy_tree(override_staging, Path(instance.instance_dir))
+                finally:
+                    Paths.cleanup_short_workspace(override_staging)
                 CurseForgePackRegistry.save(instance, {
                     "projectId": int(project_id),
                     "fileId": int(file_id),
@@ -427,10 +438,10 @@ class CurseForgePackInstaller:
             name = info.filename.replace("\\", "/")[len(normalized_prefix):]
             relative = CurseForgePackInstaller._safe_relative_path(name)
             target = destination.joinpath(*relative.parts)
-            target.parent.mkdir(parents=True, exist_ok=True)
+            make_directory(target.parent)
             digest = hashlib.sha1(usedforsecurity=False)
             file_written = 0
-            with archive.open(info, "r") as source, target.open("wb") as output:
+            with archive.open(info, "r") as source, open_file(target, "wb") as output:
                 while chunk := source.read(1024 * 1024):
                     output.write(chunk)
                     digest.update(chunk)

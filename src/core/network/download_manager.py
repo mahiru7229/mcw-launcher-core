@@ -11,6 +11,7 @@ import re
 
 import httpx
 
+from src.core.fs.windows_path import is_file, make_directory, open_file, replace_path, stat_path, unlink_file
 from src.core.network.download_bandwidth_limiter import download_bandwidth_limiter
 from src.core.network.download_journal import download_journal
 from src.core.network.download_models import DownloadRequest, DownloadResult, DownloadState
@@ -89,18 +90,18 @@ class DownloadManager:
             valid = self.verify(request.destination, request.expected_size, request.hashes)
             if valid:
                 self._checkpoint(request, self._safe_size(request.destination))
-                size = request.destination.stat().st_size
+                size = stat_path(request.destination).st_size
                 self._report(reporter, progress_stage, progress_message, size, size)
                 download_journal.complete(request, size)
                 return DownloadResult(request.destination, size, self.calculate_hashes(request.destination, request.hashes), 0, "cache")
 
-            request.destination.parent.mkdir(parents=True, exist_ok=True)
+            make_directory(request.destination.parent)
             if request.force:
                 self.delete_file(request.temporary_path)
             if self.verify(request.temporary_path, request.expected_size, request.hashes):
                 self._checkpoint(request, self._safe_size(request.temporary_path))
-                request.temporary_path.replace(request.destination)
-                size = request.destination.stat().st_size
+                replace_path(request.temporary_path, request.destination)
+                size = stat_path(request.destination).st_size
                 self._report(reporter, progress_stage, progress_message, size, size)
                 download_journal.complete(request, size)
                 return DownloadResult(request.destination, size, self.calculate_hashes(request.destination, request.hashes), size, "partial-cache")
@@ -123,8 +124,8 @@ class DownloadManager:
                         self._checkpoint(request, self._safe_size(request.temporary_path))
                         self._validate_file(request, actual_hashes)
                         self._checkpoint(request, self._safe_size(request.temporary_path))
-                        request.temporary_path.replace(request.destination)
-                        size = request.destination.stat().st_size
+                        replace_path(request.temporary_path, request.destination)
+                        size = stat_path(request.destination).st_size
                         download_journal.complete(request, size)
                         self._report(reporter, progress_stage, progress_message, size, size)
                         return DownloadResult(request.destination, size, actual_hashes, resumed_from, url)
@@ -160,9 +161,9 @@ class DownloadManager:
         request = DownloadRequest(urls=(url,), destination=path, expected_size=0, hashes={"sha1": "0" * 40}, source="direct", display_name=path.name, max_attempts=max_attempts, timeout=timeout, force=force)
         with self.get_path_lock(path):
             self._checkpoint(request, self._safe_size(request.temporary_path))
-            if path.is_file() and not force:
+            if is_file(path) and not force:
                 sha1 = self.calculate_hash(path, "sha1")
-                return path, sha1, path.stat().st_size
+                return path, sha1, stat_path(path).st_size
             if force:
                 self.delete_file(request.temporary_path)
             last_error: Exception | None = None
@@ -172,9 +173,9 @@ class DownloadManager:
                         self._stream(request, url, reporter, progress_stage, progress_message, client_provider, skip_expected_hash=True)
                     self._checkpoint(request, self._safe_size(request.temporary_path))
                     sha1 = self.calculate_hash(request.temporary_path, "sha1")
-                    size = request.temporary_path.stat().st_size
+                    size = stat_path(request.temporary_path).st_size
                     self._checkpoint(request, size)
-                    request.temporary_path.replace(path)
+                    replace_path(request.temporary_path, path)
                     download_journal.complete(request, size)
                     return path, sha1, size
                 except DownloadCancelledError as error:
@@ -239,8 +240,8 @@ class DownloadManager:
                 last_percentage = -1
                 rate_meter = DownloadRateMeter(downloaded)
                 self._report(reporter, stage, message, downloaded, total)
-                temporary_path.parent.mkdir(parents=True, exist_ok=True)
-                with temporary_path.open("ab" if append else "wb") as output:
+                make_directory(temporary_path.parent)
+                with open_file(temporary_path, "ab" if append else "wb") as output:
                     for chunk in response.iter_bytes(chunk_size=CHUNK_SIZE):
                         self._checkpoint(request, downloaded)
                         if not chunk:
@@ -270,10 +271,10 @@ class DownloadManager:
                 return existing, response
 
     def verify(self, path: Path, expected_size: int, hashes: dict | object) -> bool:
-        if not Path(path).is_file():
+        if not is_file(path):
             return False
         try:
-            if expected_size > 0 and Path(path).stat().st_size != expected_size:
+            if expected_size > 0 and stat_path(path).st_size != expected_size:
                 return False
             expected = dict(hashes or {})
             if not expected:
@@ -298,7 +299,7 @@ class DownloadManager:
             digest = hashlib.sha1(usedforsecurity=False)
         else:
             digest = hashlib.new(normalized)
-        with Path(path).open("rb") as file:
+        with open_file(path, "rb") as file:
             while chunk := file.read(1024 * 1024):
                 if allow_while_paused:
                     download_pause_controller.raise_if_cancel_requested()
@@ -389,7 +390,7 @@ class DownloadManager:
 
     @classmethod
     def partial_size(cls, path: Path, expected_size: int) -> int:
-        if not Path(path).is_file():
+        if not is_file(path):
             return 0
         size = cls._safe_size(path)
         if expected_size > 0 and size > expected_size:
@@ -400,14 +401,14 @@ class DownloadManager:
     @staticmethod
     def _safe_size(path: Path) -> int:
         try:
-            return max(0, Path(path).stat().st_size)
+            return max(0, stat_path(path).st_size)
         except OSError:
             return 0
 
     @staticmethod
     def delete_file(path: Path) -> None:
         try:
-            Path(path).unlink(missing_ok=True)
+            unlink_file(path, missing_ok=True)
         except OSError:
             pass
 

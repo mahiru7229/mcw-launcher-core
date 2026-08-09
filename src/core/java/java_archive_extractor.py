@@ -1,6 +1,8 @@
 from pathlib import Path, PurePosixPath
 from zipfile import ZipFile, ZipInfo
 
+from src.core.fs.windows_path import make_directory, open_file
+
 
 class JavaArchiveExtractor:
     @staticmethod
@@ -25,11 +27,11 @@ class JavaArchiveExtractor:
 
         target = destination.joinpath(*member_path.parts)
         if member.is_dir():
-            target.mkdir(parents=True, exist_ok=True)
+            make_directory(target)
             return
 
-        target.parent.mkdir(parents=True, exist_ok=True)
-        with archive.open(member) as source, target.open("wb") as output:
+        make_directory(target.parent)
+        with archive.open(member) as source, open_file(target, "wb") as output:
             while chunk := source.read(1024 * 1024):
                 output.write(chunk)
 

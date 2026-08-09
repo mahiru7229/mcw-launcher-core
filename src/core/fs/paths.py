@@ -5,7 +5,19 @@ from src.models.minecraft.version import Version
 from src.models.minecraft.assets import DownloadAsset
 from src.models.instance.instance import Instance
 import json
+import os
+import shutil
 import sys
+import tempfile
+from uuid import uuid4
+def _default_short_workspace_root() -> Path:
+    if sys.platform == "win32":
+        local_app_data = str(os.environ.get("LOCALAPPDATA") or "").strip()
+        if local_app_data:
+            return Path(local_app_data) / "MCW" / "t"
+    return Path(tempfile.gettempdir()) / "MCW" / "t"
+
+
 if getattr(sys, "frozen", False):
     PROJECT_ROOT = Path(sys.executable).parent
 else:
@@ -23,6 +35,7 @@ class Paths:
     THEME_ROOT = PROJECT_ROOT / "themes"
     RUNTIMES_ROOT = PROJECT_ROOT / "runtimes"
     INSTANCE_LOCKS_ROOT = INSTANCES_ROOT / ".runtime" / "locks"
+    SHORT_WORKSPACE_ROOT = _default_short_workspace_root()
     
     @staticmethod
     def initialize() -> None:
@@ -143,6 +156,38 @@ class Paths:
             yield
         finally:
             Paths.restore(previous)
+
+    @staticmethod
+    def short_workspace_root() -> Path:
+        root = Path(Paths.SHORT_WORKSPACE_ROOT)
+        root.mkdir(parents=True, exist_ok=True)
+        return root
+
+    @staticmethod
+    def create_short_workspace(purpose: str) -> Path:
+        prefix = str(purpose or "").strip().casefold()
+        if len(prefix) != 3 or not prefix.isalnum():
+            raise ValueError("Short workspace purpose must be exactly three alphanumeric characters.")
+        parent = Paths.short_workspace_root() / prefix
+        parent.mkdir(parents=True, exist_ok=True)
+        for _ in range(32):
+            workspace = parent / uuid4().hex[:8]
+            try:
+                workspace.mkdir(parents=False, exist_ok=False)
+                return workspace
+            except FileExistsError:
+                continue
+        raise RuntimeError(f"Could not allocate a short MCW workspace for {prefix}.")
+
+    @staticmethod
+    def cleanup_short_workspace(workspace: Path) -> None:
+        path = Path(workspace)
+        try:
+            path.relative_to(Paths.short_workspace_root())
+        except ValueError as error:
+            raise ValueError(f"Refusing to clean a path outside the MCW short workspace root: {path}") from error
+        shutil.rmtree(path, ignore_errors=True)
+
     @staticmethod
     def microsoft_config_root()->Path:
         return Paths.CONFIG_ROOT / "microsoft.json"
@@ -432,7 +477,7 @@ class Paths:
 
     @staticmethod
     def neoforge_staging_dir(game_version: str, neoforge_version: str) -> Path:
-        directory = Paths.neoforge_root() / "staging" / f"{game_version}-{neoforge_version}"
+        directory = Paths.short_workspace_root() / "neo" / f"{game_version}-{neoforge_version}"
         directory.mkdir(parents=True, exist_ok=True)
         return directory
 
@@ -461,7 +506,7 @@ class Paths:
 
     @staticmethod
     def forge_staging_dir(game_version: str, forge_version: str) -> Path:
-        directory = Paths.forge_root() / "staging" / f"{game_version}-{forge_version}"
+        directory = Paths.short_workspace_root() / "frg" / f"{game_version}-{forge_version}"
         directory.mkdir(parents=True, exist_ok=True)
         return directory
 
@@ -708,7 +753,7 @@ class Paths:
 
     @staticmethod
     def modrinth_staging_root() -> Path:
-        directory = Paths.modrinth_root() / "staging"
+        directory = Paths.short_workspace_root() / "mrd"
         directory.mkdir(parents=True, exist_ok=True)
         return directory
 

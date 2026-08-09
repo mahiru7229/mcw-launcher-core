@@ -1,14 +1,21 @@
-# MCW Core v1.3.0
+# MCW Core v1.3.1
 
 MCW Core is the GUI-independent runtime distributed with MCW Launcher.
 
 ## Package
 
-- Distribution: `mcw-core 1.3.0`
-- Runtime: `mcw_core.__version__ == "1.3.0"`
+- Distribution: `mcw-core 1.3.1`
+- Runtime: `mcw_core.__version__ == "1.3.1"`
 - Update channel metadata: `stable`
 - Python: 3.12 or newer
 - Wheel: pure Python `py3-none-any`
+
+
+## v1.3.1 Windows long-path hotfix
+
+MCW Core v1.3.1 moves temporary Java, Forge, NeoForge and Modrinth installation work to a short workspace under `%LOCALAPPDATA%\MCW\t` on Windows and adds extended-path-aware extraction/copy helpers for Java, Modrinth and CurseForge. Permanent launcher data remains at the configured Core root.
+
+See `RELEASE-v1.3.1.md` for details.
 
 ## v1.3.0 shared storage and cleanup
 

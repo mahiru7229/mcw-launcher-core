@@ -378,3 +378,43 @@ def test_manifest_project_id_does_not_guess_from_pack_name() -> None:
     assert CurseForgePackInstaller._manifest_project_id({"name": "Popular Pack"}) == 0
     assert CurseForgePackInstaller._manifest_project_id({"projectID": 123}) == 123
     assert CurseForgePackInstaller._manifest_project_id({"projectId": "456"}) == 456
+
+
+def test_local_archive_uses_short_cfr_workspace(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from src.core.fs.paths import Paths
+
+    short_root = tmp_path / "short"
+    monkeypatch.setattr(Paths, "SHORT_WORKSPACE_ROOT", short_root)
+    archive_path = tmp_path / "local.zip"
+    manifest = {
+        "minecraft": {"version": "1.20.1", "modLoaders": [{"id": "forge-47.4.21", "primary": True}]},
+        "name": "Local Pack",
+        "version": "1.0",
+        "files": [],
+        "overrides": "overrides",
+    }
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr("manifest.json", json.dumps(manifest))
+        archive.writestr("overrides/config/example.json", "{}")
+
+    base_version = SimpleNamespace(id="1.20.1")
+    monkeypatch.setattr(VersionManager, "load", staticmethod(lambda _version: base_version))
+    monkeypatch.setattr(ModLoaderManager, "resolve", staticmethod(lambda _game, loader, version: (loader, version)))
+    monkeypatch.setattr(InstanceArtworkManager, "apply_embedded_archive_artwork", classmethod(lambda cls, *_args, **_kwargs: False))
+    monkeypatch.setattr(InstanceArtworkManager, "has_custom_artwork", classmethod(lambda cls, *_args, **_kwargs: True))
+    captured: list[Path] = []
+    original = CurseForgePackInstaller._extract_overrides
+
+    def capture(archive, prefix, destination, reporter):
+        captured.append(destination)
+        return original(archive, prefix, destination, reporter)
+
+    monkeypatch.setattr(CurseForgePackInstaller, "_extract_overrides", staticmethod(capture))
+
+    with Paths.configured(tmp_path):
+        result = CurseForgePackInstaller.install_local_archive(archive_path, "Local Pack")
+
+    assert result.instance.name == "Local Pack"
+    assert captured and captured[0].parent == short_root / "cfr"
+    assert not captured[0].exists()
+    assert (Path(result.instance.instance_dir) / "config" / "example.json").is_file()

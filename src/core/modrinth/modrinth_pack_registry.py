@@ -4,6 +4,7 @@ from pathlib import Path, PurePosixPath
 import hashlib
 import json
 
+from src.core.fs.windows_path import is_file, stat_path
 from src.core.progress.progress_reporter import ProgressReporter
 from src.models.instance.instance import Instance
 from src.models.modrinth.pack_state import ModrinthManagedFileChange, ModrinthPackStateReport
@@ -75,7 +76,7 @@ class ModrinthPackRegistry:
                 continue
             target = root.joinpath(*relative.parts)
             source = str(entry.get("source") or "")
-            if not target.is_file():
+            if not is_file(target):
                 cache.pop(relative.as_posix().casefold(), None)
                 changes.append(ModrinthManagedFileChange(path=relative.as_posix(), state="missing", source=source))
                 ModrinthPackRegistry._report(reporter, message, completed, len(managed_files))
@@ -114,12 +115,12 @@ class ModrinthPackRegistry:
         target = Path(instance_dir).joinpath(*relative.parts)
         key = relative.as_posix().casefold()
         cache_data = cache if isinstance(cache, dict) else {}
-        if not target.is_file():
+        if not is_file(target):
             cache_data.pop(key, None)
             return False, False, 0
 
         try:
-            stat_result = target.stat()
+            stat_result = stat_path(target)
         except OSError:
             cache_data.pop(key, None)
             return False, False, 0
@@ -159,11 +160,11 @@ class ModrinthPackRegistry:
                 continue
             target = root.joinpath(*relative.parts)
             try:
-                stat_result = target.stat()
+                stat_result = stat_path(target)
             except OSError:
                 continue
             expected_size = max(0, int(entry.get("size", 0) or 0))
-            if not target.is_file() or (expected_size > 0 and stat_result.st_size != expected_size):
+            if not is_file(target) or (expected_size > 0 and stat_result.st_size != expected_size):
                 continue
             expected_sha1 = str(entry.get("sha1") or "").lower()
             expected_sha512 = str(entry.get("sha512") or "").lower()
