@@ -4,6 +4,7 @@ from src.models.progress.progress_callback import ProgressCallback
 from src.models.instance.settings import InstanceSettings
 from src.models.package.instance_package_preview import InstancePackagePreview
 from src.core.config.launcher_settings_manager import LauncherSettingsManager
+from src.core.fs.atomic_file import atomic_write_text
 from src.core.fs.paths import Paths
 from src.core.instance.settings_manager import SettingsManager
 from src.core.instance.instance_deletion_manager import InstanceDeletionManager
@@ -94,12 +95,7 @@ class InstanceManager:
             "metadata_version": InstanceManager.METADATA_VERSION,
         })
 
-        temporary = path.with_name(f"{path.name}.tmp")
-        with temporary.open("w", encoding="utf-8", newline="\n") as file:
-            file.write(json.dumps(data, indent=4, ensure_ascii=False) + "\n")
-            file.flush()
-            os.fsync(file.fileno())
-        temporary.replace(path)
+        atomic_write_text(path, json.dumps(data, indent=4, ensure_ascii=False) + "\n")
 
     @staticmethod
     def _update_instance_metadata_fields(instance: Instance, updates: dict) -> None:
@@ -112,12 +108,7 @@ class InstanceManager:
             raise RuntimeError(f"Invalid instance metadata: {path}")
         data.update(dict(updates))
         data["updated_at"] = datetime.now(timezone.utc).isoformat()
-        temporary = path.with_name(f"{path.name}.tmp")
-        with temporary.open("w", encoding="utf-8", newline="\n") as file:
-            file.write(json.dumps(data, indent=4, ensure_ascii=False) + "\n")
-            file.flush()
-            os.fsync(file.fileno())
-        temporary.replace(path)
+        atomic_write_text(path, json.dumps(data, indent=4, ensure_ascii=False) + "\n")
 
     @staticmethod
     def _load_instance_metadata(path: Path) -> Instance:
@@ -936,14 +927,5 @@ class InstanceManager:
     def _save_instances(data: dict) -> Path:
         instance_data_path = Paths.instance_data_path()
         instance_data_path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = instance_data_path.with_name(f"{instance_data_path.name}.tmp")
-        try:
-            with temporary.open("w", encoding="utf-8", newline="\n") as file:
-                file.write(json.dumps(data, indent=4, ensure_ascii=False) + "\n")
-                file.flush()
-                os.fsync(file.fileno())
-            temporary.replace(instance_data_path)
-        except Exception:
-            temporary.unlink(missing_ok=True)
-            raise
+        atomic_write_text(instance_data_path, json.dumps(data, indent=4, ensure_ascii=False) + "\n")
         return instance_data_path

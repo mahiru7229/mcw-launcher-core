@@ -1062,13 +1062,10 @@ class ModpackPackageManager:
 
     @staticmethod
     def _safe_relative(value: str) -> PurePosixPath | None:
-        normalized = str(value or "").replace("\\", "/").strip().strip("/")
-        path = PurePosixPath(normalized)
-        if not normalized or path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+        try:
+            return PackageManager._safe_relative_path(str(value or ""))
+        except RuntimeError:
             return None
-        if not path.parts or ":" in path.parts[0]:
-            return None
-        return path
 
     @staticmethod
     def _read_json(archive: ZipFile, name: str) -> dict:

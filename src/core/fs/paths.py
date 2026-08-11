@@ -181,11 +181,10 @@ class Paths:
 
     @staticmethod
     def cleanup_short_workspace(workspace: Path) -> None:
-        path = Path(workspace)
-        try:
-            path.relative_to(Paths.short_workspace_root())
-        except ValueError as error:
-            raise ValueError(f"Refusing to clean a path outside the MCW short workspace root: {path}") from error
+        root = Paths.short_workspace_root().resolve(strict=False)
+        path = Path(workspace).resolve(strict=False)
+        if path == root or not path.is_relative_to(root):
+            raise ValueError(f"Refusing to clean a path outside the MCW short workspace root: {path}")
         shutil.rmtree(path, ignore_errors=True)
 
     @staticmethod

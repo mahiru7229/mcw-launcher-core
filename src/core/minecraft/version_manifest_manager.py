@@ -3,10 +3,9 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 import json
-import os
-
 import requests
 
+from src.core.fs.atomic_file import atomic_write_text
 from src.core.fs.paths import Paths
 from src.models.minecraft.version_manifest import VersionManifest
 
@@ -25,8 +24,6 @@ class VersionManifestManager:
     def _download_manifest() -> Path | None:
         manifest_path = Paths.version_manifest()
         manifest_path.parent.mkdir(exist_ok=True, parents=True)
-        temporary_path = manifest_path.with_name(f"{manifest_path.name}.tmp")
-
         try:
             response = requests.get(MANIFEST_URL, timeout=10)
             raise_for_status = getattr(response, "raise_for_status", None)
@@ -38,14 +35,9 @@ class VersionManifestManager:
             if not isinstance(payload, dict) or not isinstance(payload.get("versions"), list):
                 raise ValueError("Mojang returned an invalid version manifest.")
 
-            with temporary_path.open("w", encoding="utf-8", newline="\n") as file:
-                file.write(response_text)
-                file.flush()
-                os.fsync(file.fileno())
-            temporary_path.replace(manifest_path)
+            atomic_write_text(manifest_path, response_text)
             return manifest_path
         except (requests.RequestException, OSError, UnicodeError, json.JSONDecodeError, ValueError):
-            temporary_path.unlink(missing_ok=True)
             return manifest_path if manifest_path.is_file() else None
 
     @staticmethod

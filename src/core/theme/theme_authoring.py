@@ -4,6 +4,7 @@ import json
 from pathlib import Path, PurePosixPath
 import shutil
 import tempfile
+from uuid import uuid4
 import zipfile
 
 from src.core.theme.theme_contract import MAX_THEME_ARCHIVE_BYTES, MAX_THEME_ARCHIVE_FILES, THEME_ID_PATTERN
@@ -110,12 +111,21 @@ class ThemeAuthoringService:
             normalized_id = self._normalize_theme_id(report.theme_id)
             destination = (self.manager.root / normalized_id).resolve()
             self._ensure_inside_root(destination)
+            backup: Path | None = None
             if destination.exists():
                 if not overwrite:
                     raise ThemeAuthoringError(f"Theme already exists: {normalized_id}", "THEME_IMPORT_ALREADY_EXISTS")
-                shutil.rmtree(destination)
-            staging_root.replace(destination)
+                backup = self.manager.root / f".theme-backup-{normalized_id}-{uuid4().hex}"
+                destination.replace(backup)
+            try:
+                staging_root.replace(destination)
+            except OSError:
+                if backup is not None and backup.exists() and not destination.exists():
+                    backup.replace(destination)
+                raise
             staging_root = None
+            if backup is not None:
+                shutil.rmtree(backup, ignore_errors=True)
             self.manager.reload()
             return self._require_theme(normalized_id)
         except ThemePackageError as error:

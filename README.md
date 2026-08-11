@@ -1,35 +1,60 @@
-# MCW Core v1.3.1
+# MCW Core Library
 
-MCW Core is the GUI-independent runtime distributed with MCW Launcher.
+Current distribution: **mcw-core 1.3.2**. This release adds Windows-safe atomic state publishing, update-integrity hardening, short-workspace cleanup guards, and rollback-safe package/theme operations without adding a GUI dependency.
 
-## Package
+MCW Core is the GUI-independent runtime used by MCW Launcher. It can be imported from a Python program without installing PySide6.
 
-- Distribution: `mcw-core 1.3.1`
-- Runtime: `mcw_core.__version__ == "1.3.1"`
-- Update channel metadata: `stable`
-- Python: 3.12 or newer
-- Wheel: pure Python `py3-none-any`
+```python
+from mcw_core import CorePaths, LaunchRequest, MCWCore
 
+core = MCWCore(CorePaths.from_root(r"D:\\Games\\MCW"))
+core.operations.begin()
+try:
+    result = core.launch(
+        LaunchRequest(
+            instance="My Quilt Instance",
+            offline_username="Player",
+            on_progress=print,
+        )
+    )
+finally:
+    core.operations.finish()
 
-## v1.3.1 Windows long-path hotfix
+print(result.minecraft_version, result.java_path)
+```
 
-MCW Core v1.3.1 moves temporary Java, Forge, NeoForge and Modrinth installation work to a short workspace under `%LOCALAPPDATA%\MCW\t` on Windows and adds extended-path-aware extraction/copy helpers for Java, Modrinth and CurseForge. Permanent launcher data remains at the configured Core root.
+The same operation can be run without the GUI:
 
-See `RELEASE-v1.3.1.md` for details.
-
-## v1.3.0 shared storage and cleanup
-
-The stable v1.3.0 release keeps the validated Shared Storage foundation from Beta 1, the instance-deletion finalization fix from Beta 2, and the narrow unused-version-JAR cleanup from Beta 3.
-
-Final stable hardening adds:
-
-- configurable 1–365 day retention for unused Minecraft version JARs, defaulting to 14 days;
-- conservative detection and cleanup of legacy instance residue directories that have no `instance.json`, no registry reference, and contain only `.mcw` / `crash-reports`;
-- reference-aware revalidation before deletion;
-- provider API/metadata cache remains separate and protected from binary storage cleanup.
+```powershell
+python tools\core_smoke_launch.py --root D:\Games\MCW --instance "My Quilt Instance" --username Player
+```
 
 ## Public API
 
-The supported entry point remains `import mcw_core`.
+The supported import surface is exposed from `mcw_core`:
 
-See `docs/MCW_CORE_LIBRARY.md`, `docs/en/CORE_GUIDE.md`, `docs/vi/CORE_GUIDE.md`, and `RELEASE-v1.3.0.md` in the source archive.
+- `MCWCore` and `CorePaths`
+- `LaunchRequest` and `LaunchResult`
+- `InstanceCreateRequest`
+- `InstanceState`, `InstanceStatus`, and instance health reports
+- `ProcessSession` and `ProcessSessionState`
+- `OperationHandle`
+- progress event models
+
+Consumers should not import implementation modules from `src.core`.
+
+## Process-wide paths
+
+The current implementation keeps one active path configuration per Python process. Create one `MCWCore` for an application root, or explicitly call `configure_default_core()` before using the default facade.
+
+
+## Instance health and process sessions
+
+Runtime state and instance health are intentionally separate. Runtime state describes whether Minecraft is preparing, running, finished, or crashed. Health reports describe persistent problems such as invalid metadata, an unfinished transaction, a missing Java path, or a missing custom icon.
+
+```python
+report = core.instances.health("My Instance")
+print(report.state, [issue.code for issue in report.issues])
+```
+
+Minecraft launches are supervised through persisted process-session records. Active records are reconciled during startup so a launcher interruption does not leave a permanent running badge or stale process metadata. Consumers can use the public `ProcessSession` and `ProcessSessionState` data models without importing implementation modules.

@@ -60,7 +60,7 @@ class UpdateManager:
     def _validate_package_manifest(cls, content_directory: Path, info: UpdateInfo) -> None:
         manifest_path = content_directory / cls.PACKAGE_MANIFEST_NAME
         if not manifest_path.is_file():
-            return
+            raise RuntimeError(f"The update package is missing {cls.PACKAGE_MANIFEST_NAME}.")
         try:
             payload = json.loads(manifest_path.read_text(encoding="utf-8"))
         except (OSError, UnicodeError, json.JSONDecodeError) as error:
@@ -84,10 +84,26 @@ class UpdateManager:
             raise RuntimeError("The update package manifest contains an invalid executable name.")
         if not (content_directory / executable_name).is_file():
             raise RuntimeError(f"The update package does not contain the declared executable: {executable_name}")
+        managed_files = payload.get("files")
+        if not isinstance(managed_files, list) or not managed_files:
+            raise RuntimeError("The update package manifest does not declare its managed files.")
+        normalized_files: set[str] = set()
+        for raw_path in managed_files:
+            relative = cls._safe_archive_path(str(raw_path or ""))
+            if relative is None:
+                raise RuntimeError("The update package manifest contains an invalid managed file path.")
+            normalized = relative.as_posix()
+            if normalized.casefold() in {value.casefold() for value in normalized_files}:
+                raise RuntimeError(f"The update package manifest contains a duplicate managed file path: {normalized}")
+            normalized_files.add(normalized)
+            if not (content_directory / Path(*relative.parts)).is_file():
+                raise RuntimeError(f"The update package is missing a managed file: {normalized}")
+        if cls.PACKAGE_MANIFEST_NAME not in normalized_files:
+            raise RuntimeError(f"The update package manifest must list {cls.PACKAGE_MANIFEST_NAME} as a managed file.")
 
     def _download_archive(self, info: UpdateInfo, archive_path: Path, reporter: ProgressReporter | None = None, max_retry: int = 3) -> None:
-        expected_sha256 = str(info.asset.sha256 or "").strip().lower()
-        if archive_path.is_file() and self._archive_matches(archive_path, info.asset.size, expected_sha256 or None):
+        expected_sha256 = self._resolve_expected_sha256(info)
+        if archive_path.is_file() and self._archive_matches(archive_path, info.asset.size, expected_sha256):
             size = info.asset.size if info.asset.size > 0 else archive_path.stat().st_size
             if reporter is not None:
                 reporter.bytes(stage=ProgressStage.DOWNLOADING_UPDATE, message="Using cached launcher update...", current=size, total=size)
@@ -97,13 +113,13 @@ class UpdateManager:
             urls=(info.asset.download_url,),
             destination=archive_path,
             expected_size=max(0, int(info.asset.size or 0)),
-            hashes={"sha256": expected_sha256} if expected_sha256 else {},
+            hashes={"sha256": expected_sha256},
             source="launcher_update",
             display_name=info.asset.name or archive_path.name,
             max_attempts=max_retry,
             timeout=httpx.Timeout(connect=20.0, read=120.0, write=30.0, pool=30.0),
             headers={"User-Agent": f"mahiru7229/mcw-launcher/{info.current_version}"},
-            allow_unverified=not bool(expected_sha256),
+            allow_unverified=False,
             max_bytes=self.MAX_ARCHIVE_BYTES,
             operation_id=f"launcher-update:{info.version}",
         )
@@ -114,9 +130,38 @@ class UpdateManager:
             progress_message=f"Downloading launcher update {info.version}...",
             client_provider=HttpDownloader.get_client,
         )
-        if not self._archive_matches(archive_path, info.asset.size, expected_sha256 or None):
+        if not self._archive_matches(archive_path, info.asset.size, expected_sha256):
             archive_path.unlink(missing_ok=True)
             raise RuntimeError("The downloaded launcher update archive failed validation.")
+
+
+    @staticmethod
+    def _valid_sha256(value: str) -> bool:
+        normalized = str(value or "").strip().casefold()
+        return len(normalized) == 64 and all(character in "0123456789abcdef" for character in normalized)
+
+    def _resolve_expected_sha256(self, info: UpdateInfo) -> str:
+        direct = str(info.asset.sha256 or "").strip().casefold()
+        if self._valid_sha256(direct):
+            return direct
+
+        checksum_url = str(info.asset.sha256_url or "").strip()
+        if not checksum_url.startswith("https://"):
+            raise RuntimeError("Automatic launcher updates require a trusted SHA-256 digest or .sha256 release asset.")
+
+        response = HttpDownloader.get_client().get(
+            checksum_url,
+            headers={"User-Agent": f"mahiru7229/mcw-launcher/{info.current_version}"},
+            timeout=15.0,
+        )
+        response.raise_for_status()
+        if len(response.content) > 4096:
+            raise RuntimeError("The launcher update checksum file is unexpectedly large.")
+        first_line = response.text.lstrip("\ufeff").strip().splitlines()[0] if response.text.strip() else ""
+        candidate = first_line.split()[0].strip().casefold() if first_line else ""
+        if not self._valid_sha256(candidate):
+            raise RuntimeError("The launcher update checksum file does not contain a valid SHA-256 digest.")
+        return candidate
 
     @staticmethod
     def _response_size(response: httpx.Response) -> int:

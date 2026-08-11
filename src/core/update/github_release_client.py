@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
-import os
 from pathlib import Path
 from typing import Any
 
+from src.core.fs.atomic_file import atomic_write_text
 from src.core.fs.paths import Paths
 from src.core.network.httpx_downloader import HttpDownloader
 from src.core.update.versioning import LauncherVersion
@@ -140,13 +140,26 @@ class GitHubReleaseClient:
             return None
 
         raw_asset = max(scored, key=lambda item: item[0])[1]
+        asset_name = str(raw_asset.get("name") or "update.zip")
         digest = str(raw_asset.get("digest") or "").strip().lower()
         sha256 = digest.removeprefix("sha256:") if digest.startswith("sha256:") and len(digest) == 71 else None
+        sidecar_name = f"{asset_name}.sha256".casefold()
+        sha256_url = None
+        for candidate in raw_assets:
+            if not isinstance(candidate, dict):
+                continue
+            if str(candidate.get("name") or "").strip().casefold() != sidecar_name:
+                continue
+            candidate_url = str(candidate.get("browser_download_url") or "").strip()
+            if candidate_url.startswith("https://"):
+                sha256_url = candidate_url
+                break
         return ReleaseAsset(
-            name=str(raw_asset.get("name") or "update.zip"),
+            name=asset_name,
             download_url=str(raw_asset.get("browser_download_url") or ""),
             size=max(0, int(raw_asset.get("size") or 0)),
             sha256=sha256,
+            sha256_url=sha256_url,
         )
 
     def _read_cache(self) -> dict[str, Any] | None:
@@ -162,19 +175,13 @@ class GitHubReleaseClient:
 
     def _write_cache(self, releases: list[dict[str, Any]]) -> None:
         self.cache_path.parent.mkdir(parents=True, exist_ok=True)
-        temporary_path = self.cache_path.with_name(f"{self.cache_path.name}.tmp")
         payload = {
             "schema_version": self.CACHE_SCHEMA_VERSION,
             "repository": self.repository,
             "fetched_at": datetime.now(timezone.utc).isoformat(),
             "releases": releases,
         }
-        with temporary_path.open("w", encoding="utf-8", newline="\n") as file:
-            json.dump(payload, file, ensure_ascii=False, indent=2)
-            file.write("\n")
-            file.flush()
-            os.fsync(file.fileno())
-        temporary_path.replace(self.cache_path)
+        atomic_write_text(self.cache_path, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
 
     def _cache_expired(self, payload: dict[str, Any]) -> bool:
         fetched_at = payload.get("fetched_at")

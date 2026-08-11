@@ -5,7 +5,7 @@ from datetime import datetime
 import ctypes
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import shutil
 import subprocess
 import sys
@@ -67,6 +67,7 @@ class UpdateApplier:
         self.backup_directory = request.updater_directory / "backup"
         self.temporary_log_path = request.updater_directory / "update.log"
         self.new_files: list[Path] = []
+        self.stale_files = self._stale_managed_files()
 
     def run(self) -> int:
         try:
@@ -77,6 +78,7 @@ class UpdateApplier:
 
             self._backup_existing_files()
             self._copy_update_files()
+            self._remove_stale_files()
             self._verify_updated_executable()
             self._start_launcher()
             self._log(f"Update to {self.request.target_version} completed")
@@ -101,14 +103,14 @@ class UpdateApplier:
 
     def _backup_existing_files(self) -> None:
         self._log("Creating rollback backup")
-        for source_path in self._iter_source_files():
-            relative_path = source_path.relative_to(self.request.source_directory)
+        source_relative = {path.relative_to(self.request.source_directory) for path in self._iter_source_files()}
+        for relative_path in sorted(source_relative | set(self.stale_files), key=lambda path: str(path).casefold()):
             destination_path = self.request.destination_directory / relative_path
             if destination_path.is_file():
                 backup_path = self.backup_directory / relative_path
                 backup_path.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(destination_path, backup_path)
-            elif not destination_path.exists():
+            elif relative_path in source_relative and not destination_path.exists():
                 self.new_files.append(destination_path)
 
     def _copy_update_files(self) -> None:
@@ -118,6 +120,42 @@ class UpdateApplier:
             destination_path = self.request.destination_directory / relative_path
             destination_path.parent.mkdir(parents=True, exist_ok=True)
             self._copy_with_retry(source_path, destination_path)
+
+    def _remove_stale_files(self) -> None:
+        for relative_path in self.stale_files:
+            target = self.request.destination_directory / relative_path
+            try:
+                target.unlink(missing_ok=True)
+            except OSError as error:
+                raise RuntimeError(f"Could not remove obsolete launcher file {target}: {error}") from error
+
+    def _stale_managed_files(self) -> list[Path]:
+        previous = self._managed_files(self.request.destination_directory)
+        incoming = self._managed_files(self.request.source_directory)
+        if not previous or not incoming:
+            return []
+        return sorted((Path(*path.parts) for path in previous.difference(incoming)), key=lambda path: str(path).casefold())
+
+    @staticmethod
+    def _managed_files(root: Path) -> set[PurePosixPath]:
+        manifest_path = Path(root) / "mcw-update.json"
+        try:
+            payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (FileNotFoundError, OSError, UnicodeError, json.JSONDecodeError, TypeError, ValueError):
+            return set()
+        values = payload.get("files") if isinstance(payload, dict) else None
+        if not isinstance(values, list):
+            return set()
+        managed: set[PurePosixPath] = set()
+        for raw in values:
+            normalized = str(raw or "").replace("\\", "/").strip()
+            path = PurePosixPath(normalized)
+            if not normalized or path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+                return set()
+            if not path.parts or ":" in path.parts[0]:
+                return set()
+            managed.add(path)
+        return managed
 
     def _restore_backup(self) -> None:
         self._log("Restoring files after update failure")
