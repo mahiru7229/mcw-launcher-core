@@ -1,6 +1,6 @@
 # MCW Core Library
 
-Current distribution: **mcw-core 1.3.2**. This release adds Windows-safe atomic state publishing, update-integrity hardening, short-workspace cleanup guards, and rollback-safe package/theme operations without adding a GUI dependency.
+Stable runtime for MCW Launcher v1.4: **1.4.0**. The stable release publishes standalone MCW Core source and wheel artifacts in addition to the Core bundled with the launcher.
 
 MCW Core is the GUI-independent runtime used by MCW Launcher. It can be imported from a Python program without installing PySide6.
 

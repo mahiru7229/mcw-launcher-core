@@ -5,7 +5,7 @@ from pathlib import Path
 
 from src.config import VERSION_TAG
 import tools.release_preflight as release_preflight
-from tools.release_preflight import audit_language_packs, audit_private_gateway_bundling, audit_theme_contract, find_merge_markers
+from tools.release_preflight import audit_gui_core_boundary, audit_language_packs, audit_launcher_icon, audit_private_gateway_bundling, audit_release_evidence, audit_theme_contract, find_merge_markers
 
 
 def write_pack(path: Path, locale: str, translations: dict[str, str]) -> None:
@@ -103,3 +103,40 @@ def test_private_gateway_audit_accepts_no_bundled_default(tmp_path: Path, monkey
 def test_current_theme_contract_audit_passes() -> None:
     project_root = Path(__file__).resolve().parents[2]
     assert audit_theme_contract(project_root) == []
+
+
+def test_current_launcher_icon_audit_passes() -> None:
+    project_root = Path(__file__).resolve().parents[2]
+    assert audit_launcher_icon(project_root) == []
+
+
+def test_launcher_icon_audit_reports_missing_assets(tmp_path: Path) -> None:
+    (tmp_path / "mcw_launcher.spec").write_text("# missing icon config\n", encoding="utf-8")
+    (tmp_path / "src" / "gui").mkdir(parents=True)
+    (tmp_path / "src" / "gui" / "application.py").write_text("# missing window icon\n", encoding="utf-8")
+    errors = audit_launcher_icon(tmp_path)
+    normalized_errors = [error.replace("\\", "/") for error in errors]
+    assert "Missing launcher icon asset: assets/icons/mcw_launcher.ico" in normalized_errors
+    assert "Missing launcher icon asset: assets/icons/mcw_launcher.png" in normalized_errors
+    assert "mcw_launcher.spec does not configure the Windows executable icon" in errors
+    assert "QApplication does not configure the launcher window icon" in errors
+
+
+def test_release_evidence_rejects_stale_version(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(release_preflight, "VERSION_ID", "1.3.2")
+    (tmp_path / "TEST-RESULTS.txt").write_text("mcw-core 1.3.1\n", encoding="utf-8")
+    (tmp_path / "CHANGES.diff").write_text("diff for 1.3.1\n", encoding="utf-8")
+
+    errors = audit_release_evidence(tmp_path)
+
+    assert "TEST-RESULTS.txt does not reference current version 1.3.2" in errors
+    assert "CHANGES.diff does not reference current version 1.3.2" in errors
+
+
+def test_gui_core_boundary_rejects_direct_src_core_import(tmp_path: Path) -> None:
+    gui = tmp_path / "src" / "gui"
+    gui.mkdir(parents=True)
+    (gui / "bad.py").write_text("from src.core.foo import Bar\n", encoding="utf-8")
+
+    errors = [error.replace("\\", "/") for error in audit_gui_core_boundary(tmp_path)]
+    assert errors == ["src/gui/bad.py:1: GUI must not import src.core directly"]

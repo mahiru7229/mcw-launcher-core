@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from os import cpu_count
 from pathlib import Path
 import zipfile
 
@@ -12,6 +14,7 @@ from src.core.modrinth.modrinth_pack_installer import ModrinthPackInstaller
 from src.core.modrinth.modrinth_pack_registry import ModrinthPackRegistry
 from src.core.modrinth.modrinth_registry import ModrinthRegistry
 from src.core.network.artifact_download_service import ArtifactDownloadError, is_local_artifact_storage_error
+from src.core.network.download_manager import download_manager
 from src.core.network.download_pause import download_pause_controller, is_download_paused
 from src.core.progress.file_batch_progress import FileBatchProgress
 from src.core.progress.progress_reporter import ProgressReporter
@@ -201,10 +204,18 @@ class ModrinthContentManager:
     def _download_pack_round(missing: list[dict], reporter: ProgressReporter | None, round_number: int) -> dict[str, str]:
         total = len(missing)
         message = "Downloading modpack mods..."
-        batch_progress = FileBatchProgress(reporter=reporter, stage=ProgressStage.DOWNLOADING_MODS, message=message, total=total, min_emit_interval_seconds=ModrinthContentManager.PROGRESS_EMIT_INTERVAL_SECONDS)
+        batch_progress = FileBatchProgress(
+            reporter=reporter,
+            stage=ProgressStage.DOWNLOADING_MODS,
+            message=message,
+            total=total,
+            min_emit_interval_seconds=ModrinthContentManager.PROGRESS_EMIT_INTERVAL_SECONDS,
+        )
         batch_progress.start()
-        errors: dict[str, str] = {}
-        for item in missing:
+        if not missing:
+            return {}
+
+        def download_one(item: dict) -> tuple[str, str | None, object | None]:
             token = object()
             child_reporter = batch_progress.reporter_for(token)
             entry = item["entry"]
@@ -229,15 +240,44 @@ class ModrinthContentManager:
                     purpose="modpack-artifact",
                 )
                 entry.pop("downloadFailure", None)
+                return path, None, None
             except Exception as error:
                 if is_download_paused(error) or is_local_artifact_storage_error(error):
                     raise
-                errors[path] = str(error)
                 if isinstance(error, ArtifactDownloadError):
                     entry["downloadFailure"] = error.failure.to_dict()
+                return path, str(error), error
             finally:
                 batch_progress.complete(token)
+
+        errors: dict[str, str] = {}
+        workers = ModrinthContentManager._download_worker_count(total)
+        with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="mcw-modrinth-pack") as executor:
+            futures = [executor.submit(download_one, item) for item in missing]
+            try:
+                for future in as_completed(futures):
+                    path, message_text, _error = future.result()
+                    if message_text:
+                        errors[path] = message_text
+            except Exception:
+                for future in futures:
+                    future.cancel()
+                raise
         return errors
+
+    @staticmethod
+    def _download_worker_count(total: int) -> int:
+        count = max(0, int(total or 0))
+        if count <= 1:
+            return max(1, count)
+        cores = max(1, int(cpu_count() or 1))
+        if cores <= 4:
+            adaptive = 2
+        elif cores <= 8:
+            adaptive = 4
+        else:
+            adaptive = 6
+        return max(1, min(count, adaptive, ModrinthContentManager.MAX_DOWNLOAD_WORKERS, download_manager.max_concurrent_downloads))
 
     @staticmethod
     def _download_mod_round(instance: Instance, missing: list[dict], reporter: ProgressReporter | None, round_number: int, launch_lock_token: str | None = None) -> dict[str, str]:

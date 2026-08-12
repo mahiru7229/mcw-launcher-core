@@ -116,7 +116,16 @@ class ProcessSupervisor:
         if not session_id:
             return False
         try:
-            return cls.load(session_id).state is ProcessSessionState.STOPPING
+            return cls.load(session_id).state in {ProcessSessionState.STOPPING, ProcessSessionState.KILLING}
+        except (FileNotFoundError, RuntimeError):
+            return False
+
+    @classmethod
+    def kill_requested(cls, session_id: str | None) -> bool:
+        if not session_id:
+            return False
+        try:
+            return cls.load(session_id).state is ProcessSessionState.KILLING
         except (FileNotFoundError, RuntimeError):
             return False
 
@@ -198,6 +207,42 @@ class ProcessSupervisor:
         stopped = stopped and children_stopped
         if stopped and process is None:
             cls.abort(session.session_id, "stopped_by_launcher")
+        return stopped
+
+    @classmethod
+    def kill_instance(cls, instance: Instance, timeout: float = 1.5) -> bool:
+        """Force-kill the verified Minecraft process tree for one MCW launch session."""
+        session = cls.active_for(instance)
+        if session is None:
+            return False
+        with cls._lock:
+            process = cls._processes.get(session.session_id)
+        killing = cls._replace(
+            session,
+            state=ProcessSessionState.KILLING,
+            updated_at=cls._now(),
+            detail="killed_by_user",
+        )
+        cls._write_active(killing)
+
+        stopped = False
+        if process is not None:
+            process_pid = cls._read_pid(getattr(process, "pid", None))
+            if process_pid is not None and cls._pid_matches_instance(process_pid, session.instance_dir):
+                cls._terminate_pid_tree(process_pid, force=True)
+                cls._wait_for_exit(process_pid, timeout)
+                stopped = not cls._pid_alive(process_pid)
+            else:
+                stopped = cls._kill_process_object(process, timeout)
+        elif session.root_pid is not None and cls._pid_matches_instance(session.root_pid, session.instance_dir):
+            cls._terminate_pid_tree(session.root_pid, force=True)
+            cls._wait_for_exit(session.root_pid, timeout)
+            stopped = not cls._pid_alive(session.root_pid)
+
+        children_stopped = cls._kill_registered_children(session, timeout)
+        stopped = stopped and children_stopped
+        if stopped and process is None:
+            cls.abort(session.session_id, "killed_by_user")
         return stopped
 
     @classmethod
@@ -391,6 +436,25 @@ class ProcessSupervisor:
                 pass
         return cls._wait_process_object(process, 2.0)
 
+    @classmethod
+    def _kill_process_object(cls, process: object, timeout: float) -> bool:
+        poll = getattr(process, "poll", None)
+        if not callable(poll):
+            return False
+        try:
+            if poll() is not None:
+                return True
+        except Exception:
+            return False
+        kill = getattr(process, "kill", None)
+        if not callable(kill):
+            return False
+        try:
+            kill()
+        except Exception:
+            return False
+        return cls._wait_process_object(process, timeout)
+
     @staticmethod
     def _wait_process_object(process: object, timeout: float) -> bool:
         poll = getattr(process, "poll", None)
@@ -423,6 +487,20 @@ class ProcessSupervisor:
             if cls._pid_alive(pid):
                 cls._terminate_pid_tree(pid, force=True)
                 cls._wait_for_exit(pid, 2.0)
+            all_stopped = all_stopped and not cls._pid_alive(pid)
+        return all_stopped
+
+    @classmethod
+    def _kill_registered_children(cls, session: ProcessSession, timeout: float) -> bool:
+        all_stopped = True
+        for pid in reversed(session.child_pids):
+            if not cls._pid_alive(pid):
+                continue
+            if not cls._pid_matches_instance(pid, session.instance_dir):
+                all_stopped = False
+                continue
+            cls._terminate_pid_tree(pid, force=True)
+            cls._wait_for_exit(pid, timeout)
             all_stopped = all_stopped and not cls._pid_alive(pid)
         return all_stopped
 

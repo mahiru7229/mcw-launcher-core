@@ -15,38 +15,64 @@ from src.core.network.download_models import DownloadRequest, DownloadState
 class DownloadJournal:
     SCHEMA_VERSION = 1
     REPLACE_RETRY_DELAYS = (0.01, 0.03, 0.08, 0.16)
+    PROGRESS_FLUSH_INTERVAL_SECONDS = 0.75
 
     def __init__(self, path: Path | None = None) -> None:
         self.path = Path(path) if path is not None else Paths.download_journal_path()
         self._lock = RLock()
+        self._pending_progress: dict[str, dict] = {}
+        self._last_progress_flush_at = 0.0
 
     def start(self, request: DownloadRequest, downloaded_bytes: int = 0) -> None:
-        self.update(request, DownloadState.DOWNLOADING, downloaded_bytes=downloaded_bytes, error="")
+        self._update_entry(request, DownloadState.DOWNLOADING, downloaded_bytes=downloaded_bytes, error="", force=True)
 
     def update(self, request: DownloadRequest, state: DownloadState, downloaded_bytes: int = 0, error: str = "") -> None:
+        self._update_entry(
+            request,
+            state,
+            downloaded_bytes=downloaded_bytes,
+            error=error,
+            force=state is not DownloadState.DOWNLOADING,
+        )
+
+    def _update_entry(self, request: DownloadRequest, state: DownloadState, downloaded_bytes: int, error: str, force: bool) -> None:
+        first_url = request.urls[0] if request.urls else ""
+        parsed = urlsplit(first_url)
+        entry = {
+            "request_id": request.request_id,
+            "operation_id": request.operation_id,
+            "source": request.source,
+            "display_name": request.display_name,
+            "destination": str(request.destination),
+            "temporary_path": str(request.temporary_path),
+            "host": parsed.hostname or "",
+            "state": state.value,
+            "downloaded_bytes": max(0, int(downloaded_bytes or 0)),
+            "expected_size": request.expected_size,
+            "error": self._compact_error(error),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
         with self._lock:
-            payload = self._read()
-            entries = payload.setdefault("entries", {})
-            first_url = request.urls[0] if request.urls else ""
-            parsed = urlsplit(first_url)
-            entries[request.request_id] = {
-                "request_id": request.request_id,
-                "operation_id": request.operation_id,
-                "source": request.source,
-                "display_name": request.display_name,
-                "destination": str(request.destination),
-                "temporary_path": str(request.temporary_path),
-                "host": parsed.hostname or "",
-                "state": state.value,
-                "downloaded_bytes": max(0, int(downloaded_bytes or 0)),
-                "expected_size": request.expected_size,
-                "error": self._compact_error(error),
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }
-            self._write(payload)
+            self._pending_progress[request.request_id] = entry
+            now = time.monotonic()
+            if not force and now - self._last_progress_flush_at < self.PROGRESS_FLUSH_INTERVAL_SECONDS:
+                return
+            self._flush_pending_locked(now)
+
+    def _flush_pending_locked(self, now: float | None = None) -> bool:
+        if not self._pending_progress:
+            return True
+        payload = self._read()
+        payload.setdefault("entries", {}).update(self._pending_progress)
+        if not self._write(payload):
+            return False
+        self._pending_progress.clear()
+        self._last_progress_flush_at = time.monotonic() if now is None else now
+        return True
 
     def complete(self, request: DownloadRequest, size: int) -> None:
         with self._lock:
+            self._pending_progress.pop(request.request_id, None)
             payload = self._read()
             entries = payload.setdefault("entries", {})
             if entries.pop(request.request_id, None) is None:
@@ -55,9 +81,11 @@ class DownloadJournal:
 
     def remove(self, request_id: str) -> None:
         with self._lock:
+            normalized = str(request_id)
+            pending_removed = self._pending_progress.pop(normalized, None) is not None
             payload = self._read()
-            removed = payload.setdefault("entries", {}).pop(str(request_id), None)
-            if removed is not None:
+            removed = payload.setdefault("entries", {}).pop(normalized, None)
+            if removed is not None or pending_removed:
                 self._write(payload)
 
     def remove_many(self, request_ids: object) -> int:
@@ -67,14 +95,19 @@ class DownloadJournal:
         with self._lock:
             payload = self._read()
             entries = payload.setdefault("entries", {})
-            removed = sum(1 for request_id in normalized if entries.pop(request_id, None) is not None)
+            removed = 0
+            for request_id in normalized:
+                pending_removed = self._pending_progress.pop(request_id, None) is not None
+                disk_removed = entries.pop(request_id, None) is not None
+                removed += int(pending_removed or disk_removed)
             if removed:
                 self._write(payload)
             return removed
 
     def snapshot(self) -> tuple[dict, ...]:
         with self._lock:
-            entries = self._read().get("entries", {})
+            entries = dict(self._read().get("entries", {}))
+            entries.update(self._pending_progress)
             return tuple(dict(entry) for entry in entries.values())
 
     def recoverable_entries(self) -> list[dict]:

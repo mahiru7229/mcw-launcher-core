@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import shutil
 import sys
 from typing import Any
 import zipfile
@@ -14,14 +15,18 @@ from src.core.fs.paths import Paths
 from src.core.instance.instance_manager import InstanceManager
 from src.core.instance.instance_health_manager import InstanceHealthManager
 from src.core.instance.instance_run_lock import InstanceRunLock
+from src.core.hardware.gpu_preference_manager import GpuPreferenceManager
+from src.core.java.java_diagnostics_manager import JavaDiagnosticsManager
 from src.core.network.download_recovery import download_recovery_manager
+from src.core.runtime.game_runtime_manager import GameRuntimeManager
 from src.core.runtime.process_supervisor import ProcessSupervisor
+from src.core.system.memory import SystemMemory
 from src.core.security.sensitive_data_redactor import SensitiveDataRedactor
 
 
 class DiagnosticsManager:
-    REPORT_SCHEMA_VERSION = 1
-    BUNDLE_SCHEMA_VERSION = 1
+    REPORT_SCHEMA_VERSION = 2
+    BUNDLE_SCHEMA_VERSION = 2
     MAX_LOG_FILES = 8
     MAX_LOG_BYTES = 256 * 1024
     MAX_TOTAL_LOG_BYTES = 2 * 1024 * 1024
@@ -58,17 +63,17 @@ class DiagnosticsManager:
             f"python: {platform.python_version()}",
             f"platform: {platform.platform()}",
             f"architecture: {platform.machine() or 'unknown'}",
-            f"executable: {Path(sys.executable).resolve()}",
-            f"working_directory: {Path.cwd().resolve()}",
-            f"application_root: {Paths.root().resolve()}",
+            f"executable: {cls._safe_path(Path(sys.executable))}",
+            f"working_directory: {cls._safe_path(Path.cwd())}",
+            f"application_root: {cls._safe_path(Paths.root())}",
             "",
             "Data directories",
             "----------------",
-            f"config: {Paths.CONFIG_ROOT.resolve()}",
-            f"instances: {Paths.INSTANCES_ROOT.resolve()}",
-            f"cache: {Paths.CACHE_ROOT.resolve()}",
-            f"accounts: {Paths.ACCOUNTS_ROOT.resolve()}",
-            f"logs: {Paths.LOGS_ROOT.resolve()}",
+            f"config: {cls._safe_path(Paths.CONFIG_ROOT)}",
+            f"instances: {cls._safe_path(Paths.INSTANCES_ROOT)}",
+            f"cache: {cls._safe_path(Paths.CACHE_ROOT)}",
+            f"accounts: {cls._safe_path(Paths.ACCOUNTS_ROOT)}",
+            f"logs: {cls._safe_path(Paths.LOGS_ROOT)}",
             "",
             "Runtime state",
             "-------------",
@@ -117,7 +122,16 @@ class DiagnosticsManager:
         return destination
 
     @classmethod
-    def write_bundle(cls, path: Path, launcher_version: str, settings: dict[str, Any] | None = None, activity_log: str = "") -> Path:
+    def write_bundle(
+        cls,
+        path: Path,
+        launcher_version: str,
+        settings: dict[str, Any] | None = None,
+        activity_log: str = "",
+        *,
+        task_timeline: tuple[dict[str, object], ...] | list[dict[str, object]] = (),
+        issue_context: dict[str, Any] | None = None,
+    ) -> Path:
         destination = Path(path)
         if destination.suffix.lower() != ".zip":
             destination = destination.with_suffix(".zip")
@@ -134,8 +148,13 @@ class DiagnosticsManager:
             "instance-health.json": cls._instance_health_json(),
             "process-sessions.json": cls._process_sessions_json(),
             "operation-journals.json": cls._operation_journals_json(),
+            "system-info.json": cls._system_info_json(),
+            "java-runtimes.json": cls._java_runtimes_json(),
+            "task-timeline.json": cls._task_timeline_json(task_timeline),
+            "issue-context.json": cls._issue_context_json(issue_context or {}),
         }
         entries.update(cls._safe_log_entries())
+        entries.update(cls._safe_runtime_entries())
         manifest_entries = [
             {
                 "path": name,
@@ -174,6 +193,105 @@ class DiagnosticsManager:
         finally:
             temporary.unlink(missing_ok=True)
         return destination
+
+
+    @classmethod
+    def _system_info_json(cls) -> bytes:
+        try:
+            usage = shutil.disk_usage(Paths.root())
+            gpu = GpuPreferenceManager.detect()
+            payload: dict[str, Any] = {
+                "schema_version": 1,
+                "platform": platform.platform(),
+                "system": platform.system(),
+                "release": platform.release(),
+                "machine": platform.machine(),
+                "python": platform.python_version(),
+                "cpu": platform.processor() or "unknown",
+                "cpu_logical_count": os.cpu_count() or 0,
+                "memory_total_mb": SystemMemory.total_physical_memory_mb(),
+                "disk": {
+                    "total_bytes": int(usage.total),
+                    "free_bytes": int(usage.free),
+                },
+                "gpu": {
+                    "supported": gpu.supported,
+                    "error": SensitiveDataRedactor.redact_text(gpu.error),
+                    "adapters": [
+                        {
+                            "name": item.name,
+                            "vendor": item.vendor,
+                            "adapter_ram": item.adapter_ram,
+                            "dedicated": item.dedicated,
+                        }
+                        for item in gpu.adapters
+                    ],
+                },
+            }
+        except Exception as error:
+            payload = {"schema_version": 1, "error": SensitiveDataRedactor.redact_text(error)}
+        return (json.dumps(SensitiveDataRedactor.redact_value(payload), ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
+
+    @classmethod
+    def _java_runtimes_json(cls) -> bytes:
+        try:
+            rows = []
+            for item in JavaDiagnosticsManager.scan():
+                rows.append({
+                    "major_version": item.major_version,
+                    "version_string": item.version_string,
+                    "vendor": item.vendor,
+                    "architecture": item.architecture,
+                    "java_home": cls._safe_path(Path(item.java_home)) if item.java_home else "",
+                    "executable": cls._safe_path(Path(item.executable)),
+                    "source": str(getattr(item.source, "value", item.source)),
+                    "valid": item.valid,
+                })
+            payload: dict[str, Any] = {"schema_version": 1, "runtimes": rows}
+        except Exception as error:
+            payload = {"schema_version": 1, "error": SensitiveDataRedactor.redact_text(error), "runtimes": []}
+        return (json.dumps(SensitiveDataRedactor.redact_value(payload), ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
+
+    @classmethod
+    def _task_timeline_json(cls, timeline: object) -> bytes:
+        try:
+            rows = list(timeline) if isinstance(timeline, (list, tuple)) else []
+            payload: dict[str, Any] = {"schema_version": 1, "tasks": SensitiveDataRedactor.redact_value(rows[-100:])}
+        except Exception as error:
+            payload = {"schema_version": 1, "error": SensitiveDataRedactor.redact_text(error), "tasks": []}
+        return (json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
+
+    @classmethod
+    def _issue_context_json(cls, context: dict[str, Any]) -> bytes:
+        payload = {"schema_version": 1, "issue": SensitiveDataRedactor.redact_value(dict(context))}
+        return (json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
+
+    @classmethod
+    def _safe_runtime_entries(cls) -> dict[str, bytes]:
+        entries: dict[str, bytes] = {}
+        try:
+            instances = InstanceManager.list_instances()
+        except Exception:
+            return entries
+        candidates: list[tuple[float, str, Path]] = []
+        for instance in instances:
+            for kind, path in (("game", GameRuntimeManager.latest_game_log(instance)), ("crash", GameRuntimeManager.latest_crash_report(instance))):
+                if path is None or not path.is_file() or path.is_symlink():
+                    continue
+                try:
+                    modified = path.stat().st_mtime
+                except OSError:
+                    modified = 0.0
+                safe_instance = "".join(ch if ch.isalnum() or ch in {"-", "_"} else "_" for ch in instance.name)[:48] or "instance"
+                candidates.append((modified, f"runtime/{safe_instance}-{kind}-{path.name}", path))
+        for _modified, name, path in sorted(candidates, reverse=True)[:6]:
+            try:
+                raw = path.read_bytes()[-cls.MAX_LOG_BYTES:]
+            except OSError:
+                continue
+            text = raw.decode("utf-8", errors="replace")
+            entries[name] = cls._truncate_utf8(SensitiveDataRedactor.redact_text(text).encode("utf-8"), cls.MAX_LOG_BYTES)
+        return entries
 
     @classmethod
     def _download_recovery_json(cls) -> bytes:

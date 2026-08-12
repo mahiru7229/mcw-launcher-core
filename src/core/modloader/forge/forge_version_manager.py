@@ -89,10 +89,13 @@ class ForgeVersionManager:
                 normalized = ForgeVersionManager._normalize_libraries(profile, reporter)
                 merged = ForgeVersionManager._merge_profiles(base_version.raw_json, normalized, base_version.id, loader)
                 merged = ForgeVersionManager._normalize_libraries(merged, reporter)
-                ForgeVersionManager._write_json(cache_path, merged)
                 version = VersionManager._parse_version(merged, cache_path)
                 if version is None:
                     raise RuntimeError("The installed Forge profile could not be parsed.")
+                issues = ForgeVersionManager.validate_installation(version, base_version.id, loader, verify_files=False)
+                if issues:
+                    raise RuntimeError("Forge profile validation failed:\n" + "\n".join(f"- {issue}" for issue in issues))
+                ForgeVersionManager._write_json(cache_path, merged)
                 return version
             finally:
                 shutil.rmtree(staging, ignore_errors=True)
@@ -227,11 +230,50 @@ class ForgeVersionManager:
                 continue
             if isinstance(data, dict):
                 candidates.append((path, data))
-        preferred = next((item for item in candidates if forge_version in str(item[1].get("id") or item[0].parent.name)), None)
-        selected = preferred or (candidates[-1] if candidates else None)
-        if selected is None:
-            raise RuntimeError("Forge installer completed without creating a launch profile.")
-        return selected[1]
+
+        matching = [
+            item
+            for item in candidates
+            if ForgeVersionManager._profile_matches_forge(item[1], forge_version)
+        ]
+        if matching:
+            matching.sort(
+                key=lambda item: forge_version in str(item[1].get("id") or item[0].parent.name),
+                reverse=True,
+            )
+            return matching[0][1]
+
+        candidate_ids = ", ".join(
+            str(data.get("id") or path.parent.name)
+            for path, data in candidates
+        ) or "none"
+        raise RuntimeError(
+            "Forge installer completed without creating a valid Forge launch profile "
+            f"for {forge_version}. Profiles found: {candidate_ids}."
+        )
+
+    @staticmethod
+    def _profile_matches_forge(profile: dict, forge_version: str) -> bool:
+        libraries = profile.get("libraries") if isinstance(profile.get("libraries"), list) else []
+        if not ForgeVersionManager._has_forge_runtime(libraries, profile, forge_version):
+            return False
+
+        runtime_artifacts = {"forge", "minecraftforge", "fmlloader", "fmlcore", "javafmllanguage", "lowcodelanguage", "mclanguage"}
+        for item in libraries:
+            if not isinstance(item, dict):
+                continue
+            parts = str(item.get("name") or "").strip().split(":")
+            if len(parts) >= 3 and parts[0] == "net.minecraftforge" and parts[1] in runtime_artifacts and forge_version in parts[2]:
+                return True
+
+        arguments = profile.get("arguments") if isinstance(profile.get("arguments"), dict) else {}
+        game_arguments = arguments.get("game") if isinstance(arguments.get("game"), list) else []
+        for index, value in enumerate(game_arguments[:-1]):
+            if value == "--fml.forgeVersion" and str(game_arguments[index + 1]) == forge_version:
+                return True
+
+        legacy_arguments = str(profile.get("minecraftArguments") or "")
+        return "--fml.forgeVersion" in legacy_arguments and forge_version in legacy_arguments
 
     @staticmethod
     def _import_libraries(staging: Path, reporter: ProgressReporter | None) -> None:
@@ -487,6 +529,8 @@ class ForgeVersionManager:
         if forge.get("schemaVersion") != ForgeVersionManager.CACHE_SCHEMA_VERSION or forge.get("gameVersion") != game_version or forge.get("loaderVersion") != forge_version:
             return None
         if not data.get("mainClass") or not data.get("libraries"):
+            return None
+        if not ForgeVersionManager._profile_matches_forge(data, forge_version):
             return None
         return data
 

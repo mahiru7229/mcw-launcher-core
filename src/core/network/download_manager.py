@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
+from os import cpu_count
 from threading import BoundedSemaphore, RLock
 from time import monotonic
 from urllib.parse import urlsplit
@@ -36,12 +37,45 @@ class DownloadManager:
         self._per_host_limit = min(DEFAULT_PER_HOST_LIMIT, self._global_limit)
         self._global_semaphore = BoundedSemaphore(self._global_limit)
         self._host_semaphores: dict[str, BoundedSemaphore] = defaultdict(lambda: BoundedSemaphore(self._per_host_limit))
+        cores = max(1, int(cpu_count() or 1))
+        self._hash_limit = 1 if cores <= 4 else 2
+        self._hash_semaphore = BoundedSemaphore(self._hash_limit)
         self._path_locks: dict[Path, RLock] = {}
 
     @property
     def max_concurrent_downloads(self) -> int:
         with self._lock:
             return self._global_limit
+
+    @staticmethod
+    def recommended_concurrency(mode: object = "automatic", configured: object = 0, *, game_running: bool = False, cores: int | None = None) -> int:
+        try:
+            manual = int(configured or 0)
+        except (TypeError, ValueError):
+            manual = 0
+        if manual > 0:
+            return min(max(manual, 1), MAX_CONCURRENT_DOWNLOADS)
+
+        normalized = str(mode or "automatic").strip().lower()
+        if normalized not in {"automatic", "responsive", "balanced", "maximum"}:
+            normalized = "automatic"
+        detected_cores = max(1, int(cores or cpu_count() or 1))
+        if normalized == "responsive":
+            value = 2
+        elif normalized == "balanced":
+            value = 4
+        elif normalized == "maximum":
+            value = min(12, max(6, detected_cores))
+        elif detected_cores <= 4:
+            value = 2
+        elif detected_cores <= 8:
+            value = 4
+        else:
+            value = 6
+
+        if normalized == "automatic" and game_running:
+            value = min(value, 2)
+        return min(max(value, 1), MAX_CONCURRENT_DOWNLOADS)
 
     @property
     def per_host_limit(self) -> int:
@@ -292,24 +326,52 @@ class DownloadManager:
             if actual_hashes.get(algorithm) != expected.lower():
                 raise DownloadChecksumMismatchError(request.display_name, algorithm)
 
-    @staticmethod
-    def calculate_hash(path: Path, algorithm: str, allow_while_paused: bool = False) -> str:
+    def calculate_hash(self, path: Path, algorithm: str, allow_while_paused: bool = False) -> str:
         normalized = str(algorithm).strip().lower()
-        if normalized == "sha1":
-            digest = hashlib.sha1(usedforsecurity=False)
-        else:
-            digest = hashlib.new(normalized)
-        with open_file(path, "rb") as file:
-            while chunk := file.read(1024 * 1024):
+        return self.calculate_hashes(
+            path,
+            {normalized: ""},
+            allow_while_paused=allow_while_paused,
+        )[normalized]
+
+    def calculate_hashes(self, path: Path, expected: dict | object, allow_while_paused: bool = False) -> dict[str, str]:
+        algorithms = tuple(dict.fromkeys(str(name).strip().lower() for name in dict(expected or {}) if str(name).strip()))
+        if not algorithms:
+            return {}
+
+        digests: dict[str, object] = {}
+        for algorithm in algorithms:
+            if algorithm == "sha1":
+                digests[algorithm] = hashlib.sha1(usedforsecurity=False)
+            else:
+                digests[algorithm] = hashlib.new(algorithm)
+
+        with self._hash_slot(allow_while_paused=allow_while_paused):
+            with open_file(path, "rb") as file:
+                while chunk := file.read(CHUNK_SIZE):
+                    if allow_while_paused:
+                        download_pause_controller.raise_if_cancel_requested()
+                    else:
+                        download_pause_controller.raise_if_requested()
+                    for digest in digests.values():
+                        digest.update(chunk)
+
+        return {algorithm: digest.hexdigest().lower() for algorithm, digest in digests.items()}
+
+    @contextmanager
+    def _hash_slot(self, *, allow_while_paused: bool = False):
+        acquired = False
+        try:
+            while not acquired:
                 if allow_while_paused:
                     download_pause_controller.raise_if_cancel_requested()
                 else:
                     download_pause_controller.raise_if_requested()
-                digest.update(chunk)
-        return digest.hexdigest().lower()
-
-    def calculate_hashes(self, path: Path, expected: dict | object, allow_while_paused: bool = False) -> dict[str, str]:
-        return {algorithm: self.calculate_hash(path, algorithm, allow_while_paused=allow_while_paused) for algorithm in dict(expected or {})}
+                acquired = self._hash_semaphore.acquire(timeout=0.25)
+            yield
+        finally:
+            if acquired:
+                self._hash_semaphore.release()
 
     @contextmanager
     def _slot(self, host: str):

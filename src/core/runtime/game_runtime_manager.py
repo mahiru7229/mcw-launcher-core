@@ -52,6 +52,7 @@ class GameRuntimeManager:
             log_path = JavaRuntime.log_path(process) or cls.latest_game_log(instance)
             JavaRuntime.close_process_log(process)
             crash_report_path = cls.latest_crash_report(instance, since=started_at, previous=crash_report_snapshot)
+            killed_by_user = ProcessSupervisor.kill_requested(session_id)
             stopped_by_launcher = ProcessSupervisor.stop_requested(session_id)
             crashed = not stopped_by_launcher and (exit_code != 0 or crash_report_path is not None)
             duration_seconds = max(0, round((ended_at - started_at).total_seconds()))
@@ -67,6 +68,7 @@ class GameRuntimeManager:
                 crashed=crashed,
                 session_id=session_id,
                 stopped_by_launcher=stopped_by_launcher,
+                killed_by_user=killed_by_user,
                 log_path=log_path,
                 crash_report_path=crash_report_path,
             )
@@ -126,6 +128,35 @@ class GameRuntimeManager:
         if cls._wait_process(process, 2.0):
             cls._unregister_process(instance, process)
         return True
+
+    @classmethod
+    def kill(cls, instance: Instance, timeout: float = 1.5) -> bool:
+        supervised = ProcessSupervisor.active_for(instance)
+        if supervised is not None:
+            return ProcessSupervisor.kill_instance(instance, timeout=timeout)
+
+        process = cls._active_process(instance)
+        if process is None:
+            return False
+        poll = getattr(process, "poll", None)
+        if callable(poll):
+            try:
+                if poll() is not None:
+                    cls._unregister_process(instance, process)
+                    return False
+            except Exception:
+                pass
+        kill = getattr(process, "kill", None)
+        if not callable(kill):
+            return False
+        try:
+            kill()
+        except Exception:
+            return False
+        stopped = cls._wait_process(process, timeout)
+        if stopped:
+            cls._unregister_process(instance, process)
+        return stopped
 
     @classmethod
     def wait_for_exit_processing(cls, instance: Instance, timeout: float = 3.0) -> bool:

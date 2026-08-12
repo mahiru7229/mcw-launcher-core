@@ -16,6 +16,7 @@ class GameExitResult:
     crashed: bool
     session_id: str | None = None
     stopped_by_launcher: bool = False
+    killed_by_user: bool = False
     log_path: Path | None = None
     crash_report_path: Path | None = None
 

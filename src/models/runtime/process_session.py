@@ -9,6 +9,7 @@ class ProcessSessionState(StrEnum):
     PREPARING = "preparing"
     RUNNING = "running"
     STOPPING = "stopping"
+    KILLING = "killing"
     FINISHED = "finished"
     CRASHED = "crashed"
     INTERRUPTED = "interrupted"
@@ -36,6 +37,7 @@ class ProcessSession:
             ProcessSessionState.PREPARING,
             ProcessSessionState.RUNNING,
             ProcessSessionState.STOPPING,
+            ProcessSessionState.KILLING,
         }
 
     def to_dict(self) -> dict:

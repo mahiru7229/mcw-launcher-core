@@ -26,6 +26,7 @@ from src.core.package.portable_content_manager import PortableContentManager
 from src.core.optifine.optifine_manager import OptiFineManager
 from src.core.repair.repair_service import RepairService
 from src.core.runtime.instance_repair_manager import InstanceRepairManager
+from src.core.runtime.game_runtime_manager import GameRuntimeManager
 from src.models.instance.instance import Instance
 from src.models.instance.instance_state import InstanceStatus
 from src.models.instance.instance_health import InstanceHealthReport
@@ -81,6 +82,11 @@ class InstanceService:
     @staticmethod
     def is_running(instance: Instance) -> bool:
         return InstanceRunLock.is_active(instance)
+
+    @staticmethod
+    def kill(name: str) -> bool:
+        instance = InstanceManager.load(name)
+        return GameRuntimeManager.kill(instance)
 
     @staticmethod
     def status(instance: Instance | str) -> InstanceStatus:
