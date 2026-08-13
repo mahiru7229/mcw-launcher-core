@@ -16,6 +16,59 @@ class SystemMemory:
             return 0
         return max(1, total_bytes // cls.BYTES_PER_MB)
 
+
+    @classmethod
+    def available_physical_memory_mb(cls) -> int:
+        available_bytes = cls._available_physical_memory_bytes()
+        if available_bytes <= 0:
+            return 0
+        return max(0, available_bytes // cls.BYTES_PER_MB)
+
+    @classmethod
+    def _available_physical_memory_bytes(cls) -> int:
+        if sys.platform == "win32":
+            detected = cls._windows_available_physical_memory_bytes()
+            if detected >= 0:
+                return detected
+        try:
+            page_size = int(os.sysconf("SC_PAGE_SIZE"))
+            page_count = int(os.sysconf("SC_AVPHYS_PAGES"))
+        except (AttributeError, OSError, TypeError, ValueError):
+            page_size = 0
+            page_count = 0
+        if page_size > 0 and page_count >= 0:
+            return page_size * page_count
+        try:
+            for line in Path("/proc/meminfo").read_text(encoding="utf-8").splitlines():
+                if line.startswith("MemAvailable:"):
+                    return int(line.split()[1]) * 1024
+        except (FileNotFoundError, OSError, UnicodeError, ValueError, IndexError):
+            pass
+        return 0
+
+    @staticmethod
+    def _windows_available_physical_memory_bytes() -> int:
+        class MemoryStatusEx(ctypes.Structure):
+            _fields_ = [
+                ("dwLength", ctypes.c_ulong),
+                ("dwMemoryLoad", ctypes.c_ulong),
+                ("ullTotalPhys", ctypes.c_ulonglong),
+                ("ullAvailPhys", ctypes.c_ulonglong),
+                ("ullTotalPageFile", ctypes.c_ulonglong),
+                ("ullAvailPageFile", ctypes.c_ulonglong),
+                ("ullTotalVirtual", ctypes.c_ulonglong),
+                ("ullAvailVirtual", ctypes.c_ulonglong),
+                ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+            ]
+        try:
+            status = MemoryStatusEx()
+            status.dwLength = ctypes.sizeof(MemoryStatusEx)
+            if not ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+                return -1
+            return int(status.ullAvailPhys)
+        except (AttributeError, OSError, ValueError):
+            return -1
+
     @classmethod
     def _total_physical_memory_bytes(cls) -> int:
         if sys.platform == "win32":

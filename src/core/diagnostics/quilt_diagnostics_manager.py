@@ -10,12 +10,12 @@ from src.core.lan.lan_agent_manager import LanAgentManager
 from src.core.minecraft.version_manager import VersionManager
 from src.core.mod.mod_manager import ModManager
 from src.core.modloader.mod_loader_manager import ModLoaderManager
-from src.core.security.sensitive_data_redactor import SensitiveDataRedactor
+from src.core.diagnostics.diagnostics_sanitizer import DiagnosticsSanitizer
 from src.models.instance.instance import Instance
 
 
 class QuiltDiagnosticsManager:
-    SCHEMA_VERSION = 1
+    SCHEMA_VERSION = "2.1"
     MAX_TEXT_BYTES = 2 * 1024 * 1024
 
     @classmethod
@@ -39,7 +39,7 @@ class QuiltDiagnosticsManager:
                 raise RuntimeError("The cached Quilt launch profile could not be parsed.")
         except Exception as error:
             version = None
-            profile_error = SensitiveDataRedactor.redact_text(error)
+            profile_error = DiagnosticsSanitizer.sanitize_text(error, runtime_log=True)
         else:
             profile_error = ""
 
@@ -134,7 +134,7 @@ class QuiltDiagnosticsManager:
             data = json.loads(path.read_text(encoding="utf-8"))
         except (FileNotFoundError, OSError, UnicodeError, json.JSONDecodeError):
             return
-        safe = SensitiveDataRedactor.redact_value(data)
+        safe = DiagnosticsSanitizer.sanitize_value(data)
         cls._write_text(archive, archive_name, json.dumps(safe, ensure_ascii=False, indent=2) + "\n")
 
     @classmethod
@@ -148,5 +148,5 @@ class QuiltDiagnosticsManager:
 
     @staticmethod
     def _write_text(archive: zipfile.ZipFile, archive_name: str, content: str) -> None:
-        safe = SensitiveDataRedactor.redact_text(content)
+        safe = DiagnosticsSanitizer.sanitize_text(content, runtime_log=True)
         archive.writestr(archive_name, safe.encode("utf-8"))

@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 
 from src.core.java.java_resolver import JavaRecoveryError, JavaResolver
+from src.core.java.java_recovery_diagnostics import JavaRecoveryDiagnostics
 from src.core.java.java_runtime import JavaRuntime
 from src.core.progress.progress_reporter import ProgressReporter
 from src.models.progress.progress_stage import ProgressStage
@@ -50,11 +51,13 @@ class ModLoaderJavaRunner:
         selected = resolution.path
         attempts: list[tuple[Path, subprocess.CompletedProcess[str] | OSError | subprocess.TimeoutExpired]] = []
 
+        JavaRecoveryDiagnostics.record("modloader_installer_attempt", required_major=required_major, java_path=selected, attempt=1)
         current = ModLoaderJavaRunner._invoke(selected, arguments, cwd, timeout)
         attempts.append((selected, current))
         if ModLoaderJavaRunner._is_transient_network_failure(current):
             if reporter is not None:
                 reporter.status(ProgressStage.INSTALLING_MOD_LOADER, "java.mod_loader.retrying")
+            JavaRecoveryDiagnostics.record("modloader_installer_attempt", required_major=required_major, java_path=selected, attempt=len(attempts) + 1, reason="network_retry")
             current = ModLoaderJavaRunner._invoke(selected, arguments, cwd, timeout)
             attempts.append((selected, current))
 
@@ -71,6 +74,7 @@ class ModLoaderJavaRunner:
                 ) from error
             if reporter is not None:
                 reporter.status(ProgressStage.INSTALLING_MOD_LOADER, "java.mod_loader.retrying")
+            JavaRecoveryDiagnostics.record("modloader_installer_attempt", required_major=required_major, java_path=selected, attempt=len(attempts) + 1, reason="java_recovery")
             current = ModLoaderJavaRunner._invoke(selected, arguments, cwd, timeout)
             attempts.append((selected, current))
 
@@ -85,6 +89,13 @@ class ModLoaderJavaRunner:
             raise JavaRecoveryError(
                 f"The mod-loader installer exceeded its {timeout:g}-second timeout. Installer details: {output}"
             ) from final
+        JavaRecoveryDiagnostics.record(
+            "modloader_installer_completed",
+            required_major=required_major,
+            java_path=selected,
+            attempts=len(attempts),
+            returncode=int(final.returncode),
+        )
         return ModLoaderInstallerResult(
             returncode=int(final.returncode),
             output=output,

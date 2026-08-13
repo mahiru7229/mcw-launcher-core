@@ -1,4 +1,5 @@
 from pathlib import Path
+from urllib.parse import urlparse
 from threading import Lock
 from uuid import uuid4
 import json
@@ -11,6 +12,7 @@ from src.core.java.java_archive_downloader import JavaArchiveDownloader
 from src.core.java.java_archive_extractor import JavaArchiveExtractor
 from src.core.java.java_major_policy import JavaMajorPolicy
 from src.core.java.java_manager import JavaManager
+from src.core.java.java_recovery_diagnostics import JavaRecoveryDiagnostics
 from src.core.java.managed_java_repository import ManagedJavaRepository
 from src.core.progress.progress_reporter import ProgressReporter
 from src.models.java.java_release import JavaRelease
@@ -44,13 +46,37 @@ class JavaProvisioner:
         if reporter is not None:
             reporter.status(stage=ProgressStage.SELECTING_JAVA, message="java.install.preparing")
 
-        release = AdoptiumClient.get_latest_windows_x64_jdk(managed_major)
-        archive_path = ManagedJavaRepository.archive_path(managed_major)
+        JavaRecoveryDiagnostics.record("metadata_request", required_major=managed_major, provider="Adoptium")
         try:
-            JavaArchiveDownloader.download(release, archive_path, reporter)
+            release = AdoptiumClient.get_latest_windows_x64_jdk(managed_major)
+        except Exception as error:
+            JavaRecoveryDiagnostics.record("metadata_failed", required_major=managed_major, error=str(error))
+            raise RuntimeError(f"Could not resolve the managed Java {managed_major} download metadata: {error}") from error
+
+        archive_path = ManagedJavaRepository.archive_path(managed_major)
+        JavaRecoveryDiagnostics.record(
+            "download_started",
+            required_major=managed_major,
+            host=urlparse(release.url).hostname or "",
+            expected_size=int(release.size or 0),
+            release_name=release.release_name,
+        )
+        try:
+            try:
+                JavaArchiveDownloader.download(release, archive_path, reporter)
+            except Exception as error:
+                JavaRecoveryDiagnostics.record("download_failed", required_major=managed_major, error=str(error))
+                raise RuntimeError(f"Managed Java {managed_major} download or SHA-256 verification failed: {error}") from error
+            JavaRecoveryDiagnostics.record("download_verified", required_major=managed_major, expected_size=int(release.size or 0), checksum="sha256")
             if reporter is not None:
                 reporter.status(stage=ProgressStage.INSTALLING_JAVA, message="java.install.extracting")
-            return cls._install_release(release, archive_path)
+            try:
+                installed = cls._install_release(release, archive_path)
+            except Exception as error:
+                JavaRecoveryDiagnostics.record("extract_failed", required_major=managed_major, error=str(error))
+                raise RuntimeError(f"Managed Java {managed_major} archive extraction or installation failed: {error}") from error
+            JavaRecoveryDiagnostics.record("install_completed", required_major=managed_major, java_path=installed, release_name=release.release_name)
+            return installed
         finally:
             archive_path.unlink(missing_ok=True)
 
@@ -72,7 +98,8 @@ class JavaProvisioner:
 
         exact_matches = [java for java in JavaManager.find_installation() if java.version == major]
         if exact_matches:
-            return exact_matches[0].executable
+            from src.core.java.java_selector import JavaSelector
+            return JavaSelector._sort_candidates(exact_matches)[0].executable
         return None
 
     @staticmethod
@@ -85,7 +112,7 @@ class JavaProvisioner:
         new_runtime_installed = False
 
         try:
-            extracted_java_home = JavaArchiveExtractor.extract(archive_path, staging_dir)
+            extracted_java_home = JavaArchiveExtractor.extract(archive_path, staging_dir / "extract")
             if target_dir.exists():
                 target_dir.replace(backup_dir)
                 old_runtime_moved = True

@@ -17,16 +17,17 @@ from src.core.instance.instance_health_manager import InstanceHealthManager
 from src.core.instance.instance_run_lock import InstanceRunLock
 from src.core.hardware.gpu_preference_manager import GpuPreferenceManager
 from src.core.java.java_diagnostics_manager import JavaDiagnosticsManager
+from src.core.java.java_recovery_diagnostics import JavaRecoveryDiagnostics
 from src.core.network.download_recovery import download_recovery_manager
 from src.core.runtime.game_runtime_manager import GameRuntimeManager
 from src.core.runtime.process_supervisor import ProcessSupervisor
 from src.core.system.memory import SystemMemory
-from src.core.security.sensitive_data_redactor import SensitiveDataRedactor
+from src.core.diagnostics.diagnostics_sanitizer import DiagnosticsSanitizer
 
 
 class DiagnosticsManager:
-    REPORT_SCHEMA_VERSION = 2
-    BUNDLE_SCHEMA_VERSION = 2
+    REPORT_SCHEMA_VERSION = "2.1"
+    BUNDLE_SCHEMA_VERSION = "2.1"
     MAX_LOG_FILES = 8
     MAX_LOG_BYTES = 256 * 1024
     MAX_TOTAL_LOG_BYTES = 2 * 1024 * 1024
@@ -38,7 +39,7 @@ class DiagnosticsManager:
             instances = InstanceManager.list_instances()
         except Exception as error:
             instances = []
-            instance_error = SensitiveDataRedactor.redact_text(error)
+            instance_error = DiagnosticsSanitizer.sanitize_text(error)
         else:
             instance_error = ""
 
@@ -103,7 +104,7 @@ class DiagnosticsManager:
         ])
 
         if activity_log.strip():
-            safe_activity = SensitiveDataRedactor.redact_text(activity_log.strip())
+            safe_activity = DiagnosticsSanitizer.sanitize_text(activity_log.strip(), runtime_log=True)
             lines.extend(["", "Recent frontend activity", "------------------------", safe_activity])
 
         return "\n".join(lines).rstrip() + "\n"
@@ -138,23 +139,51 @@ class DiagnosticsManager:
         destination.parent.mkdir(parents=True, exist_ok=True)
         temporary = destination.with_suffix(destination.suffix + ".part")
 
-        entries: dict[str, bytes] = {
-            "report.txt": cls.build_report(
+        entries: dict[str, bytes] = {}
+        collector_errors: list[dict[str, str]] = []
+
+        def collect_bytes(name: str, producer) -> None:
+            try:
+                entries[name] = producer()
+            except Exception as error:
+                collector_errors.append({"collector": name, "error": DiagnosticsSanitizer.sanitize_text(error)})
+
+        def collect_mapping(name: str, producer) -> None:
+            try:
+                entries.update(producer())
+            except Exception as error:
+                collector_errors.append({"collector": name, "error": DiagnosticsSanitizer.sanitize_text(error)})
+
+        collect_bytes(
+            "report.txt",
+            lambda: cls.build_report(
                 launcher_version=launcher_version,
                 settings=settings,
                 activity_log=activity_log,
             ).encode("utf-8"),
-            "download-recovery.json": cls._download_recovery_json(),
-            "instance-health.json": cls._instance_health_json(),
-            "process-sessions.json": cls._process_sessions_json(),
-            "operation-journals.json": cls._operation_journals_json(),
-            "system-info.json": cls._system_info_json(),
-            "java-runtimes.json": cls._java_runtimes_json(),
-            "task-timeline.json": cls._task_timeline_json(task_timeline),
-            "issue-context.json": cls._issue_context_json(issue_context or {}),
-        }
-        entries.update(cls._safe_log_entries())
-        entries.update(cls._safe_runtime_entries())
+        )
+        collect_bytes("download-recovery.json", cls._download_recovery_json)
+        collect_bytes("instance-health.json", cls._instance_health_json)
+        collect_bytes("process-sessions.json", cls._process_sessions_json)
+        collect_bytes("operation-journals.json", cls._operation_journals_json)
+        collect_bytes("system-info.json", cls._system_info_json)
+        collect_bytes("java-runtimes.json", cls._java_runtimes_json)
+        collect_bytes("java-recovery.json", cls._java_recovery_json)
+        collect_bytes("task-timeline.json", lambda: cls._task_timeline_json(task_timeline))
+        collect_bytes("issue-context.json", lambda: cls._issue_context_json(issue_context or {}))
+        collect_bytes("diagnostic-summary.json", lambda: cls._diagnostic_summary_json(task_timeline))
+        collect_mapping("launcher-logs", cls._safe_log_entries)
+        collect_mapping("installer-logs", cls._safe_installer_entries)
+        collect_mapping("runtime-logs", cls._safe_runtime_entries)
+        entries["collector-errors.json"] = (
+            json.dumps(
+                {"schema_version": "2.1", "errors": collector_errors},
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n"
+        ).encode("utf-8")
         manifest_entries = [
             {
                 "path": name,
@@ -201,7 +230,7 @@ class DiagnosticsManager:
             usage = shutil.disk_usage(Paths.root())
             gpu = GpuPreferenceManager.detect()
             payload: dict[str, Any] = {
-                "schema_version": 1,
+                "schema_version": "2.1",
                 "platform": platform.platform(),
                 "system": platform.system(),
                 "release": platform.release(),
@@ -210,13 +239,15 @@ class DiagnosticsManager:
                 "cpu": platform.processor() or "unknown",
                 "cpu_logical_count": os.cpu_count() or 0,
                 "memory_total_mb": SystemMemory.total_physical_memory_mb(),
+                "memory_available_mb": SystemMemory.available_physical_memory_mb(),
                 "disk": {
                     "total_bytes": int(usage.total),
                     "free_bytes": int(usage.free),
+                    "free_percent": round((float(usage.free) / float(usage.total) * 100.0), 2) if usage.total else 0.0,
                 },
                 "gpu": {
                     "supported": gpu.supported,
-                    "error": SensitiveDataRedactor.redact_text(gpu.error),
+                    "error": DiagnosticsSanitizer.sanitize_text(gpu.error),
                     "adapters": [
                         {
                             "name": item.name,
@@ -229,8 +260,8 @@ class DiagnosticsManager:
                 },
             }
         except Exception as error:
-            payload = {"schema_version": 1, "error": SensitiveDataRedactor.redact_text(error)}
-        return (json.dumps(SensitiveDataRedactor.redact_value(payload), ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
+            payload = {"schema_version": "2.1", "error": DiagnosticsSanitizer.sanitize_text(error)}
+        return (json.dumps(DiagnosticsSanitizer.sanitize_value(payload), ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
     @classmethod
     def _java_runtimes_json(cls) -> bytes:
@@ -246,34 +277,48 @@ class DiagnosticsManager:
                     "executable": cls._safe_path(Path(item.executable)),
                     "source": str(getattr(item.source, "value", item.source)),
                     "valid": item.valid,
+                    "managed": str(getattr(item.source, "value", item.source)).casefold() == "minecraft_runtime",
+                    "legacy_java8": item.major_version == 8 and cls._java8_update(item.version_string) not in {None} and cls._java8_update(item.version_string) < 101,
                 })
-            payload: dict[str, Any] = {"schema_version": 1, "runtimes": rows}
+            payload: dict[str, Any] = {"schema_version": "2.1", "runtimes": rows}
         except Exception as error:
-            payload = {"schema_version": 1, "error": SensitiveDataRedactor.redact_text(error), "runtimes": []}
-        return (json.dumps(SensitiveDataRedactor.redact_value(payload), ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
+            payload = {"schema_version": "2.1", "error": DiagnosticsSanitizer.sanitize_text(error), "runtimes": []}
+        return (json.dumps(DiagnosticsSanitizer.sanitize_value(payload), ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
+
+    @staticmethod
+    def _java8_update(version_string: str) -> int | None:
+        import re
+        match = re.search(r"(?i)(?:1\.8\.0[_+]|8u)(\d+)", str(version_string or ""))
+        if match is None:
+            return None
+        try:
+            return int(match.group(1))
+        except ValueError:
+            return None
 
     @classmethod
     def _task_timeline_json(cls, timeline: object) -> bytes:
         try:
             rows = list(timeline) if isinstance(timeline, (list, tuple)) else []
-            payload: dict[str, Any] = {"schema_version": 1, "tasks": SensitiveDataRedactor.redact_value(rows[-100:])}
+            payload: dict[str, Any] = {"schema_version": "2.1", "tasks": DiagnosticsSanitizer.sanitize_value(rows[-100:])}
         except Exception as error:
-            payload = {"schema_version": 1, "error": SensitiveDataRedactor.redact_text(error), "tasks": []}
+            payload = {"schema_version": "2.1", "error": DiagnosticsSanitizer.sanitize_text(error), "tasks": []}
         return (json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
     @classmethod
     def _issue_context_json(cls, context: dict[str, Any]) -> bytes:
-        payload = {"schema_version": 1, "issue": SensitiveDataRedactor.redact_value(dict(context))}
+        payload = {"schema_version": "2.1", "issue": DiagnosticsSanitizer.sanitize_value(dict(context))}
         return (json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
     @classmethod
     def _safe_runtime_entries(cls) -> dict[str, bytes]:
         entries: dict[str, bytes] = {}
+        metadata: list[dict[str, Any]] = []
         try:
             instances = InstanceManager.list_instances()
         except Exception:
             return entries
-        candidates: list[tuple[float, str, Path]] = []
+        candidates: list[tuple[float, str, str, Path]] = []
         for instance in instances:
             for kind, path in (("game", GameRuntimeManager.latest_game_log(instance)), ("crash", GameRuntimeManager.latest_crash_report(instance))):
                 if path is None or not path.is_file() or path.is_symlink():
@@ -283,14 +328,88 @@ class DiagnosticsManager:
                 except OSError:
                     modified = 0.0
                 safe_instance = "".join(ch if ch.isalnum() or ch in {"-", "_"} else "_" for ch in instance.name)[:48] or "instance"
-                candidates.append((modified, f"runtime/{safe_instance}-{kind}-{path.name}", path))
-        for _modified, name, path in sorted(candidates, reverse=True)[:6]:
+                candidates.append((modified, safe_instance, kind, path))
+        for _modified, safe_instance, kind, path in sorted(candidates, reverse=True)[:6]:
+            try:
+                original_size = path.stat().st_size
+                raw = path.read_bytes()[-cls.MAX_LOG_BYTES:]
+            except OSError:
+                continue
+            name = f"runtime/{safe_instance}-{kind}-{path.name}"
+            text = raw.decode("utf-8", errors="replace")
+            sanitized = DiagnosticsSanitizer.sanitize_text(text, runtime_log=True)
+            payload = cls._truncate_utf8(sanitized.encode("utf-8"), cls.MAX_LOG_BYTES)
+            entries[name] = payload
+            metadata.append({
+                "path": name,
+                "source": cls._safe_path(path),
+                "original_size": int(original_size),
+                "included_size": len(payload),
+                "truncated": bool(original_size > len(raw) or len(sanitized.encode("utf-8")) > len(payload)),
+            })
+        if metadata:
+            entries["runtime/metadata.json"] = (json.dumps({"schema_version": "2.1", "entries": metadata}, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
+        return entries
+
+    @classmethod
+    def _java_recovery_json(cls) -> bytes:
+        try:
+            events = DiagnosticsSanitizer.sanitize_value(list(JavaRecoveryDiagnostics.snapshot()))
+            payload: dict[str, Any] = {"schema_version": "2.1", "events": events}
+        except Exception as error:
+            payload = {"schema_version": "2.1", "error": DiagnosticsSanitizer.sanitize_text(error), "events": []}
+        return (json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
+
+    @classmethod
+    def _diagnostic_summary_json(cls, timeline: object) -> bytes:
+        findings: list[str] = []
+        stage = "unknown"
+        try:
+            java_events = list(JavaRecoveryDiagnostics.snapshot())
+            if any(str(item.get("event")) == "managed_provision_failed" for item in java_events):
+                stage = "java_recovery"
+                findings.append("Managed Java provisioning failed during this launcher session.")
+            elif any(str(item.get("event")) == "managed_provisioned" for item in java_events):
+                stage = "java_recovery"
+                findings.append("MCW provisioned a managed Java runtime during this launcher session.")
+            rows = list(timeline) if isinstance(timeline, (list, tuple)) else []
+            failed = [item for item in rows if isinstance(item, dict) and str(item.get("state")) == "failed"]
+            if failed and stage == "unknown":
+                last_id = str(failed[-1].get("task_id") or "")
+                stage = "launch" if last_id.startswith("minecraft.launch") else "task"
+                findings.append(f"Recent failed task: {last_id or 'unknown'}.")
+            cancelled = [item for item in rows if isinstance(item, dict) and str(item.get("state")) == "cancelled"]
+            if cancelled:
+                findings.append(f"Cancelled tasks recorded: {len(cancelled)}.")
+            payload: dict[str, Any] = {
+                "schema_version": "2.1",
+                "suspected_stage": stage,
+                "important_findings": findings,
+            }
+        except Exception as error:
+            payload = {"schema_version": "2.1", "suspected_stage": "unknown", "important_findings": [], "error": DiagnosticsSanitizer.sanitize_text(error)}
+        return (json.dumps(DiagnosticsSanitizer.sanitize_value(payload), ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
+
+    @classmethod
+    def _safe_installer_entries(cls) -> dict[str, bytes]:
+        candidates: list[Path] = []
+        for root_getter in (Paths.forge_root, Paths.neoforge_root):
+            try:
+                log_root = root_getter() / "logs"
+                candidates.extend(path for path in log_root.glob("*.log") if path.is_file() and not path.is_symlink())
+            except OSError:
+                continue
+        candidates.sort(key=lambda path: path.stat().st_mtime if path.exists() else 0.0, reverse=True)
+        entries: dict[str, bytes] = {}
+        for index, path in enumerate(candidates[:4], start=1):
             try:
                 raw = path.read_bytes()[-cls.MAX_LOG_BYTES:]
             except OSError:
                 continue
             text = raw.decode("utf-8", errors="replace")
-            entries[name] = cls._truncate_utf8(SensitiveDataRedactor.redact_text(text).encode("utf-8"), cls.MAX_LOG_BYTES)
+            safe = cls._truncate_utf8(DiagnosticsSanitizer.sanitize_text(text, runtime_log=True).encode("utf-8"), cls.MAX_LOG_BYTES)
+            safe_name = "".join(ch if ch.isalnum() or ch in {"-", "_", "."} else "_" for ch in path.name)
+            entries[f"installers/{index:02d}-{safe_name or 'installer.log'}"] = safe
         return entries
 
     @classmethod
@@ -300,7 +419,7 @@ class DiagnosticsManager:
             items = [
                 {
                     "request_id": item.request_id,
-                    "display_name": SensitiveDataRedactor.redact_text(item.display_name),
+                    "display_name": DiagnosticsSanitizer.sanitize_text(item.display_name),
                     "destination": cls._safe_path(item.destination),
                     "state": item.state.value,
                     "downloaded_bytes": item.downloaded_bytes,
@@ -310,14 +429,14 @@ class DiagnosticsManager:
                 for item in report.items
             ]
             payload: dict[str, Any] = {
-                "schema_version": 1,
+                "schema_version": "2.1",
                 "resumable_count": report.resumable_count,
                 "items": items,
             }
         except Exception as error:
             payload = {
-                "schema_version": 1,
-                "error": SensitiveDataRedactor.redact_text(error),
+                "schema_version": "2.1",
+                "error": DiagnosticsSanitizer.sanitize_text(error),
                 "items": [],
             }
         return (json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
@@ -333,13 +452,13 @@ class DiagnosticsManager:
                     path = issue.get("path")
                     if path:
                         issue["path"] = cls._safe_path(Path(str(path)))
-                instances.append(SensitiveDataRedactor.redact_value(data))
+                instances.append(DiagnosticsSanitizer.sanitize_value(data))
             payload: dict[str, Any] = {
-                "schema_version": 1,
+                "schema_version": "2.1",
                 "instances": instances,
             }
         except Exception as error:
-            payload = {"schema_version": 1, "error": SensitiveDataRedactor.redact_text(error), "instances": []}
+            payload = {"schema_version": "2.1", "error": DiagnosticsSanitizer.sanitize_text(error), "instances": []}
         return (json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
     @classmethod
@@ -350,10 +469,10 @@ class DiagnosticsManager:
             for session in sessions:
                 data = session.to_dict()
                 data["instance_dir"] = cls._safe_path(session.instance_dir)
-                rows.append(SensitiveDataRedactor.redact_value(data))
-            payload: dict[str, Any] = {"schema_version": 1, "sessions": rows}
+                rows.append(DiagnosticsSanitizer.sanitize_value(data))
+            payload: dict[str, Any] = {"schema_version": "2.1", "sessions": rows}
         except Exception as error:
-            payload = {"schema_version": 1, "error": SensitiveDataRedactor.redact_text(error), "sessions": []}
+            payload = {"schema_version": "2.1", "error": DiagnosticsSanitizer.sanitize_text(error), "sessions": []}
         return (json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
     @classmethod
@@ -385,8 +504,8 @@ class DiagnosticsManager:
                 value = payload.get(key)
                 if value:
                     safe[key] = cls._safe_path(Path(str(value)))
-            rows.append(SensitiveDataRedactor.redact_value(safe))
-        payload = {"schema_version": 1, "journals": rows}
+            rows.append(DiagnosticsSanitizer.sanitize_value(safe))
+        payload = {"schema_version": "2.1", "journals": rows}
         return (json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
     @classmethod
@@ -428,7 +547,7 @@ class DiagnosticsManager:
             if size > len(raw):
                 text = "[log tail truncated]\n" + text
             safe = cls._truncate_utf8(
-                SensitiveDataRedactor.redact_text(text).encode("utf-8"),
+                DiagnosticsSanitizer.sanitize_text(text, runtime_log=True).encode("utf-8"),
                 limit,
             )
             name = cls._safe_log_name(len(entries) + 1, path.name)
@@ -459,14 +578,7 @@ class DiagnosticsManager:
 
     @staticmethod
     def _safe_path(path: Path) -> str:
-        candidate = Path(path)
-        try:
-            resolved = candidate.resolve(strict=False)
-            root = Paths.root().resolve(strict=False)
-            relative = resolved.relative_to(root)
-        except (OSError, ValueError):
-            return f"<external>/{candidate.name or 'download'}"
-        return relative.as_posix()
+        return DiagnosticsSanitizer.sanitize_path(Path(path))
 
     @staticmethod
     def _safe_settings(settings: dict[str, Any]) -> dict[str, Any]:
@@ -475,7 +587,7 @@ class DiagnosticsManager:
         for section, value in settings.items():
             if section not in allowed_sections or not isinstance(value, dict):
                 continue
-            safe[section] = SensitiveDataRedactor.redact_value(dict(value))
+            safe[section] = DiagnosticsSanitizer.sanitize_value(dict(value))
         geometry = safe.get("window", {}).get("geometry")
         if geometry:
             safe["window"]["geometry"] = "<saved>"

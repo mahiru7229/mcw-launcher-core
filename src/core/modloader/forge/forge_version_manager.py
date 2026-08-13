@@ -204,7 +204,17 @@ class ForgeVersionManager:
             preferred_java_path=preferred_java_path,
         )
         output = result.output
-        log_path.write_text(output, encoding="utf-8", errors="replace")
+        log_path.write_text(
+            f"MCW Forge installer diagnostics\n"
+            f"Minecraft: {base_version.id}\n"
+            f"Forge: {forge_version}\n"
+            f"Java: {result.java_path}\n"
+            f"Attempts: {result.attempts}\n"
+            f"Return code: {result.returncode}\n\n"
+            f"{output}",
+            encoding="utf-8",
+            errors="replace",
+        )
         if result.returncode != 0:
             if ForgeVersionManager._is_unsupported_install_client(output):
                 raise RuntimeError(

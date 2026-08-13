@@ -6,6 +6,7 @@ from pathlib import Path
 from src.core.java.java_major_policy import JavaMajorPolicy
 from src.core.java.java_manager import JavaManager
 from src.core.java.java_provisioner import JavaProvisioner
+from src.core.java.java_recovery_diagnostics import JavaRecoveryDiagnostics
 from src.core.java.java_selector import JavaSelector
 from src.core.java.managed_java_repository import ManagedJavaRepository
 from src.core.progress.progress_reporter import ProgressReporter
@@ -31,12 +32,46 @@ class JavaResolver:
         managed_major = JavaMajorPolicy.resolve(required_major)
         preferred = str(preferred_path or "").strip()
         if preferred:
-            return JavaResolver._validate_preferred(Path(preferred), required_major, managed_major)
+            selected = JavaResolver._validate_preferred(Path(preferred), required_major, managed_major)
+            JavaRecoveryDiagnostics.record("preferred_selected", required_major=managed_major, java_path=selected)
+            return selected
+
+        # Java 8 is the legacy runtime most likely to be supplied by a decade-old
+        # PATH/JAVA_HOME installation. Automatic MCW operations therefore use a
+        # managed Temurin 8 runtime. Explicit user-selected Java is still honored.
+        if managed_major == 8:
+            managed = ManagedJavaRepository.executable(managed_major)
+            if managed.is_file():
+                JavaRecoveryDiagnostics.record("managed_selected", required_major=managed_major, java_path=managed)
+                return managed
+            if reporter is not None:
+                reporter.status(ProgressStage.INSTALLING_JAVA, "java.recovery.installing_managed")
+            JavaRecoveryDiagnostics.record("managed_provision_requested", required_major=managed_major, reason="automatic_java8_policy")
+            try:
+                installed = JavaProvisioner.install_managed(managed_major, reporter)
+            except Exception as provision_error:
+                JavaRecoveryDiagnostics.record("managed_provision_failed", required_major=managed_major, error=str(provision_error))
+                try:
+                    fallback = JavaSelector.select_automatic_java(managed_major)
+                except Exception as fallback_error:
+                    raise JavaRecoveryError(
+                        f"MCW could not provision managed Java {managed_major}, and no suitable modern external Java {managed_major} runtime is available. "
+                        f"Managed installation error: {provision_error}. Fallback error: {fallback_error}"
+                    ) from provision_error
+                JavaRecoveryDiagnostics.record("automatic_external_fallback", required_major=managed_major, java_path=fallback, reason="managed_provision_failed")
+                return fallback
+            JavaRecoveryDiagnostics.record("managed_provisioned", required_major=managed_major, java_path=installed)
+            return installed
 
         try:
-            return JavaSelector.select_java(managed_major)
-        except RuntimeError:
-            return JavaProvisioner.ensure(managed_major, reporter)
+            selected = JavaSelector.select_java(managed_major)
+            JavaRecoveryDiagnostics.record("automatic_selected", required_major=managed_major, java_path=selected)
+            return selected
+        except RuntimeError as selection_error:
+            JavaRecoveryDiagnostics.record("automatic_selection_failed", required_major=managed_major, error=str(selection_error))
+            installed = JavaProvisioner.install_managed(managed_major, reporter)
+            JavaRecoveryDiagnostics.record("managed_provisioned", required_major=managed_major, java_path=installed)
+            return installed
 
     @staticmethod
     def resolve_with_recovery(required_major: int, reporter: ProgressReporter | None = None, preferred_path: str | Path | None = None) -> JavaResolution:
@@ -50,6 +85,12 @@ class JavaResolver:
         except RuntimeError as preferred_error:
             if reporter is not None:
                 reporter.status(ProgressStage.SELECTING_JAVA, "java.recovery.preferred_invalid")
+            JavaRecoveryDiagnostics.record(
+                "preferred_rejected",
+                required_major=JavaMajorPolicy.resolve(required_major),
+                java_path=rejected,
+                error=str(preferred_error),
+            )
             try:
                 fallback = JavaResolver.resolve_alternative(required_major, {rejected}, reporter)
             except Exception as recovery_error:
@@ -69,23 +110,42 @@ class JavaResolver:
     def resolve_alternative(required_major: int, excluded_paths: set[Path] | tuple[Path, ...] | list[Path], reporter: ProgressReporter | None = None) -> Path:
         managed_major = JavaMajorPolicy.resolve(required_major)
         excluded = {JavaManager.normalize_executable(Path(path)) for path in excluded_paths}
-        try:
-            candidate = JavaSelector.select_java_excluding(managed_major, excluded)
-            return JavaResolver._validate_preferred(candidate, required_major, managed_major)
-        except RuntimeError as selection_error:
-            if reporter is not None:
-                reporter.status(ProgressStage.INSTALLING_JAVA, "java.recovery.installing_managed")
+        excluded_keys = {JavaResolver._path_key(path) for path in excluded}
+        managed_path = ManagedJavaRepository.executable(managed_major)
+        provision_error: Exception | None = None
 
-            managed_path = ManagedJavaRepository.executable(managed_major)
-            force = JavaResolver._path_key(managed_path) in {JavaResolver._path_key(path) for path in excluded}
+        # Recovery prefers the launcher-owned runtime because its vendor/version and
+        # archive checksum are known. If the failed runtime was already the managed
+        # one, fall through to another external runtime instead of reinstall looping.
+        if JavaResolver._path_key(managed_path) not in excluded_keys:
             try:
-                candidate = JavaProvisioner.install_managed(managed_major, reporter, force=force)
-                return JavaResolver._validate_preferred(candidate, required_major, managed_major)
-            except Exception as provision_error:
-                raise JavaRecoveryError(
-                    f"No compatible alternative Java {managed_major} runtime could be selected or installed. "
-                    f"Selection error: {selection_error}. Installation error: {provision_error}"
-                ) from provision_error
+                if managed_path.is_file():
+                    candidate = JavaResolver._validate_preferred(managed_path, required_major, managed_major)
+                    JavaRecoveryDiagnostics.record("recovery_managed_selected", required_major=managed_major, java_path=candidate)
+                    return candidate
+                if reporter is not None:
+                    reporter.status(ProgressStage.INSTALLING_JAVA, "java.recovery.installing_managed")
+                JavaRecoveryDiagnostics.record("managed_provision_requested", required_major=managed_major, reason="automatic_recovery")
+                candidate = JavaProvisioner.install_managed(managed_major, reporter)
+                candidate = JavaResolver._validate_preferred(candidate, required_major, managed_major)
+                JavaRecoveryDiagnostics.record("managed_provisioned", required_major=managed_major, java_path=candidate)
+                return candidate
+            except Exception as error:
+                provision_error = error
+                JavaRecoveryDiagnostics.record("managed_provision_failed", required_major=managed_major, error=str(error))
+
+        try:
+            candidate = JavaSelector.select_automatic_java(managed_major, excluded)
+            candidate = JavaResolver._validate_preferred(candidate, required_major, managed_major)
+            JavaRecoveryDiagnostics.record("recovery_external_selected", required_major=managed_major, java_path=candidate)
+            return candidate
+        except RuntimeError as selection_error:
+            detail = f"Selection error: {selection_error}."
+            if provision_error is not None:
+                detail += f" Managed installation error: {provision_error}."
+            raise JavaRecoveryError(
+                f"No compatible alternative Java {managed_major} runtime could be selected or installed. {detail}"
+            ) from (provision_error or selection_error)
 
     @staticmethod
     def _validate_preferred(path: Path, required_major: int, managed_major: int) -> Path:

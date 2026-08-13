@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 from src.core.java.java_manager import JavaManager
 from src.models.java.java import JavaInstallation
@@ -21,14 +22,16 @@ class JavaSelector:
         if not javas:
             raise RuntimeError("No Java found.")
 
-        exact_matches = [java for java in javas if java.version == required_major]
+        exact_matches = JavaSelector._sort_candidates([java for java in javas if java.version == required_major])
         if exact_matches:
             return exact_matches[0].executable
 
         if allow_higher:
             higher_versions = [java for java in javas if java.version > required_major]
             if higher_versions:
-                return min(higher_versions, key=lambda java: java.version).executable
+                nearest = min(java.version for java in higher_versions)
+                matches = JavaSelector._sort_candidates([java for java in higher_versions if java.version == nearest])
+                return matches[0].executable
 
         raise RuntimeError(f"Java {required_major} was not found.")
 
@@ -51,6 +54,40 @@ class JavaSelector:
                 return matches[0].executable
 
         raise RuntimeError(f"No alternative Java {required_major} runtime was found.")
+
+
+    @staticmethod
+    def select_automatic_java(required_major: int, excluded_paths: set[Path] | tuple[Path, ...] | list[Path] = ()) -> Path:
+        """Select a safe automatic fallback without overriding explicit user choice."""
+        excluded = {JavaSelector._path_key(path) for path in excluded_paths}
+        candidates = [
+            java for java in JavaManager.find_installation_candidates()
+            if java.version == required_major and JavaSelector._path_key(java.executable) not in excluded
+        ]
+        for java in JavaSelector._sort_candidates(candidates):
+            if JavaSelector._automatic_candidate_is_suitable(java):
+                return java.executable
+        raise RuntimeError(f"No suitable automatic Java {required_major} runtime was found.")
+
+    @staticmethod
+    def _automatic_candidate_is_suitable(java: JavaInstallation) -> bool:
+        if java.source is JavaSource.MINECRAFT_RUNTIME or java.version != 8:
+            return True
+        # Java 8 builds before 8u101 predate certificate/runtime fixes needed by
+        # modern download and legacy Forge installer infrastructure. Keep them
+        # visible to users, but do not select them automatically.
+        from src.core.java.java_diagnostics_manager import JavaDiagnosticsManager
+
+        diagnostic = JavaDiagnosticsManager.inspect(java)
+        if not diagnostic.valid:
+            return False
+        match = re.search(r"(?i)(?:1\.8\.0[_+]|8u)(\d+)", diagnostic.version_string)
+        if match is None:
+            return False
+        try:
+            return int(match.group(1)) >= 101
+        except ValueError:
+            return False
 
     @staticmethod
     def select_latest_java() -> Path:

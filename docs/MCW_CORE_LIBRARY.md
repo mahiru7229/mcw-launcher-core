@@ -1,6 +1,6 @@
 # MCW Core Library
 
-Stable runtime for MCW Launcher v1.4: **1.4.0**. The stable release publishes standalone MCW Core source and wheel artifacts in addition to the Core bundled with the launcher.
+Stable runtime for MCW Launcher v1.4.1: **1.4.1**. The stable release publishes standalone MCW Core source and wheel artifacts in addition to the Core bundled with the launcher.
 
 MCW Core is the GUI-independent runtime used by MCW Launcher. It can be imported from a Python program without installing PySide6.
 

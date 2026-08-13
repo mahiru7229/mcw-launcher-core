@@ -45,9 +45,7 @@ class JavaDiagnosticsManager:
     @staticmethod
     def _read_properties(executable: Path) -> dict[str, str]:
         java_path = Path(executable)
-        console_path = java_path.with_name("java.exe") if java_path.name.casefold() == "javaw.exe" else java_path
-        if not console_path.exists():
-            console_path = java_path
+        console_path = JavaManager._version_probe_executable(java_path)
         try:
             result = subprocess.run([str(console_path), "-XshowSettings:properties", "-version"], capture_output=True, text=True, timeout=10, creationflags=JavaManager._creation_flags())
         except (subprocess.SubprocessError, FileNotFoundError, PermissionError, OSError):

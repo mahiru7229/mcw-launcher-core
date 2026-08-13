@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 
-from src.core.security.sensitive_data_redactor import SensitiveDataRedactor
+from src.core.diagnostics.diagnostics_sanitizer import DiagnosticsSanitizer
 
 
 class IssueReportBuilder:
@@ -14,7 +14,7 @@ class IssueReportBuilder:
     def normalize(details: dict[str, Any]) -> dict[str, str]:
         fields = ("title", "what_happened", "steps", "expected", "actual", "context")
         return {
-            field: SensitiveDataRedactor.redact_text(str(details.get(field) or "").strip())
+            field: DiagnosticsSanitizer.sanitize_text(str(details.get(field) or "").strip(), runtime_log=True)
             for field in fields
         }
 

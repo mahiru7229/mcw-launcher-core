@@ -275,9 +275,10 @@ class JavaManager:
     def _get_major_version(
         java_path: Path
     ) -> int | None:
+        probe_path = JavaManager._version_probe_executable(java_path)
         try:
             result = subprocess.run(
-                [str(java_path), "-version"],
+                [str(probe_path), "-version"],
                 capture_output=True,
                 text=True,
                 check=True,
@@ -313,6 +314,15 @@ class JavaManager:
             return int(match.group(1))
         except ValueError:
             return None
+
+    @staticmethod
+    def _version_probe_executable(java_path: Path) -> Path:
+        path = Path(java_path)
+        if path.name.casefold() == "javaw.exe":
+            console_path = path.with_name("java.exe")
+            if console_path.is_file():
+                return console_path
+        return path
 
 
     @staticmethod
