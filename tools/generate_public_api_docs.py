@@ -150,12 +150,15 @@ def class_lines(node: ast.ClassDef):
         for method, decorators in methods:
             tag = ""
             if "classmethod" in decorators:
-                tag = " *(classmethod)*"
+                tag = "*(classmethod)*"
             elif "staticmethod" in decorators:
-                tag = " *(staticmethod)*"
+                tag = "*(staticmethod)*"
             elif "property" in decorators:
-                tag = " *(property)*"
-            lines += [f"```python\n{signature(method, method=True)}\n```{tag}", ""]
+                tag = "*(property)*"
+                lines += ["```python", signature(method, method=True), "```"]
+                if tag:
+                    lines += [tag]
+                lines += [""]
     return lines
 
 
