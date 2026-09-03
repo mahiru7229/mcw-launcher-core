@@ -6,6 +6,7 @@ from src.core.fs.paths import Paths
 from src.core.minecraft.asset_index_manager import (
     AssetIndexManager,
 )
+from src.core.minecraft.metadata_validation import MinecraftMetadataValidation
 from src.core.network.httpx_downloader import HttpDownloader
 from src.core.progress.file_batch_progress import FileBatchProgress
 from src.core.progress.progress_reporter import ProgressReporter
@@ -160,7 +161,7 @@ class AssetManager:
             {},
         ).items():
             try:
-                asset_hash = obj["hash"]
+                asset_hash = MinecraftMetadataValidation.sha1(obj["hash"], "asset SHA-1")
 
                 assets.append(
                     DownloadAsset(

@@ -14,6 +14,7 @@ from src.core.config.launcher_settings_manager import LauncherSettingsManager
 from src.core.fs.paths import Paths
 from src.core.hardware.gpu_preference_manager import GpuPreferenceManager
 from src.core.java.java_command_compactor import JavaCommandCompactor
+from src.core.system.platform_info import PlatformInfo
 from src.models.instance.instance import Instance
 
 
@@ -33,7 +34,7 @@ class JavaRuntime:
 
     @classmethod
     def run(cls, java: Path, command: list[str], instance: Instance) -> subprocess.Popen:
-        creation_flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        creation_flags = subprocess.CREATE_NO_WINDOW if PlatformInfo.is_windows() else 0
         log_dir = Paths.instance_logs_dir(instance)
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         log_path = cls._unique_log_path(log_dir, timestamp)
@@ -94,18 +95,23 @@ class JavaRuntime:
 
     @staticmethod
     def _popen(java: Path, command: list[str], instance_dir: Path, log_file: TextIO, creation_flags: int) -> subprocess.Popen:
-        return subprocess.Popen(
-            [str(java), *command],
-            cwd=instance_dir,
-            stdin=subprocess.DEVNULL,
-            stdout=log_file,
-            stderr=subprocess.STDOUT,
-            creationflags=creation_flags,
-        )
+        options = {
+            "cwd": instance_dir,
+            "stdin": subprocess.DEVNULL,
+            "stdout": log_file,
+            "stderr": subprocess.STDOUT,
+            "creationflags": creation_flags,
+        }
+        if not PlatformInfo.is_windows():
+            # Give each Minecraft launch its own process group so the
+            # supervisor can stop loader/Java descendants without touching
+            # the launcher or unrelated Java processes.
+            options["start_new_session"] = True
+        return subprocess.Popen([str(java), *command], **options)
 
     @staticmethod
     def _is_windows_length_error(error: OSError) -> bool:
-        return os.name == "nt" and getattr(error, "winerror", None) == 206
+        return PlatformInfo.is_windows() and getattr(error, "winerror", None) == 206
 
     @staticmethod
     def _windows_length_error(instance_dir: Path) -> RuntimeError:

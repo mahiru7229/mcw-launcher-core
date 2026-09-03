@@ -36,6 +36,7 @@ class AccountSecurityManager:
             else:
                 protected_count += 1
 
+        backend_name, backend_secure = TokenCipher.protection_backend()
         return AccountSecurityReport(
             database_ok=database_ok,
             account_count=len(rows),
@@ -43,6 +44,8 @@ class AccountSecurityManager:
             protected_account_count=protected_count,
             legacy_account_count=legacy_count,
             invalid_account_count=invalid_count,
+            credential_backend=backend_name,
+            credential_backend_secure=backend_secure,
         )
 
     @classmethod
@@ -110,6 +113,8 @@ class AccountSecurityManager:
             legacy_account_count=report.legacy_account_count,
             invalid_account_count=report.invalid_account_count,
             migrated_account_count=migrated,
+            credential_backend=report.credential_backend,
+            credential_backend_secure=report.credential_backend_secure,
         )
 
     @staticmethod

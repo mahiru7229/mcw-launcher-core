@@ -251,3 +251,28 @@ def test_stale_session_cannot_overwrite_newer_runtime_result(instance) -> None:
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     assert metadata["last_session_id"] == "newer-session"
     assert "last_launch_state" not in metadata
+
+
+def test_kill_force_kills_unsupervised_process(instance) -> None:
+    process = StoppableProcess()
+    GameRuntimeManager._active_processes.clear()
+    GameRuntimeManager._register_process(instance, process)
+
+    assert GameRuntimeManager.kill(instance, timeout=0.1) is True
+    assert process.killed is True
+    assert process.terminated is False
+    assert GameRuntimeManager._active_process(instance) is None
+
+
+def test_user_killed_session_is_not_classified_as_crash(monkeypatch: pytest.MonkeyPatch, instance) -> None:
+    results = []
+    monkeypatch.setattr(JavaRuntime, "log_path", classmethod(lambda cls, process: None))
+    monkeypatch.setattr(JavaRuntime, "close_process_log", classmethod(lambda cls, process: None))
+    monkeypatch.setattr(ProcessSupervisor, "kill_requested", classmethod(lambda cls, session_id: True))
+    monkeypatch.setattr(ProcessSupervisor, "stop_requested", classmethod(lambda cls, session_id: True))
+
+    GameRuntimeManager._watch_process(FinishedProcess(-9), instance, "1.21.1", datetime.now(timezone.utc), results.append, "killed-session", {})
+
+    assert results[0].killed_by_user is True
+    assert results[0].stopped_by_launcher is True
+    assert results[0].crashed is False

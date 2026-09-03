@@ -38,7 +38,7 @@ from src.core.modrinth.modrinth_errors import ModrinthManagedFilesRequired
 from src.core.modrinth.modrinth_pack_registry import ModrinthPackRegistry
 from src.core.modrinth.modrinth_registry import ModrinthRegistry
 from src.core.minecraft.version_manifest_manager import VersionManifestManager
-from src.core.network.download_pause import download_pause_controller
+from src.core.network.download_pause import DownloadCancelledError, download_pause_controller
 from src.core.progress.progress_reporter import ProgressReporter
 from src.core.package.portable_content_manager import PortableContentManager
 from src.core.repair.verification_cache import VerificationCache
@@ -201,7 +201,7 @@ class MinecraftExecutor:
         return " | ".join(lines[-max(1, int(line_limit)):])
 
     @staticmethod
-    def run(instance: Instance, authentication: Authentication, account: Account, debug_mode: bool = False, on_progress: ProgressCallback | None = None, on_exit: Callable[[GameExitResult], None] | None = None, allow_compatibility_issues_once: bool = False, on_manual_content_required: Callable[[Exception], None] | None = None) -> dict:
+    def run(instance: Instance, authentication: Authentication, account: Account, debug_mode: bool = False, on_progress: ProgressCallback | None = None, on_exit: Callable[[GameExitResult], None] | None = None, allow_compatibility_issues_once: bool = False, on_manual_content_required: Callable[[Exception], None] | None = None, on_compatibility_confirmation: Callable[[CompatibilityConfirmationRequired], bool] | None = None) -> dict:
         run_lock = InstanceRunLock.acquire(instance)
         process_started = False
         process = None
@@ -291,7 +291,14 @@ class MinecraftExecutor:
                 if forge_preflight_policy == ManagedContentPolicy.BLOCK:
                     ForgePreflightManager.raise_for_errors(forge_preflight, True)
                 if forge_preflight_policy == ManagedContentPolicy.ASK and not allow_compatibility_issues_once:
-                    raise CompatibilityConfirmationRequired(instance.name, forge_preflight)
+                    confirmation = CompatibilityConfirmationRequired(instance.name, forge_preflight)
+                    if on_compatibility_confirmation is None:
+                        raise confirmation
+                    if not bool(on_compatibility_confirmation(confirmation)):
+                        raise DownloadCancelledError("Launch cancelled after the compatibility warning.")
+                    # Resume this exact launch attempt. The hydrated dependency
+                    # graph, loader profile and preflight report stay valid.
+                    allow_compatibility_issues_once = True
 
             reporter.status(stage=ProgressStage.DOWNLOADING_CLIENT, message="Checking Minecraft client...")
             MinecraftExecutor._load_client(version, reporter, verification_cache)
@@ -327,7 +334,10 @@ class MinecraftExecutor:
             download_pause_controller.raise_if_requested()
 
             reporter.status(stage=ProgressStage.SELECTING_JAVA, message="Selecting Java runtime...")
-            required_java_major = int(version.java_version.get("majorVersion") or 8)
+            required_java_major = JavaMajorPolicy.required_for_minecraft(
+                instance.version_id,
+                version.java_version.get("majorVersion"),
+            )
             java_major = JavaMajorPolicy.resolve(required_java_major)
             preferred_java = str(getattr(settings, "java_path", "") or "").strip()
             download_pause_controller.raise_if_requested()

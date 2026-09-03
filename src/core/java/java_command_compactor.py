@@ -6,6 +6,8 @@ import subprocess
 import zipfile
 from pathlib import Path
 
+from src.core.system.platform_info import PlatformInfo
+
 
 class JavaCommandCompactor:
     WINDOWS_COMMAND_LIMIT = 32_767
@@ -14,7 +16,7 @@ class JavaCommandCompactor:
 
     @classmethod
     def prepare(cls, java: Path, command: list[str], instance_dir: Path, force: bool = False) -> list[str]:
-        if not force and (os.name != "nt" or cls._command_length(java, command) < cls.SAFE_WINDOWS_COMMAND_LIMIT):
+        if not force and (not PlatformInfo.is_windows() or cls._command_length(java, command) < cls.SAFE_WINDOWS_COMMAND_LIMIT):
             return list(command)
 
         classpath_index = cls._classpath_index(command)
@@ -43,7 +45,7 @@ class JavaCommandCompactor:
 
     @classmethod
     def _write_classpath_jar(cls, classpath: str, instance_dir: Path) -> Path:
-        separator = ";" if os.name == "nt" else os.pathsep
+        separator = ";" if PlatformInfo.is_windows() else os.pathsep
         entries = [entry for entry in classpath.split(separator) if entry]
         if not entries:
             raise RuntimeError("Minecraft classpath is empty and cannot be compacted.")

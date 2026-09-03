@@ -69,3 +69,38 @@ def test_beta_channel_does_not_upgrade_to_alpha_release(tmp_path: Path) -> None:
 
     assert update is not None
     assert update.version == "0.5.0-beta.3"
+
+
+def test_select_asset_links_matching_sha256_sidecar(tmp_path: Path) -> None:
+    client = GitHubReleaseClient("example/repo", "1.3.1", "stable", tmp_path / "cache.json")
+    update = client._select_update([
+        release("v1.3.2", False, [
+            asset("MCW-Launcher-v1.3.2-windows-x64.zip"),
+            asset("MCW-Launcher-v1.3.2-windows-x64.zip.sha256"),
+        ]),
+    ])
+
+    assert update is not None
+    assert update.asset.sha256 is None
+    assert update.asset.sha256_url is not None
+    assert update.asset.sha256_url.endswith(".zip.sha256")
+
+
+def test_linux_client_selects_only_linux_x64_package(tmp_path: Path) -> None:
+    client = GitHubReleaseClient(
+        "example/repo",
+        "1.5.0-beta.1",
+        "beta",
+        tmp_path / "cache.json",
+        platform_id="linux-x64",
+    )
+    update = client._select_update([
+        release("v1.5.0-beta.2", True, [
+            asset("MCW-Launcher-v1.5.0-beta.2-source.zip"),
+            asset("MCW-Launcher-v1.5.0-beta.2-windows-x64.zip"),
+            asset("MCW-Launcher-v1.5.0-beta.2-linux-x64.zip"),
+        ]),
+    ])
+
+    assert update is not None
+    assert update.asset.name.endswith("-linux-x64.zip")

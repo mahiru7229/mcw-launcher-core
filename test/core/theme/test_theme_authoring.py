@@ -192,3 +192,28 @@ def test_import_rejects_checksum_theme_id_mismatch(tmp_path: Path) -> None:
         service.import_archive(archive)
 
     assert captured.value.code == "THEME_PACKAGE_ID_MISMATCH"
+
+
+def test_import_overwrite_restores_previous_theme_when_publish_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    source_root = tmp_path / "source-themes"
+    write_theme(source_root / "portable", "portable", "Replacement Theme")
+    archive = ThemeAuthoringService(ThemeManager(source_root)).export("portable", tmp_path / "portable.zip")
+
+    target_root = tmp_path / "target-themes"
+    existing_root = write_theme(target_root / "portable", "portable", "Original Theme")
+    original_manifest = (existing_root / "theme.json").read_text(encoding="utf-8")
+    service = ThemeAuthoringService(ThemeManager(target_root))
+    real_replace = Path.replace
+
+    def fail_staging_publish(self: Path, target: Path):
+        if self.name.startswith(".theme-import-") and Path(target).name == "portable":
+            raise OSError("simulated publish failure")
+        return real_replace(self, target)
+
+    monkeypatch.setattr(Path, "replace", fail_staging_publish)
+
+    with pytest.raises(ThemeAuthoringError, match="Unable to import theme archive"):
+        service.import_archive(archive, overwrite=True)
+
+    assert (target_root / "portable" / "theme.json").read_text(encoding="utf-8") == original_manifest
+    assert not list(target_root.glob(".theme-backup-*"))

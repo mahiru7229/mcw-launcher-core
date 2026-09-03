@@ -124,7 +124,10 @@ class InstanceService:
         version = VersionManager.load(instance.version_id)
         settings = SettingsManager.load(instance)
         loader_name, loader_version = ModLoaderManager.normalize(instance.mod_loader)
-        required_java_major = int((getattr(version, "java_version", None) or {}).get("majorVersion") or 8)
+        required_java_major = JavaMajorPolicy.required_for_minecraft(
+            instance.version_id,
+            (getattr(version, "java_version", None) or {}).get("majorVersion"),
+        )
         configured_java_path = str(getattr(settings, "java_path", "") or "").strip()
         return InstanceRuntimeProfile(
             instance_name=instance.name,

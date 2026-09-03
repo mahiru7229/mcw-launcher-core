@@ -1,7 +1,9 @@
 from urllib.parse import urlencode
 import httpx
+import shutil
 from src.models.auth.microsoft.microsoft_oauth_token import MicrosoftOAuthToken
 import secrets
+import subprocess
 import webbrowser
 from threading import Event
 from src.core.auth.microsoft.oauth_callback_server import OAuthCallbackServer
@@ -9,6 +11,7 @@ from src.core.auth.microsoft.microsoft_auth_config import MicrosoftAuthConfig
 from src.core.auth.microsoft.pkce import PKCE
 from src.models.auth.microsoft.oauth_session import OAuthSession
 from src.core.security.sensitive_data_redactor import SensitiveDataRedactor
+from src.core.system.platform_info import PlatformInfo
 
 
 class MicrosoftOAuth:
@@ -143,4 +146,23 @@ class MicrosoftOAuth:
 
     @staticmethod
     def open_browser(session: OAuthSession) -> bool:
-        return webbrowser.open(session.authorization_url)
+        if webbrowser.open(session.authorization_url):
+            return True
+
+        if PlatformInfo.current().os_name != "linux":
+            return False
+
+        opener = shutil.which("xdg-open")
+        if not opener:
+            return False
+        try:
+            subprocess.Popen(
+                [opener, session.authorization_url],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+        except OSError:
+            return False
+        return True

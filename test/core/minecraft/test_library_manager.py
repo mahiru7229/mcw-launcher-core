@@ -73,7 +73,7 @@ def make_library_metadata() -> dict:
                 "downloads": {
                     "artifact": {
                         "url": "https://example.com/normal.jar",
-                        "sha1": "normal-sha1",
+                        "sha1": "a" * 40,
                         "size": 100,
                         "path": "com/example/normal/1.0/normal-1.0.jar",
                     }
@@ -144,7 +144,7 @@ def test_load_download_object_parses_artifact(
     assert result == [
         DownloadLibrary(
             url="https://example.com/normal.jar",
-            sha1="normal-sha1",
+            sha1="a" * 40,
             size=100,
             path=Path(
                 "com/example/normal/1.0/normal-1.0.jar"
@@ -241,7 +241,7 @@ def test_load_download_object_parses_windows_native(
                     "classifiers": {
                         "natives-windows": {
                             "url": "https://example.com/native.jar",
-                            "sha1": "native-sha1",
+                            "sha1": "b" * 40,
                             "size": 300,
                             "path": "org/lwjgl/native.jar",
                         }
@@ -256,6 +256,7 @@ def test_load_download_object_parses_windows_native(
         "is_allowed",
         lambda library: True,
     )
+    monkeypatch.setattr(LibraryRuleManager, "_get_current_os", lambda: "windows")
 
     result = (
         DownloadLibraryManager._load_download_object(
@@ -266,7 +267,7 @@ def test_load_download_object_parses_windows_native(
     assert result == [
         DownloadLibrary(
             url="https://example.com/native.jar",
-            sha1="native-sha1",
+            sha1="b" * 40,
             size=300,
             path=Path("org/lwjgl/native.jar"),
             is_native=True,
@@ -287,7 +288,7 @@ def test_load_download_object_replaces_native_arch_placeholder(
                     "classifiers": {
                         "natives-windows-64": {
                             "url": "https://example.com/native64.jar",
-                            "sha1": "sha1",
+                            "sha1": "c" * 40,
                             "size": 64,
                             "path": "native64.jar",
                         }
@@ -302,6 +303,8 @@ def test_load_download_object_replaces_native_arch_placeholder(
         "is_allowed",
         lambda library: True,
     )
+    monkeypatch.setattr(LibraryRuleManager, "_get_current_os", lambda: "windows")
+    monkeypatch.setattr(LibraryRuleManager, "_get_current_arch", lambda: "x64")
 
     result = (
         DownloadLibraryManager._load_download_object(
@@ -326,14 +329,14 @@ def test_load_download_object_adds_artifact_before_native(
                 "downloads": {
                     "artifact": {
                         "url": "https://example.com/artifact.jar",
-                        "sha1": "artifact",
+                        "sha1": "d" * 40,
                         "size": 100,
                         "path": "artifact.jar",
                     },
                     "classifiers": {
                         "natives-windows": {
                             "url": "https://example.com/native.jar",
-                            "sha1": "native",
+                            "sha1": "e" * 40,
                             "size": 200,
                             "path": "native.jar",
                         }
@@ -348,20 +351,41 @@ def test_load_download_object_adds_artifact_before_native(
         "is_allowed",
         lambda library: True,
     )
+    monkeypatch.setattr(LibraryRuleManager, "_get_current_os", lambda: "windows")
 
-    result = (
-        DownloadLibraryManager._load_download_object(
-            data
-        )
-    )
+    result = DownloadLibraryManager._load_download_object(data)
 
-    assert [
-        library.is_native
-        for library in result
-    ] == [
-        False,
-        True,
-    ]
+    assert [library.is_native for library in result] == [False, True]
+
+
+def test_load_download_object_selects_linux_native(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    data = {
+        "libraries": [
+            {
+                "natives": {"windows": "native-win", "linux": "native-linux"},
+                "downloads": {
+                    "classifiers": {
+                        "native-linux": {
+                            "url": "https://example.com/native-linux.jar",
+                            "sha1": "f" * 40,
+                            "size": 300,
+                            "path": "org/lwjgl/native-linux.jar",
+                        }
+                    }
+                },
+            }
+        ]
+    }
+    monkeypatch.setattr(LibraryRuleManager, "is_allowed", lambda _library: True)
+    monkeypatch.setattr(LibraryRuleManager, "_get_current_os", lambda: "linux")
+
+    result = DownloadLibraryManager._load_download_object(data)
+
+    assert len(result) == 1
+    assert result[0].path == Path("org/lwjgl/native-linux.jar")
+    assert result[0].is_native is True
 
 
 def test_load_download_object_skips_missing_native_classifier(

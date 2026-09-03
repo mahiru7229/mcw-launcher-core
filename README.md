@@ -1,18 +1,36 @@
-# MCW Core Library
+# MCW Core 1.5.0
 
-Stable runtime for MCW Launcher v1.4.1: **1.4.1**. The stable release publishes standalone MCW Core source and wheel artifacts in addition to the Core bundled with the launcher.
+MCW Core is the headless runtime shipped with MCW Launcher `v1.5.0`. This source distribution contains the complete public API, implementation, data models, tests, documentation, examples, LAN Agent resource and the optional CurseForge gateway source package.
 
-MCW Core is the GUI-independent runtime used by MCW Launcher. It can be imported from a Python program without installing PySide6.
+PySide6 and the launcher GUI are intentionally not part of the Core distribution.
+
+## Install for development
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e '.[dev]'
+python -m pytest test -q
+```
+
+On Windows PowerShell, activate the environment with:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+## Minimal usage
 
 ```python
 from mcw_core import CorePaths, LaunchRequest, MCWCore
 
-core = MCWCore(CorePaths.from_root(r"D:\\Games\\MCW"))
+core = MCWCore(CorePaths.from_root("./mcw-data"))
 core.operations.begin()
 try:
     result = core.launch(
         LaunchRequest(
-            instance="My Quilt Instance",
+            instance="My Instance",
             offline_username="Player",
             on_progress=print,
         )
@@ -23,38 +41,32 @@ finally:
 print(result.minecraft_version, result.java_path)
 ```
 
-The same operation can be run without the GUI:
+The CLI can list or launch instances without the launcher GUI:
 
-```powershell
-python tools\core_smoke_launch.py --root D:\Games\MCW --instance "My Quilt Instance" --username Player
+```bash
+mcw-core-launch --root ./mcw-data --list
+mcw-core-launch --root ./mcw-data --instance "My Instance" --username Player
 ```
 
-## Public API
+## Public boundary
 
-The supported import surface is exposed from `mcw_core`:
+Supported consumers import from `mcw_core` or `mcw_core.api.*`. Modules under `src.core` and `src.models` are implementation details and may change outside the public compatibility contract.
 
-- `MCWCore` and `CorePaths`
-- `LaunchRequest` and `LaunchResult`
-- `InstanceCreateRequest`
-- `InstanceState`, `InstanceStatus`, and instance health reports
-- `ProcessSession` and `ProcessSessionState`
-- `OperationHandle`
-- progress event models
+## Included CurseForge gateway
 
-Consumers should not import implementation modules from `src.core`.
+`mcw-curseforge-gateway-main.zip` contains the optional Vercel gateway source used to keep a CurseForge API key outside desktop clients. The gateway is not enabled automatically and the Core bundles no gateway URL, client token or CurseForge API key.
 
-## Process-wide paths
+Extract the nested ZIP, follow its README, set `CURSEFORGE_API_KEY` in Vercel and configure the deployed HTTPS endpoint through `MCW_CURSEFORGE_GATEWAY_URL` or the Core configuration API.
 
-The current implementation keeps one active path configuration per Python process. Create one `MCWCore` for an application root, or explicitly call `configure_default_core()` before using the default facade.
+## Source layout
 
+- `mcw_core/`: stable public API and facade.
+- `src/core/`: Core implementation.
+- `src/models/`: domain models.
+- `test/`: headless Core regression suite.
+- `docs/`: API, architecture, package and theme contracts.
+- `examples/`: integration examples.
+- `runtime/` and `mcw_core/resources/`: MCW LAN Agent.
+- `mcw-curseforge-gateway-main.zip`: optional gateway source.
 
-## Instance health and process sessions
-
-Runtime state and instance health are intentionally separate. Runtime state describes whether Minecraft is preparing, running, finished, or crashed. Health reports describe persistent problems such as invalid metadata, an unfinished transaction, a missing Java path, or a missing custom icon.
-
-```python
-report = core.instances.health("My Instance")
-print(report.state, [issue.code for issue in report.issues])
-```
-
-Minecraft launches are supervised through persisted process-session records. Active records are reconciled during startup so a launcher interruption does not leave a permanent running badge or stale process metadata. Consumers can use the public `ProcessSession` and `ProcessSessionState` data models without importing implementation modules.
+See [RELEASE.md](RELEASE.md) and [docs/MCW_CORE_LIBRARY.md](docs/MCW_CORE_LIBRARY.md) for the release contract.

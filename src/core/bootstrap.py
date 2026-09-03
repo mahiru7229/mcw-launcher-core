@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+import os
 from typing import Any
 
 from src.core.account.database.account_database import AccountDatabase
@@ -12,6 +13,8 @@ from src.core.network.download_recovery import download_recovery_manager
 from src.core.network.network_session import DEFAULT_MAX_CONCURRENT_DOWNLOADS
 from src.core.security.account_security_manager import AccountSecurityManager
 from src.core.runtime.startup_recovery_manager import startup_recovery_manager
+from src.core.storage.platform_storage_migration import platform_storage_migration
+from src.core.system.platform_info import PlatformInfo
 
 BootstrapProgressCallback = Callable[[int, str], None]
 
@@ -23,6 +26,16 @@ def _report(callback: BootstrapProgressCallback | None, percent: int, message_ke
 
 def initialize_application(progress_callback: BootstrapProgressCallback | None = None) -> dict[str, Any]:
     """Prepare persistent application resources and report startup progress when requested."""
+    _report(progress_callback, 4, "startup.configuring_storage")
+    Paths.configure_application_defaults(platform_name=PlatformInfo.current().os_name)
+
+    _report(progress_callback, 6, "startup.migrating_storage")
+    legacy_root = str(os.environ.get("MCW_LEGACY_ROOT") or "").strip() or Paths.PROJECT_ROOT
+    migration = platform_storage_migration.migrate(legacy_root)
+    if migration.errors:
+        details = "; ".join(migration.errors[:3])
+        raise RuntimeError(f"Could not safely migrate launcher data into the platform storage layout: {details}")
+
     _report(progress_callback, 8, "startup.preparing_directories")
     Paths.initialize()
 

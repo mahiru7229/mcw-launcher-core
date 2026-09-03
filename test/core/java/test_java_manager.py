@@ -9,6 +9,12 @@ from src.models.java.java import JavaInstallation
 from src.models.java.java_source import JavaSource
 
 
+@pytest.fixture(autouse=True)
+def _emulate_windows_java_layout(monkeypatch: pytest.MonkeyPatch):
+    """Keep historical Windows discovery cases deterministic on Linux CI."""
+    monkeypatch.setattr(JavaManager, "_is_windows", lambda: True)
+
+
 def make_java(
     version: int,
     executable: str,
@@ -19,6 +25,33 @@ def make_java(
         executable=Path(executable),
         source=source,
     )
+
+
+def test_linux_path_discovery_uses_java_from_path(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    java = tmp_path / "bin" / "java"
+    java.parent.mkdir(parents=True)
+    java.write_bytes(b"java")
+    monkeypatch.setattr(JavaManager, "_is_windows", lambda: False)
+    monkeypatch.setattr("src.core.java.java_manager.shutil.which", lambda name: str(java) if name == "java" else None)
+
+    assert JavaManager._get_java_in_path() == [java]
+
+
+def test_linux_java_home_uses_bin_java(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    java_home = tmp_path / "jdk-21"
+    java = java_home / "bin" / "java"
+    java.parent.mkdir(parents=True)
+    java.write_bytes(b"java")
+    monkeypatch.setattr(JavaManager, "_is_windows", lambda: False)
+    monkeypatch.setenv("JAVA_HOME", str(java_home))
+
+    assert JavaManager._get_java_in_java_home() == [java]
 
 
 def test_find_installation_combines_all_sources(
@@ -616,6 +649,27 @@ def test_get_major_version_executes_requested_path(
         "timeout": 8,
         "creationflags": JavaManager._creation_flags(),
     }
+
+
+def test_get_major_version_prefers_console_java_to_avoid_javaw_dialogs(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    javaw_path = tmp_path / "broken-jre" / "bin" / "javaw.exe"
+    java_path = javaw_path.with_name("java.exe")
+    java_path.parent.mkdir(parents=True)
+    javaw_path.write_bytes(b"")
+    java_path.write_bytes(b"")
+    received = {}
+
+    def fake_run(command, **kwargs):
+        received["command"] = command
+        return SimpleNamespace(stderr='java version "1.8.0_502"\n')
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    assert JavaManager._get_major_version(javaw_path) == 8
+    assert received["command"] == [str(java_path), "-version"]
 
 
 @pytest.mark.parametrize(

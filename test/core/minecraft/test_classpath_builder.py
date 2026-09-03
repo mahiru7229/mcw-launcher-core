@@ -146,6 +146,22 @@ def test_build_preserves_library_order(
     ]
 
 
+@pytest.mark.parametrize("unsafe_path", ["../escape.jar", "/absolute.jar", "C:/escape.jar", "a//b.jar"])
+def test_build_rejects_unsafe_library_path(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    unsafe_path: str,
+):
+    monkeypatch.setattr(LibraryRuleManager, "is_allowed", lambda _library: True)
+
+    with pytest.raises(RuntimeError, match="Unsafe library classpath"):
+        ClasspathBuilder.build(
+            version=make_version([make_library(unsafe_path)]),
+            client_path=tmp_path / "client.jar",
+            libraries_dir=tmp_path / "libraries",
+        )
+
+
 def test_build_skips_library_rejected_by_rules(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -420,7 +436,7 @@ def test_build_accepts_windows_style_artifact_path(
     )
 
     assert result.split(os.pathsep)[0] == str(
-        libraries_dir / Path(artifact_path)
+        libraries_dir / Path("com/example/library.jar")
     )
 
 

@@ -15,6 +15,7 @@ from src.core.java.java_manager import JavaManager
 from src.core.java.java_recovery_diagnostics import JavaRecoveryDiagnostics
 from src.core.java.managed_java_repository import ManagedJavaRepository
 from src.core.progress.progress_reporter import ProgressReporter
+from src.core.system.platform_info import PlatformInfo
 from src.models.java.java_release import JavaRelease
 from src.models.progress.progress_stage import ProgressStage
 
@@ -43,17 +44,22 @@ class JavaProvisioner:
 
     @classmethod
     def _download_and_install(cls, managed_major: int, reporter: ProgressReporter | None) -> Path:
+        if not PlatformInfo.supports_managed_java():
+            profile = PlatformInfo.current()
+            raise RuntimeError(
+                f"Managed Java is not available for {profile.os_name} {profile.architecture}."
+            )
         if reporter is not None:
             reporter.status(stage=ProgressStage.SELECTING_JAVA, message="java.install.preparing")
 
         JavaRecoveryDiagnostics.record("metadata_request", required_major=managed_major, provider="Adoptium")
         try:
-            release = AdoptiumClient.get_latest_windows_x64_jdk(managed_major)
+            release = AdoptiumClient.get_latest_jdk(managed_major)
         except Exception as error:
             JavaRecoveryDiagnostics.record("metadata_failed", required_major=managed_major, error=str(error))
             raise RuntimeError(f"Could not resolve the managed Java {managed_major} download metadata: {error}") from error
 
-        archive_path = ManagedJavaRepository.archive_path(managed_major)
+        archive_path = ManagedJavaRepository.archive_path(managed_major, release.filename)
         JavaRecoveryDiagnostics.record(
             "download_started",
             required_major=managed_major,
@@ -120,9 +126,11 @@ class JavaProvisioner:
             move_path(extracted_java_home, target_dir)
             new_runtime_installed = True
             JavaProvisioner._write_marker(target_dir, release)
-            executable = target_dir / "bin" / "javaw.exe"
+            executable = target_dir / "bin" / PlatformInfo.current().java_executable
             if not executable.is_file():
-                raise RuntimeError(f"Java {release.major} installation finished without javaw.exe.")
+                raise RuntimeError(
+                    f"Java {release.major} installation finished without {executable.name}."
+                )
 
             if backup_dir.exists():
                 remove_tree(backup_dir, ignore_errors=True)

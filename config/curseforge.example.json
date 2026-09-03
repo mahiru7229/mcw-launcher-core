@@ -1,0 +1,7 @@
+{
+  "schema_version": 3,
+  "default_gateway_url": "",
+  "bundled_gateway_urls": [],
+  "gateway_urls": [],
+  "client_token": ""
+}

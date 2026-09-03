@@ -1,0 +1,77 @@
+{
+    "schema_version": 19,
+    "gui": {
+        "start_page": "instances",
+        "show_snapshots": false,
+        "remember_window_size": true,
+        "language": "en-US",
+        "show_content_descriptions": false
+    },
+    "launch": {
+        "debug_mode": false,
+        "prefer_dedicated_gpu": false
+    },
+    "onboarding": {
+        "completed": false,
+        "version": 1
+    },
+    "window": {
+        "geometry": null
+    },
+    "appearance": {
+        "theme": "mcw-default",
+        "show_static_text": false,
+        "motion_mode": "full",
+        "live_theme_reload": false,
+        "accent_mode": "theme",
+        "accent_color": "#8ed35b",
+        "text_color_mode": "theme",
+        "text_color": "#f4f4f4"
+    },
+    "modrinth": {
+        "include_beta": false,
+        "include_alpha": false
+    },
+    "managed_content": {
+        "modrinth_failure_policy": "block",
+        "curseforge_failure_policy": "block",
+        "forge_preflight_failure_policy": "ask"
+    },
+    "network": {
+        "download_limit_mbps": 0.0,
+        "download_concurrency": 0,
+        "download_performance_mode": "automatic"
+    },
+    "storage": {
+        "notify_legacy_cache_cleanup": true,
+        "unused_version_retention_days": 14
+    },
+    "instance_defaults": {
+        "java": {
+            "path": "",
+            "min_memory": 1024,
+            "max_memory": 2048,
+            "arguments": []
+        },
+        "window": {
+            "width": 1280,
+            "height": 720,
+            "fullscreen": false
+        },
+        "launch": {
+            "game_arguments": [],
+            "offline_multiplayer_enabled": false,
+            "lan_auth_mode": "microsoft_only",
+            "lan_connection_provider": "manual",
+            "modrinth_failure_policy": "inherit",
+            "curseforge_failure_policy": "inherit",
+            "forge_preflight_failure_policy": "inherit"
+        }
+    },
+    "updates": {
+        "auto_check": true,
+        "channel": "stable",
+        "channel_policy_version": 2,
+        "last_checked_at": null
+    }
+}

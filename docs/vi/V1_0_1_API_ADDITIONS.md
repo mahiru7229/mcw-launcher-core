@@ -24,24 +24,23 @@ for runtime in recommendation.java_installations:
 from mcw_core import CompatibilityConfirmationRequired, LaunchRequest, get_default_core
 
 core = get_default_core()
-try:
-    result = core.launch(LaunchRequest(instance="My Pack", offline_username="Player"))
-except CompatibilityConfirmationRequired as request:
+
+def confirm(request: CompatibilityConfirmationRequired) -> bool:
     print(request.instance_name)
     for issue in request.issues:
         print(issue.message)
+    return ask_user_for_explicit_consent(request)
 
-    # Chỉ retry sau khi giao diện đã nhận xác nhận rõ ràng từ người dùng.
-    result = core.launch(
-        LaunchRequest(
-            instance=request.instance_name,
-            offline_username="Player",
-            allow_compatibility_issues_once=True,
-        )
+result = core.launch(
+    LaunchRequest(
+        instance="My Pack",
+        offline_username="Player",
+        on_compatibility_confirmation=confirm,
     )
+)
 ```
 
-Lỗi loader/runtime hỏng, lỗi integrity, archive không an toàn và lỗi bảo mật không bao giờ trở thành lỗi có thể bỏ qua này.
+Callback chạy ngay trong launch attempt hiện tại nên khi đồng ý, core không resolving dependency hoặc checking file lại từ đầu. Nếu không truyền callback, luồng legacy với exception `CompatibilityConfirmationRequired` và retry bằng `allow_compatibility_issues_once=True` vẫn được giữ. Lỗi loader/runtime hỏng, lỗi integrity, archive không an toàn và lỗi bảo mật không bao giờ trở thành xác nhận có thể bỏ qua này.
 
 ## Chính sách managed content
 

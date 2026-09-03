@@ -1,0 +1,40 @@
+{
+  "schema_version": 6,
+  "id": "my-theme",
+  "name": "My Theme",
+  "author": "Theme author",
+  "stylesheet": "styles.qss",
+  "assets": {},
+  "animations": {},
+  "motion": {
+    "page": {
+      "type": "fade_slide",
+      "duration_ms": 170,
+      "easing": "out_cubic",
+      "distance_px": 18
+    },
+    "performance": {
+      "full_fps": 60,
+      "reduced_fps": 30,
+      "pause_when_hidden": true
+    }
+  },
+  "palette": {
+    "primary": "#63984a",
+    "primary_hover": "#7db45e",
+    "primary_pressed": "#4d7938",
+    "primary_text": "#ffffff",
+    "focus": "#8ed35b",
+    "selection": "#4f6d3c",
+    "selection_text": "#ffffff",
+    "link": "#8ed35b",
+    "success": "#8ed35b",
+    "warning": "#d6a93c",
+    "error": "#c47a7a",
+    "text_primary": "#f4f4f4",
+    "text_muted": "#b8b8b8",
+    "text_disabled": "#777777",
+    "text_inverse": "#111111"
+  },
+  "accent_assets": []
+}

@@ -353,6 +353,7 @@ def test_windows_native_cache_ignores_osx_only_nightly_library(monkeypatch, tmp_
     cache = tmp_path / "forge.json"
     cache.write_text(
         '{"id":"forge-1.6.4-9.11.1.1345","mainClass":"net.minecraft.launchwrapper.Launch","libraries":['
+        '{"name":"net.minecraftforge:minecraftforge:9.11.1.1345"},'
         '{"name":"net.minecraft:launchwrapper:1.8","downloads":{"artifact":{"path":"net/minecraft/launchwrapper/1.8/launchwrapper-1.8.jar","url":"https://libraries.minecraft.net/net/minecraft/launchwrapper/1.8/launchwrapper-1.8.jar","sha1":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","size":100}}},'
         '{"name":"org.lwjgl.lwjgl:lwjgl-platform:2.9.0","natives":{"windows":"natives-windows"},"downloads":{"classifiers":{"natives-windows":{"path":"org/lwjgl/lwjgl/lwjgl-platform/2.9.0/lwjgl-platform-2.9.0-natives-windows.jar","url":"https://libraries.minecraft.net/org/lwjgl/lwjgl/lwjgl-platform/2.9.0/lwjgl-platform-2.9.0-natives-windows.jar","sha1":"cccccccccccccccccccccccccccccccccccccccc","size":609967}}}},'
         '{"name":"org.lwjgl.lwjgl:lwjgl-platform:2.9.1-nightly-20130708-debug3","natives":{"linux":"natives-linux","osx":"natives-osx","windows":"natives-windows"},"rules":[{"action":"allow","os":{"name":"osx","version":"^10\\\\.5\\\\.\\\\d$"}}]}],"forge":{"schemaVersion":1,"gameVersion":"1.6.4","loaderVersion":"9.11.1.1345"}}',
@@ -416,7 +417,7 @@ def test_incomplete_windows_native_cache_is_invalidated(tmp_path: Path) -> None:
 def test_complete_windows_native_cache_is_reused(tmp_path: Path) -> None:
     cache = tmp_path / "forge.json"
     cache.write_text(
-        '{"id":"forge-1.6.4-9.11.1.1345","mainClass":"net.minecraft.launchwrapper.Launch","libraries":[{"name":"net.minecraft:launchwrapper:1.8","downloads":{"artifact":{"path":"net/minecraft/launchwrapper/1.8/launchwrapper-1.8.jar","url":"https://libraries.minecraft.net/net/minecraft/launchwrapper/1.8/launchwrapper-1.8.jar","sha1":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","size":100}}},{"name":"org.lwjgl.lwjgl:lwjgl-platform:2.9.0","natives":{"windows":"natives-windows"},"downloads":{"classifiers":{"natives-windows":{"path":"org/lwjgl/lwjgl/lwjgl-platform/2.9.0/lwjgl-platform-2.9.0-natives-windows.jar","url":"https://libraries.minecraft.net/org/lwjgl/lwjgl/lwjgl-platform/2.9.0/lwjgl-platform-2.9.0-natives-windows.jar","sha1":"cccccccccccccccccccccccccccccccccccccccc","size":609967}}}}],"forge":{"schemaVersion":1,"gameVersion":"1.6.4","loaderVersion":"9.11.1.1345"}}',
+        '{"id":"forge-1.6.4-9.11.1.1345","mainClass":"net.minecraft.launchwrapper.Launch","libraries":[{"name":"net.minecraftforge:minecraftforge:9.11.1.1345"},{"name":"net.minecraft:launchwrapper:1.8","downloads":{"artifact":{"path":"net/minecraft/launchwrapper/1.8/launchwrapper-1.8.jar","url":"https://libraries.minecraft.net/net/minecraft/launchwrapper/1.8/launchwrapper-1.8.jar","sha1":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","size":100}}},{"name":"org.lwjgl.lwjgl:lwjgl-platform:2.9.0","natives":{"windows":"natives-windows"},"downloads":{"classifiers":{"natives-windows":{"path":"org/lwjgl/lwjgl/lwjgl-platform/2.9.0/lwjgl-platform-2.9.0-natives-windows.jar","url":"https://libraries.minecraft.net/org/lwjgl/lwjgl/lwjgl-platform/2.9.0/lwjgl-platform-2.9.0-natives-windows.jar","sha1":"cccccccccccccccccccccccccccccccccccccccc","size":609967}}}}],"forge":{"schemaVersion":1,"gameVersion":"1.6.4","loaderVersion":"9.11.1.1345"}}',
         encoding="utf-8",
     )
 
@@ -729,6 +730,7 @@ def test_install_removes_staging_after_success(monkeypatch, tmp_path: Path) -> N
     monkeypatch.setattr(ForgeVersionManager, "_normalize_libraries", staticmethod(lambda profile, reporter=None: profile))
     monkeypatch.setattr(ForgeVersionManager, "_merge_profiles", staticmethod(lambda *args: base.raw_json))
     monkeypatch.setattr(ForgeVersionManager, "_write_json", staticmethod(lambda *args: None))
+    monkeypatch.setattr(ForgeVersionManager, "validate_installation", staticmethod(lambda *args, **kwargs: []))
     monkeypatch.setattr("src.core.modloader.forge.forge_version_manager.VersionManager._parse_version", staticmethod(lambda *args: base))
 
     result = ForgeVersionManager.install(base, "47.3.0")
@@ -758,3 +760,53 @@ def test_install_removes_staging_after_installer_failure(monkeypatch, tmp_path: 
         ForgeVersionManager.install(base, "47.3.0")
 
     assert not staging.exists()
+
+
+def test_find_profile_rejects_vanilla_fallback_for_issue_20(tmp_path: Path) -> None:
+    import json
+    import pytest
+
+    staging = tmp_path / "staging"
+    vanilla = staging / "versions" / "1.12.2" / "1.12.2.json"
+    vanilla.parent.mkdir(parents=True)
+    vanilla.write_text(json.dumps({"id": "1.12.2", "mainClass": "net.minecraft.client.main.Main", "libraries": [{"name": "com.example:base:1.0"}]}), encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="valid Forge launch profile"):
+        ForgeVersionManager._find_profile(staging, "14.23.5.2860")
+
+
+def test_find_profile_selects_forge_1_12_2_runtime_for_issue_20(tmp_path: Path) -> None:
+    import json
+
+    staging = tmp_path / "staging"
+    vanilla = staging / "versions" / "1.12.2" / "1.12.2.json"
+    vanilla.parent.mkdir(parents=True)
+    vanilla.write_text(json.dumps({"id": "1.12.2", "mainClass": "net.minecraft.client.main.Main", "libraries": [{"name": "com.example:base:1.0"}]}), encoding="utf-8")
+    forge = staging / "versions" / "1.12.2-forge-14.23.5.2860" / "1.12.2-forge-14.23.5.2860.json"
+    forge.parent.mkdir(parents=True)
+    expected = {
+        "id": "1.12.2-forge-14.23.5.2860",
+        "mainClass": "net.minecraft.launchwrapper.Launch",
+        "minecraftArguments": "--tweakClass net.minecraftforge.fml.common.launcher.FMLTweaker",
+        "libraries": [{"name": "net.minecraftforge:forge:1.12.2-14.23.5.2860"}],
+    }
+    forge.write_text(json.dumps(expected), encoding="utf-8")
+
+    assert ForgeVersionManager._find_profile(staging, "14.23.5.2860") == expected
+
+
+def test_poisoned_forge_cache_without_runtime_is_invalidated_for_issue_20(tmp_path: Path) -> None:
+    import json
+
+    cache = tmp_path / "forge.json"
+    cache.write_text(
+        json.dumps({
+            "id": "forge-1.12.2-14.23.5.2860",
+            "mainClass": "net.minecraft.client.main.Main",
+            "libraries": [{"name": "com.example:base:1.0"}],
+            "forge": {"schemaVersion": 1, "gameVersion": "1.12.2", "loaderVersion": "14.23.5.2860"},
+        }),
+        encoding="utf-8",
+    )
+
+    assert ForgeVersionManager._load_structurally_valid_cache(cache, "1.12.2", "14.23.5.2860") is None

@@ -11,11 +11,8 @@ import time
 import uuid
 
 from src.core.fs.paths import Paths
+from src.core.update.update_errors import AutomaticUpdateUnsupportedError
 from src.models.update.update_info import PreparedUpdate
-
-
-class AutomaticUpdateUnsupportedError(RuntimeError):
-    pass
 
 
 class WindowsUpdateInstaller:

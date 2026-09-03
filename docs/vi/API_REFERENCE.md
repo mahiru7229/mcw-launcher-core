@@ -1,4 +1,6 @@
-# Tham chiếu API MCW Core 1.0.1
+# Tham chiếu API MCW Core (snapshot legacy)
+
+> Snapshot từ thời 1.0.1 được giữ lại cho mục đích migration. Consumer v1.5.0 cần đối chiếu export trong source `mcw_core` và `mcw_core.api` hiện tại của gói này.
 
 Tài liệu này liệt kê public re-export modules và signature được đọc trực tiếp từ source/wheel. Kiểu trả về `Any` nghĩa là source không khai báo annotation rõ ràng.
 

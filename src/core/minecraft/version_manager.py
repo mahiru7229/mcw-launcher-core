@@ -1,75 +1,83 @@
-from src.models.minecraft.version import Version
-from src.core.minecraft.version_manifest_manager import VersionManifestManager
-from src.core.fs.paths import Paths
-from pathlib import Path
-import requests
+from __future__ import annotations
+
 import json
-#dict_keys(
-# ['arguments',
-#  'assetIndex',
-#  'assets',
-#  'complianceLevel',
-#  'downloads', 'id',
-#  'javaVersion',
-#  'libraries',
-#  'logging',
-#  'mainClass',
-#  'minimumLauncherVersion',
-#  'releaseTime',
-#  'time',
-#  'type'])
+from pathlib import Path
 
-
+from src.core.fs.paths import Paths
+from src.core.minecraft.version_manifest_manager import VersionManifestManager
+from src.core.network.httpx_downloader import HttpDownloader
+from src.models.minecraft.version import Version
+from src.models.minecraft.version_manifest import VersionManifest
 
 
 class VersionManager:
     @staticmethod
-    def load(id:str=VersionManifestManager.latest_version()) -> Version:
-        """
-        Default: Loading newest version of Minecraft
-        """
-        version_path = VersionManager._download_version(VersionManager._choosing_version(id))
+    def load(version_id: str | None = None) -> Version:
+        """Load a Minecraft version without performing I/O at import time."""
+        selected_id = str(version_id or "").strip()
+        if not selected_id:
+            selected_id = VersionManifestManager.latest_version()
+        if not selected_id:
+            raise RuntimeError("Minecraft did not report a latest release version.")
+
+        version_path = VersionManager._download_version(
+            VersionManager._choosing_version(selected_id)
+        )
 
         if version_path is None:
-            raise RuntimeError("Cannot download version metadata")
+            raise RuntimeError(f"Cannot load metadata for Minecraft {selected_id}.")
 
         version_data = VersionManager._load_version(version_path)
         version = VersionManager._parse_version(version_data, version_path)
         if version is None:
-            raise RuntimeError(f"Invalid metadata for Minecraft version '{id}'.")
+            raise RuntimeError(f"Invalid metadata for Minecraft version '{selected_id}'.")
         return version
-    
-
 
     @staticmethod
-    def _choosing_version(id:str) -> VersionManifestManager:
+    def _choosing_version(version_id: str) -> VersionManifest:
         versions = VersionManifestManager.get()
-        version = next((version for version in versions if version.id == id), None)
+        version = next((version for version in versions if version.id == version_id), None)
         if version is None:
-            raise RuntimeError(f"Minecraft version '{id}' was not found in the manifest.")
+            raise RuntimeError(f"Minecraft version '{version_id}' was not found in the manifest.")
         return version
 
     @staticmethod
-    def _download_version(version:VersionManifestManager) -> Path | None:
+    def _download_version(version: VersionManifest) -> Path | None:
         version_path = Paths.version_json(version)
-        version_path.parent.mkdir(parents=True,exist_ok=True)
-        try:
-            req = requests.get(version.url, timeout=10)
-            version_path.write_text(req.text, encoding="utf-8")
+        version_path.parent.mkdir(parents=True, exist_ok=True)
+        if VersionManager._cached_metadata_is_valid(version_path, version):
             return version_path
-        except requests.RequestException:
+        try:
+            return HttpDownloader.download(
+                download_info=version,
+                path=version_path,
+                max_retry=3,
+                timeout=20.0,
+            )
+        except Exception:
+            if VersionManager._cached_metadata_is_valid(version_path, version):
+                return version_path
             return None
-    
+
     @staticmethod
-    def _load_version(path:Path) -> dict:
+    def _cached_metadata_is_valid(path: Path, version: VersionManifest) -> bool:
+        if not path.is_file() or not version.sha1:
+            return False
+        if version.size > 0 and path.stat().st_size != version.size:
+            return False
+        return HttpDownloader.verify_sha1(path, version.sha1)
+
+    @staticmethod
+    def _load_version(path: Path) -> dict:
         try:
-            return json.loads(path.read_text())
-        except json.JSONDecodeError:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            return payload if isinstance(payload, dict) else {}
+        except (FileNotFoundError, OSError, UnicodeError, json.JSONDecodeError):
             return {}
+
     @staticmethod
-    def _parse_version(version_data:dict,version_path:str) -> Version | None:
+    def _parse_version(version_data: dict, version_path: Path) -> Version | None:
         try:
-            # print(version_data) -> for debugging
             return Version(
                 id=version_data["id"],
                 arguments=version_data.get("arguments"),
@@ -85,9 +93,6 @@ class VersionManager:
                 raw_json=version_data,
                 path=version_path,
                 type=version_data.get("type", "release"),
-                
-                
             )
         except (KeyError, TypeError, ValueError):
             return None
-

@@ -12,6 +12,7 @@ from src.core.fs.paths import Paths
 from src.core.minecraft.library_manager import DownloadLibraryManager
 from src.core.minecraft.library_rule_manager import LibraryRuleManager
 from src.core.minecraft.version_manager import VersionManager
+from src.core.java.java_major_policy import JavaMajorPolicy
 from src.core.modloader.forge.forge_metadata_client import ForgeMetadataClient
 from src.core.modloader.forge.legacy_forge_installer import LegacyForgeInstaller
 from src.core.modloader.java_installer_runner import ModLoaderJavaRunner
@@ -193,7 +194,10 @@ class ForgeVersionManager:
             )
             return
 
-        java_major = int((base_version.java_version or {}).get("majorVersion") or 8)
+        java_major = JavaMajorPolicy.required_for_minecraft(
+            base_version.id,
+            (base_version.java_version or {}).get("majorVersion"),
+        )
         if reporter is not None:
             reporter.status(stage=ProgressStage.INSTALLING_MOD_LOADER, message=f"Running Forge {forge_version} installer...")
         result = ModLoaderJavaRunner.run(

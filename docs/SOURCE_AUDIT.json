@@ -1,15 +1,27 @@
 {
-  "complete_launcher_runtime_version": "1.0.0",
-  "uploaded_wheel_runtime_version": "1.0.0-rc.1",
-  "wheel_distribution_version": "1.0.0",
+  "version": "1.5.0",
+  "distribution": "mcw-core",
   "public_import_boundary": [
     "mcw_core",
     "mcw_core.api.*"
   ],
-  "forbidden_consumer_imports": [
+  "implementation_packages": [
     "src.core.*",
-    "src.models.*",
-    "src.database.*",
-    "src.gui.*"
-  ]
+    "src.models.*"
+  ],
+  "excluded": [
+    "src.gui.*",
+    "PySide6",
+    "accounts",
+    "config/private",
+    "cache",
+    "instances",
+    "logs",
+    "runtimes"
+  ],
+  "bundled_resources": [
+    "mcw_core/resources/mcw-lan-agent.jar",
+    "mcw-curseforge-gateway-main.zip"
+  ],
+  "gateway_contains_secrets": false
 }

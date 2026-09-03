@@ -83,4 +83,10 @@ class LibraryRuleManager:
         if architecture in ("x86", "i386", "i686"):
             return "x86"
 
-        return "x64"
+        if architecture in ("amd64", "x86_64"):
+            return "x64"
+
+        if architecture in ("arm64", "aarch64"):
+            return "arm64"
+
+        return architecture

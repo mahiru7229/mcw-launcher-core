@@ -266,7 +266,7 @@ def test_pause_is_not_swallowed_as_a_modrinth_download_failure(tmp_path, monkeyp
         ModrinthContentManager.ensure(instance)
 
 
-def test_missing_pack_files_download_sequentially_for_strict_cancellation(tmp_path, monkeypatch):
+def test_missing_pack_files_download_with_adaptive_parallelism(tmp_path, monkeypatch):
     from threading import Lock
     import time
 
@@ -304,10 +304,18 @@ def test_missing_pack_files_download_sequentially_for_strict_cancellation(tmp_pa
                 active -= 1
 
     monkeypatch.setattr(ModrinthDownloader, "download_urls", fake_download_urls)
+    monkeypatch.setattr(ModrinthContentManager, "_download_worker_count", staticmethod(lambda _total: 3))
 
     assert ModrinthContentManager.ensure(instance) == ()
-    assert max_active == 1
+    assert max_active == 3
     assert max_active <= ModrinthContentManager.MAX_DOWNLOAD_WORKERS
+
+
+def test_download_worker_count_is_conservative_on_low_core_systems(monkeypatch):
+    monkeypatch.setattr("src.core.modrinth.modrinth_content_manager.cpu_count", lambda: 4)
+    monkeypatch.setattr("src.core.modrinth.modrinth_content_manager.download_manager._global_limit", 8)
+
+    assert ModrinthContentManager._download_worker_count(20) == 2
 
 
 def test_missing_pack_artifact_without_url_exposes_no_download_url_manual_fallback(tmp_path, monkeypatch):

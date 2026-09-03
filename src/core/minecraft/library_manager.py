@@ -8,6 +8,7 @@ import zipfile
 
 from src.core.fs.paths import Paths
 from src.core.minecraft.library_rule_manager import LibraryRuleManager
+from src.core.minecraft.metadata_validation import MinecraftMetadataValidation
 from src.core.network.httpx_downloader import HttpDownloader
 from src.core.progress.file_batch_progress import FileBatchProgress
 from src.core.progress.progress_reporter import ProgressReporter
@@ -236,28 +237,20 @@ class DownloadLibraryManager:
 
             artifact = downloads.get("artifact")
 
-            if artifact:
-                libraries.append(
-                    DownloadLibrary(
-                        url=artifact["url"],
-                        sha1=artifact["sha1"],
-                        size=int(artifact["size"]),
-                        path=Path(artifact["path"]),
-                        is_native=False,
-                    )
-                )
+            if isinstance(artifact, dict):
+                libraries.append(DownloadLibraryManager._parse_library(artifact, is_native=False))
 
             native_name = download.get(
                 "natives",
                 {},
-            ).get("windows")
+            ).get(LibraryRuleManager._get_current_os())
 
             if not native_name:
                 continue
 
             native_name = native_name.replace(
                 "${arch}",
-                "64",
+                "32" if LibraryRuleManager._get_current_arch() == "x86" else "64",
             )
 
             native_artifact = downloads.get(
@@ -268,15 +261,21 @@ class DownloadLibraryManager:
             if not native_artifact:
                 continue
 
-            libraries.append(
-                DownloadLibrary(
-                    url=native_artifact["url"],
-                    sha1=native_artifact["sha1"],
-                    size=int(native_artifact["size"]),
-                    path=Path(native_artifact["path"]),
-                    is_native=True,
-                )
-            )
+            if not isinstance(native_artifact, dict):
+                continue
+            libraries.append(DownloadLibraryManager._parse_library(native_artifact, is_native=True))
 
         return libraries
 
+    @staticmethod
+    def _parse_library(data: dict, *, is_native: bool) -> DownloadLibrary:
+        try:
+            url = str(data["url"]).strip()
+            sha1 = MinecraftMetadataValidation.sha1(data["sha1"], "library SHA-1")
+            size = int(data["size"])
+            path = MinecraftMetadataValidation.relative_path(data["path"], "library path")
+        except (KeyError, TypeError, ValueError) as error:
+            raise RuntimeError("Invalid Minecraft library metadata.") from error
+        if not url or size <= 0:
+            raise RuntimeError("Invalid Minecraft library metadata.")
+        return DownloadLibrary(url=url, sha1=sha1, size=size, path=path, is_native=is_native)

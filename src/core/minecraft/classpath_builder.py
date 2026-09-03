@@ -2,6 +2,7 @@ from pathlib import Path
 import os
 
 from src.core.minecraft.library_rule_manager import LibraryRuleManager
+from src.core.minecraft.metadata_validation import MinecraftMetadataValidation
 from src.models.minecraft.version import Version
 
 
@@ -26,7 +27,7 @@ class ClasspathBuilder:
         artifact = downloads.get("artifact") if isinstance(downloads.get("artifact"), dict) else {}
         configured = str(artifact.get("path") or "").strip()
         if configured:
-            return Path(configured)
+            return MinecraftMetadataValidation.relative_path(configured, "library classpath")
 
         legacy = ClasspathBuilder._legacy_maven_path(str(library.get("name") or ""))
         if legacy is None or not (libraries_dir / legacy).is_file():
@@ -49,4 +50,7 @@ class ClasspathBuilder:
         if not group or not artifact or not version or any("/" in value or "\\" in value for value in values):
             return None
         filename = f"{artifact}-{version}{'-' + classifier if classifier else ''}.{extension}"
-        return Path(*group.split("."), artifact, version, filename)
+        return MinecraftMetadataValidation.relative_path(
+            Path(*group.split("."), artifact, version, filename).as_posix(),
+            "legacy library classpath",
+        )

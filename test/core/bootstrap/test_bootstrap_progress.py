@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from src.core import bootstrap
 
 
@@ -17,6 +19,8 @@ def test_initialize_application_reports_ordered_progress_and_returns_settings(mo
             return settings
 
     monkeypatch.setattr(bootstrap.Paths, "initialize", lambda: calls.append("paths.initialize"))
+    monkeypatch.setattr(bootstrap.Paths, "configure_application_defaults", lambda **_kwargs: calls.append("paths.configure"))
+    monkeypatch.setattr(bootstrap.platform_storage_migration, "migrate", lambda _root: calls.append("storage.migrate") or SimpleNamespace(errors=()))
     monkeypatch.setattr(bootstrap, "LauncherSettingsManager", FakeSettingsManager)
     monkeypatch.setattr(bootstrap.startup_recovery_manager, "reconcile", lambda: calls.append("instances.recover"))
     monkeypatch.setattr(bootstrap.download_bandwidth_limiter, "configure_mbps", lambda value: calls.append(f"bandwidth:{value}"))
@@ -28,6 +32,8 @@ def test_initialize_application_reports_ordered_progress_and_returns_settings(mo
 
     assert result == settings
     assert calls == [
+        "paths.configure",
+        "storage.migrate",
         "paths.initialize",
         "instances.recover",
         "settings.initialize",
@@ -38,6 +44,8 @@ def test_initialize_application_reports_ordered_progress_and_returns_settings(mo
         "security.migrate",
     ]
     assert progress == [
+        (4, "startup.configuring_storage"),
+        (6, "startup.migrating_storage"),
         (8, "startup.preparing_directories"),
         (18, "startup.recovering_instances"),
         (28, "startup.loading_settings"),
@@ -58,6 +66,8 @@ def test_initialize_application_accepts_no_progress_callback(monkeypatch):
             return {"network": {}}
 
     monkeypatch.setattr(bootstrap.Paths, "initialize", lambda: None)
+    monkeypatch.setattr(bootstrap.Paths, "configure_application_defaults", lambda **_kwargs: False)
+    monkeypatch.setattr(bootstrap.platform_storage_migration, "migrate", lambda _root: SimpleNamespace(errors=()))
     monkeypatch.setattr(bootstrap, "LauncherSettingsManager", FakeSettingsManager)
     monkeypatch.setattr(bootstrap.startup_recovery_manager, "reconcile", lambda: None)
     monkeypatch.setattr(bootstrap.download_bandwidth_limiter, "configure_mbps", lambda _value: None)

@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -170,3 +171,36 @@ def test_select_java_excluding_uses_another_same_major_runtime(monkeypatch: pyte
     selected = JavaSelector.select_java_excluding(17, {first.executable})
 
     assert selected == second.executable
+
+
+def test_select_java_prefers_managed_source_even_when_returned_later(monkeypatch: pytest.MonkeyPatch):
+    external = JavaInstallation(version=8, executable=Path("external/javaw.exe"), source=JavaSource.PATH)
+    managed = JavaInstallation(version=8, executable=Path("managed/javaw.exe"), source=JavaSource.MINECRAFT_RUNTIME)
+    monkeypatch.setattr(JavaManager, "find_installation", lambda: [external, managed])
+
+    assert JavaSelector.select_java(8) == managed.executable
+
+
+def test_automatic_java8_skips_legacy_external_runtime(monkeypatch: pytest.MonkeyPatch):
+    old = JavaInstallation(version=8, executable=Path("old/javaw.exe"), source=JavaSource.PATH)
+    modern = JavaInstallation(version=8, executable=Path("modern/javaw.exe"), source=JavaSource.PROGRAM_FILES)
+    monkeypatch.setattr(JavaManager, "find_installation_candidates", lambda: [old, modern])
+
+    from src.core.java.java_diagnostics_manager import JavaDiagnosticsManager
+    monkeypatch.setattr(
+        JavaDiagnosticsManager,
+        "inspect",
+        lambda java: SimpleNamespace(valid=True, version_string="1.8.0_51" if java is old else "1.8.0_492"),
+    )
+
+    assert JavaSelector.select_automatic_java(8) == modern.executable
+
+
+def test_automatic_java8_rejects_only_legacy_external_runtime(monkeypatch: pytest.MonkeyPatch):
+    old = JavaInstallation(version=8, executable=Path("old/javaw.exe"), source=JavaSource.PATH)
+    monkeypatch.setattr(JavaManager, "find_installation_candidates", lambda: [old])
+    from src.core.java.java_diagnostics_manager import JavaDiagnosticsManager
+    monkeypatch.setattr(JavaDiagnosticsManager, "inspect", lambda java: SimpleNamespace(valid=True, version_string="1.8.0_51"))
+
+    with pytest.raises(RuntimeError, match="No suitable automatic Java 8"):
+        JavaSelector.select_automatic_java(8)

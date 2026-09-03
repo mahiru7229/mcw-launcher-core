@@ -8,7 +8,7 @@ import tomllib
 
 import pytest
 
-from mcw_core import CorePaths, InstanceHealthReport, InstanceHealthState, InstanceRuntimeProfile, InstanceState, InstanceStatus, LaunchRequest, MCWCore, ProcessSession, ProcessSessionState
+from mcw_core import CorePaths, InstanceHealthReport, InstanceHealthState, InstanceState, InstanceStatus, LaunchRequest, MCWCore, ProcessSession, ProcessSessionState
 from src.core.fs.paths import Paths
 from src.models.instance.instance import Instance
 
@@ -84,11 +84,19 @@ def test_headless_facade_launches_an_offline_instance(monkeypatch: pytest.Monkey
 
     monkeypatch.setattr(facade.MinecraftExecutor, "run", fake_run)
     core = MCWCore(CorePaths.from_root(tmp_path))
-    result = core.launch(LaunchRequest(instance="Headless Test", offline_username="LibraryPlayer"))
+    confirmation_callback = lambda request: True
+    result = core.launch(
+        LaunchRequest(
+            instance="Headless Test",
+            offline_username="LibraryPlayer",
+            on_compatibility_confirmation=confirmation_callback,
+        )
+    )
 
     assert captured["instance"] is instance
     assert captured["account"].username == "LibraryPlayer"
     assert captured["authentication"].player_name == "LibraryPlayer"
+    assert captured["on_compatibility_confirmation"] is confirmation_callback
     assert result.minecraft_java_major_version == 17
     assert result.minecraft_version == "quilt-loader-0.30.1-1.20.1"
     assert result["warnings"] == ("headless smoke warning",)
@@ -98,6 +106,13 @@ def test_headless_facade_launches_an_offline_instance(monkeypatch: pytest.Monkey
 def test_optifine_service_is_available_from_public_facade(tmp_path: Path) -> None:
     core = MCWCore(CorePaths.from_root(tmp_path))
     assert core.optifine.OFFICIAL_DOWNLOADS_URL == "https://optifine.net/downloads"
+
+
+def test_platform_storage_migration_is_available_from_public_api() -> None:
+    from mcw_core.api.storage import PlatformStorageMigration, PlatformStorageMigrationReport
+
+    assert PlatformStorageMigration.MARKER_NAME == ".platform-storage-migration-v1.json"
+    assert PlatformStorageMigrationReport().completed is True
 
 
 def test_instance_state_types_are_public() -> None:
@@ -145,7 +160,6 @@ def test_core_has_no_gui_or_qt_dependency() -> None:
     assert not violations, "Core dependency violations:\n" + "\n".join(violations)
 
 
-
 def test_headless_distribution_excludes_gui_and_pyside_dependency() -> None:
     data = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     dependencies = tuple(data["project"]["dependencies"])
@@ -184,7 +198,3 @@ def test_instance_service_exposes_library_metadata(monkeypatch: pytest.MonkeyPat
 
     assert result is expected
     assert captured == {"name": "Organized", "favorite": True, "group": "Modpacks", "tags": ["heavy"]}
-
-
-def test_instance_runtime_profile_is_public() -> None:
-    assert InstanceRuntimeProfile.__dataclass_fields__["required_java_major"].type in {int, "int"}

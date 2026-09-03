@@ -10,6 +10,8 @@ import shutil
 import sys
 import tempfile
 from uuid import uuid4
+
+
 def _default_short_workspace_root() -> Path:
     if sys.platform == "win32":
         local_app_data = str(os.environ.get("LOCALAPPDATA") or "").strip()
@@ -36,6 +38,73 @@ class Paths:
     RUNTIMES_ROOT = PROJECT_ROOT / "runtimes"
     INSTANCE_LOCKS_ROOT = INSTANCES_ROOT / ".runtime" / "locks"
     SHORT_WORKSPACE_ROOT = _default_short_workspace_root()
+
+    @staticmethod
+    def configure_application_defaults(
+        *,
+        platform_name: str | None = None,
+        environ: dict[str, str] | None = None,
+        home: Path | str | None = None,
+        initialize: bool = False,
+    ) -> bool:
+        """Select native launcher storage roots without changing the install root.
+
+        Windows keeps the existing portable layout for Alpha 3. Linux follows
+        the XDG Base Directory specification unless ``MCW_PORTABLE`` is set.
+        Explicit ``CorePaths``/``Paths.configure`` calls remain portable and
+        are not affected by this launcher-only bootstrap step.
+        """
+
+        environment = os.environ if environ is None else environ
+        requested_platform = str(platform_name or sys.platform).strip().casefold()
+        is_linux = requested_platform == "linux" or requested_platform.startswith("linux")
+        portable = str(environment.get("MCW_PORTABLE", "")).strip().casefold() in {
+            "1", "true", "yes", "on",
+        }
+        if not is_linux or portable:
+            return False
+
+        home_root = Path(home if home is not None else Path.home()).expanduser().resolve(strict=False)
+
+        def xdg_root(variable: str, fallback: Path) -> Path:
+            value = str(environment.get(variable, "") or "").strip()
+            candidate = Path(value).expanduser() if value else fallback
+            if not candidate.is_absolute():
+                candidate = fallback
+            return candidate.resolve(strict=False) / "mcw-launcher"
+
+        config_root = xdg_root("XDG_CONFIG_HOME", home_root / ".config")
+        data_root = xdg_root("XDG_DATA_HOME", home_root / ".local" / "share")
+        cache_root = xdg_root("XDG_CACHE_HOME", home_root / ".cache")
+        state_root = xdg_root("XDG_STATE_HOME", home_root / ".local" / "state")
+
+        Paths.CACHE_ROOT = cache_root
+        Paths.INSTANCES_ROOT = data_root / "instances"
+        Paths.ACCOUNTS_ROOT = data_root / "accounts"
+        Paths.CONFIG_ROOT = config_root
+        Paths.LOGS_ROOT = state_root / "logs"
+        Paths.BACKUPS_ROOT = data_root / "backups"
+        Paths.THEME_ROOT = data_root / "themes"
+        Paths.RUNTIMES_ROOT = data_root / "runtimes"
+        Paths.INSTANCE_LOCKS_ROOT = Paths.INSTANCES_ROOT / ".runtime" / "locks"
+        if initialize:
+            Paths.initialize()
+        return True
+
+    @staticmethod
+    def uses_platform_storage() -> bool:
+        project_root = Path(Paths.PROJECT_ROOT).resolve(strict=False)
+        roots = (
+            Paths.CACHE_ROOT,
+            Paths.INSTANCES_ROOT,
+            Paths.ACCOUNTS_ROOT,
+            Paths.CONFIG_ROOT,
+            Paths.LOGS_ROOT,
+            Paths.BACKUPS_ROOT,
+            Paths.THEME_ROOT,
+            Paths.RUNTIMES_ROOT,
+        )
+        return any(not Path(root).resolve(strict=False).is_relative_to(project_root) for root in roots)
     
     @staticmethod
     def initialize() -> None:
@@ -785,9 +854,12 @@ class Paths:
 
     @staticmethod
     def asset_object(asset: DownloadAsset):
-        directory = Paths.CACHE_ROOT / "assets" / "objects" / asset.sha1[:2] 
+        from src.core.minecraft.metadata_validation import MinecraftMetadataValidation
+
+        digest = MinecraftMetadataValidation.sha1(asset.sha1, "asset SHA-1")
+        directory = Paths.CACHE_ROOT / "assets" / "objects" / digest[:2]
         directory.mkdir(parents=True, exist_ok=True)
-        return directory / asset.sha1
+        return directory / digest
     
     @staticmethod
     def assets_dir():

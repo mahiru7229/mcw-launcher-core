@@ -1,4 +1,6 @@
-# Complete MCW Core 1.0.1 Guide
+# MCW Core Guide (legacy API reference)
+
+> This guide originated with MCW Core 1.0.1 and is retained as a broad migration reference. For v1.5.0, verify signatures against the current `mcw_core` public surface and the source included in this package.
 
 ## 1. Purpose
 
@@ -6,19 +8,21 @@ This guide explains how to use MCW Core as the backend of an independent Minecra
 
 ## 2. Installation
 
+Install the standalone v1.5.0 source package:
+
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-python -m pip install .\mcw_core-1.0.1-py3-none-any.whl
+python -m pip install -e ".[dev]"
 python -c "import mcw_core; print(mcw_core.__version__)"
 ```
 
-Dependencies: Python 3.12+, httpx, requests, and pywin32 on Windows. PySide6 is not a core dependency.
+The standalone Core dependency contract is declared in `pyproject.toml`. The Core implementation remains GUI-independent and does not require PySide6.
 
 ### Packaging note
 
-The public contract is `mcw_core` and `mcw_core.api`. The current wheel still carries compatibility implementation modules under `src`. Consumers must not import those modules directly. The reduced core source snapshot does not run by itself unless the compatible implementation packages are also present. See [PACKAGING_RELEASE.md](PACKAGING_RELEASE.md).
+The public contract is `mcw_core` and `mcw_core.api`. Current code still uses compatibility implementation modules under `src`; consumers must not import those modules directly. See [PACKAGING_RELEASE.md](PACKAGING_RELEASE.md).
 
 ## 3. Public surface
 
@@ -35,7 +39,7 @@ from mcw_core.api.account.account_manager import AccountManager
 from mcw_core.api.modrinth.modrinth_client import ModrinthClient
 ```
 
-Never build third-party code against `src.core`, `src.models`, `src.database`, or `src.gui`.
+Never build third-party code against `src.core`, `src.models`, or `src.gui`.
 
 ## 4. Data root
 

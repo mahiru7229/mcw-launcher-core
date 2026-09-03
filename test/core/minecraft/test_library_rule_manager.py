@@ -365,26 +365,31 @@ def test_get_current_arch_maps_32_bit_x86(
     [
         "AMD64",
         "x86_64",
-        "arm64",
-        "aarch64",
     ]
 )
-def test_get_current_arch_maps_other_architectures_to_x64(
+def test_get_current_arch_maps_64_bit_x86_to_x64(
     monkeypatch: pytest.MonkeyPatch,
     machine_name: str
 ):
-    """
-    This documents the current implementation.
-
-    Note: arm64 and aarch64 are currently treated as x64.
-    If ARM support is added later, this test should be changed.
-    """
     monkeypatch.setattr(
         "src.core.minecraft.library_rule_manager.platform.machine",
         lambda: machine_name
     )
 
     assert LibraryRuleManager._get_current_arch() == "x64"
+
+
+@pytest.mark.parametrize("machine_name", ["arm64", "aarch64"])
+def test_get_current_arch_preserves_arm64(
+    monkeypatch: pytest.MonkeyPatch,
+    machine_name: str,
+):
+    monkeypatch.setattr(
+        "src.core.minecraft.library_rule_manager.platform.machine",
+        lambda: machine_name,
+    )
+
+    assert LibraryRuleManager._get_current_arch() == "arm64"
 
 
 def test_real_windows_allow_rule(

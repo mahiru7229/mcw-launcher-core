@@ -1,4 +1,6 @@
-# MCW Core 1.0.1 API Reference
+# MCW Core API Reference (legacy snapshot)
+
+> This 1.0.1-era snapshot is retained for migration context. v1.5.0 consumers must verify exports from the current `mcw_core` and `mcw_core.api` source included in this package.
 
 This reference lists public re-export modules and signatures read directly from the supplied source/wheel. `Any` means the source does not provide an explicit return annotation.
 

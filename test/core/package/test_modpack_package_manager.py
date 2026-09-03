@@ -331,3 +331,23 @@ def test_provider_profile_rejects_modified_native_package(tmp_path: Path, monkey
 
     with pytest.raises(RuntimeError, match="checksum"):
         ModpackPackageManager.inspect(profile)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "/absolute/file.txt",
+        "../escape.txt",
+        "folder/../escape.txt",
+        "CON/config.txt",
+        "folder/NUL.txt",
+        "folder/trailing./file.txt",
+        "folder/bad:name.txt",
+    ],
+)
+def test_safe_relative_rejects_windows_and_absolute_paths(value: str) -> None:
+    assert ModpackPackageManager._safe_relative(value) is None
+
+
+def test_safe_relative_accepts_normal_package_path() -> None:
+    assert ModpackPackageManager._safe_relative("overrides/config/options.txt").as_posix() == "overrides/config/options.txt"

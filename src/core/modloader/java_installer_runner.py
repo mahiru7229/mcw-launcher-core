@@ -3,12 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 import os
 from pathlib import Path
+import signal
 import subprocess
 
 from src.core.java.java_resolver import JavaRecoveryError, JavaResolver
 from src.core.java.java_recovery_diagnostics import JavaRecoveryDiagnostics
 from src.core.java.java_runtime import JavaRuntime
 from src.core.progress.progress_reporter import ProgressReporter
+from src.core.system.platform_info import PlatformInfo
 from src.models.progress.progress_stage import ProgressStage
 
 
@@ -105,18 +107,52 @@ class ModLoaderJavaRunner:
 
     @staticmethod
     def _invoke(java: Path, arguments: list[str], cwd: Path, timeout: float) -> subprocess.CompletedProcess[str] | OSError | subprocess.TimeoutExpired:
-        creation_flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        is_windows = PlatformInfo.is_windows()
+        creation_flags = subprocess.CREATE_NO_WINDOW if is_windows else 0
+        options: dict[str, object] = {
+            "cwd": cwd,
+            "stdout": subprocess.PIPE,
+            "stderr": subprocess.PIPE,
+            "text": True,
+            "creationflags": creation_flags,
+        }
+        if not is_windows:
+            options["start_new_session"] = True
         try:
-            return subprocess.run(
+            process = subprocess.Popen(
                 [str(java), *arguments],
-                cwd=cwd,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                creationflags=creation_flags,
+                **options,
             )
-        except (OSError, subprocess.TimeoutExpired) as error:
+        except OSError as error:
             return error
+
+        try:
+            stdout, stderr = process.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired as error:
+            ModLoaderJavaRunner._terminate_installer(process)
+            stdout, stderr = process.communicate()
+            error.stdout = stdout or error.stdout
+            error.stderr = stderr or error.stderr
+            return error
+        return subprocess.CompletedProcess(
+            process.args,
+            int(process.returncode or 0),
+            stdout=stdout,
+            stderr=stderr,
+        )
+
+    @staticmethod
+    def _terminate_installer(process: subprocess.Popen[str]) -> None:
+        if not PlatformInfo.is_windows():
+            try:
+                os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+                return
+            except (OSError, ProcessLookupError):
+                pass
+        try:
+            process.kill()
+        except OSError:
+            pass
 
     @staticmethod
     def _should_retry_java(result: subprocess.CompletedProcess[str] | OSError | subprocess.TimeoutExpired) -> bool:

@@ -1,11 +1,12 @@
-MCW Core v1.2.0 stable validation
+MCW Core 1.5.0 release verification
 
-- Python compileall: PASS
-- Core regression suite: 1437 passed
-- Warnings: 2 intentional duplicate ZIP member fixtures in package security tests
-- Wheel build: PASS
-- Wheel runtime version: 1.2.0
-- Installed distribution version: 1.2.0
-- Wheel contains GUI: no
-- Wheel contains tests/__pycache__: no
-- Bundled MCW LAN Agent: yes
+- Core source regression: 1572 passed
+- CurseForge gateway: 18 passed
+- Core release preflight: passed
+- Python compileall: passed
+- Wheel metadata and content audit: passed
+- Headless boundary: no src/gui or PySide6 dependency
+- Bundled gateway: opt-in source only; no endpoint, token or API key
+
+Environment: Python 3.12 / Linux x64
+Date: 2026-09-03

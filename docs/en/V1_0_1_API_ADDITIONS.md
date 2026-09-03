@@ -24,24 +24,23 @@ for runtime in recommendation.java_installations:
 from mcw_core import CompatibilityConfirmationRequired, LaunchRequest, get_default_core
 
 core = get_default_core()
-try:
-    result = core.launch(LaunchRequest(instance="My Pack", offline_username="Player"))
-except CompatibilityConfirmationRequired as request:
+
+def confirm(request: CompatibilityConfirmationRequired) -> bool:
     print(request.instance_name)
     for issue in request.issues:
         print(issue.message)
+    return ask_user_for_explicit_consent(request)
 
-    # Retry only after the UI receives explicit user consent.
-    result = core.launch(
-        LaunchRequest(
-            instance=request.instance_name,
-            offline_username="Player",
-            allow_compatibility_issues_once=True,
-        )
+result = core.launch(
+    LaunchRequest(
+        instance="My Pack",
+        offline_username="Player",
+        on_compatibility_confirmation=confirm,
     )
+)
 ```
 
-Hard loader/runtime, integrity, archive-safety, and security failures never use this bypassable exception.
+The callback runs inside the active launch attempt, so accepting it does not restart dependency resolution or file checking. If no callback is supplied, the legacy `CompatibilityConfirmationRequired` exception and explicit `allow_compatibility_issues_once=True` retry remain available. Hard loader/runtime, integrity, archive-safety, and security failures never use this bypassable confirmation.
 
 ## Managed-content policies
 

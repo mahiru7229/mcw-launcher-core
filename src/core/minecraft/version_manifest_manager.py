@@ -7,6 +7,7 @@ import requests
 
 from src.core.fs.atomic_file import atomic_write_text
 from src.core.fs.paths import Paths
+from src.core.minecraft.metadata_validation import MinecraftMetadataValidation
 from src.models.minecraft.version_manifest import VersionManifest
 
 
@@ -15,7 +16,15 @@ MANIFEST_URL = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
 
 class VersionManifestManager:
     @staticmethod
-    def get() -> list[VersionManifest]:
+    def get(*, force_refresh: bool = False) -> list[VersionManifest]:
+        manifest_path = Paths.version_manifest()
+        if not force_refresh:
+            cached = VersionManifestManager._parse_manifest(
+                VersionManifestManager._load_manifest(manifest_path)
+            )
+            if cached:
+                return cached
+
         manifest_path = VersionManifestManager._download_manifest()
         manifest_data = VersionManifestManager._load_manifest(manifest_path)
         return VersionManifestManager._parse_manifest(manifest_data)
@@ -51,9 +60,12 @@ class VersionManifestManager:
         return data if isinstance(data, dict) else {}
 
     @staticmethod
-    def latest_version(is_snapshot: bool = False) -> str:
-        manifest_path = VersionManifestManager._download_manifest()
+    def latest_version(is_snapshot: bool = False, *, force_refresh: bool = False) -> str:
+        manifest_path = Paths.version_manifest()
         manifest_data = VersionManifestManager._load_manifest(manifest_path)
+        if force_refresh or not isinstance(manifest_data.get("latest"), dict):
+            manifest_path = VersionManifestManager._download_manifest()
+            manifest_data = VersionManifestManager._load_manifest(manifest_path)
         latest = manifest_data.get("latest")
         if not isinstance(latest, dict):
             return ""
@@ -70,11 +82,22 @@ class VersionManifestManager:
             return []
 
         parsed: list[VersionManifest] = []
-        try:
-            for version in versions:
-                if not isinstance(version, dict):
-                    return []
-                parsed.append(VersionManifest(id=str(version["id"]), type=str(version["type"]), url=str(version["url"]), release_time=datetime.fromisoformat(str(version["releaseTime"]))))
-        except (KeyError, TypeError, ValueError):
-            return []
+        for version in versions:
+            if not isinstance(version, dict):
+                continue
+            try:
+                parsed.append(
+                    VersionManifest(
+                        id=MinecraftMetadataValidation.version_id(version["id"]),
+                        type=str(version["type"]),
+                        url=str(version["url"]),
+                        release_time=datetime.fromisoformat(str(version["releaseTime"])),
+                        sha1=MinecraftMetadataValidation.sha1(version.get("sha1"), "version metadata SHA-1"),
+                        size=max(0, int(version.get("size", 0) or 0)),
+                    )
+                )
+            except (KeyError, TypeError, ValueError, RuntimeError):
+                # One malformed or provider-specific historical entry must not
+                # make every valid Minecraft version disappear from the UI.
+                continue
         return parsed

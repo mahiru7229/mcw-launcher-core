@@ -18,7 +18,7 @@ def _unfold_manifest(raw: bytes) -> list[str]:
 
 
 def test_prepare_keeps_short_windows_command_unchanged(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
-    monkeypatch.setattr("src.core.java.java_command_compactor.os.name", "nt")
+    monkeypatch.setattr("src.core.java.java_command_compactor.PlatformInfo.is_windows", lambda: True)
     command = ["-Xmx2G", "-cp", "first.jar;client.jar", "net.minecraft.client.main.Main"]
 
     result = JavaCommandCompactor.prepare(Path("javaw.exe"), command, tmp_path)
@@ -28,7 +28,7 @@ def test_prepare_keeps_short_windows_command_unchanged(monkeypatch: pytest.Monke
 
 
 def test_prepare_compacts_long_windows_classpath_into_manifest_jar(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
-    monkeypatch.setattr("src.core.java.java_command_compactor.os.name", "nt")
+    monkeypatch.setattr("src.core.java.java_command_compactor.PlatformInfo.is_windows", lambda: True)
     entries = [str(tmp_path / "libraries" / f"library-{index:04d}-{'x' * 90}.jar") for index in range(320)]
     command = ["-Xmx4G", "-cp", ";".join(entries), "net.minecraft.client.main.Main", "--username", "Steve"]
 
@@ -53,7 +53,7 @@ def test_prepare_compacts_long_windows_classpath_into_manifest_jar(monkeypatch: 
 
 
 def test_prepare_force_compacts_short_classpath(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
-    monkeypatch.setattr("src.core.java.java_command_compactor.os.name", "nt")
+    monkeypatch.setattr("src.core.java.java_command_compactor.PlatformInfo.is_windows", lambda: True)
     first = tmp_path / "first.jar"
     client = tmp_path / "client.jar"
     command = ["-cp", f"{first};{client}", "example.Main"]
@@ -66,7 +66,7 @@ def test_prepare_force_compacts_short_classpath(monkeypatch: pytest.MonkeyPatch,
 
 
 def test_prepare_cannot_compact_command_without_classpath(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
-    monkeypatch.setattr("src.core.java.java_command_compactor.os.name", "nt")
+    monkeypatch.setattr("src.core.java.java_command_compactor.PlatformInfo.is_windows", lambda: True)
     command = ["-Xmx2G", "example.Main", "x" * 40_000]
 
     result = JavaCommandCompactor.prepare(Path("javaw.exe"), command, tmp_path, force=True)

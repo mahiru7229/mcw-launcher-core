@@ -1,4 +1,9 @@
 from src.core.java.adoptium_client import AdoptiumClient
+from src.core.system.platform_info import PlatformProfile
+
+
+WINDOWS_X64 = PlatformProfile("windows", "x64", "x64", "javaw.exe", "java.exe", ".zip")
+LINUX_X64 = PlatformProfile("linux", "x64", "x64", "java", "java", ".tar.gz")
 
 
 def test_selects_checksum_from_latest_assets_metadata():
@@ -19,7 +24,7 @@ def test_selects_checksum_from_latest_assets_metadata():
         },
     }]
 
-    asset, package = AdoptiumClient._select_package(payload, 8)
+    asset, package = AdoptiumClient._select_package(payload, 8, WINDOWS_X64)
 
     assert asset["release_name"] == "jdk8u452-b09"
     assert AdoptiumClient._parse_sha256(package["checksum"], 8) == checksum
@@ -39,7 +44,7 @@ def test_supports_legacy_binaries_shape():
         }],
     }
 
-    _, package = AdoptiumClient._select_package(payload, 17)
+    _, package = AdoptiumClient._select_package(payload, 17, WINDOWS_X64)
 
     assert package["link"].endswith("java-17.zip")
 
@@ -64,3 +69,22 @@ def test_parses_latest_ga_feature_release_without_using_tip_version():
 
 def test_falls_back_to_highest_available_release():
     assert AdoptiumClient._parse_latest_feature_release({"available_releases": [8, "17", 21, 26]}) == 26
+
+
+def test_selects_linux_tar_gz_package():
+    payload = [{
+        "binary": {
+            "architecture": "x64",
+            "image_type": "jdk",
+            "jvm_impl": "hotspot",
+            "os": "linux",
+            "package": {
+                "checksum": "c" * 64,
+                "link": "https://example.test/OpenJDK21U-jdk_x64_linux_hotspot.tar.gz",
+            },
+        }
+    }]
+
+    _, package = AdoptiumClient._select_package(payload, 21, LINUX_X64)
+
+    assert package["link"].endswith(".tar.gz")

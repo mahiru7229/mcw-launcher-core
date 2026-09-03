@@ -113,6 +113,7 @@ class ThemeManager:
     })
 
     def __init__(self, root: Path | None = None) -> None:
+        self._uses_default_root = root is None
         self.root = Path(root) if root is not None else Paths.THEME_ROOT
         self._lock = RLock()
         self._themes: dict[str, ThemeDefinition] = {}
@@ -126,6 +127,8 @@ class ThemeManager:
 
     def reload(self) -> tuple[ThemeDefinition, ...]:
         with self._lock:
+            if self._uses_default_root:
+                self.root = Path(Paths.THEME_ROOT)
             themes = {self.FALLBACK_THEME_ID: self._fallback_theme()}
             try:
                 self.root.mkdir(parents=True, exist_ok=True)

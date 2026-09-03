@@ -88,3 +88,68 @@ def test_installer_timeout_becomes_java_recovery_error(monkeypatch):
         assert "partial output" in str(error)
     else:
         raise AssertionError("Installer timeout must be reported as JavaRecoveryError")
+
+
+def test_invoke_starts_installer_in_posix_process_group(monkeypatch, tmp_path: Path):
+    received = {}
+
+    class Process:
+        args = ["java", "-jar", "installer.jar"]
+        returncode = 0
+
+        def communicate(self, timeout=None):
+            received["timeout"] = timeout
+            return "installed", ""
+
+    def popen(command, **options):
+        received["command"] = command
+        received["options"] = options
+        return Process()
+
+    monkeypatch.setattr("src.core.modloader.java_installer_runner.PlatformInfo.is_windows", lambda: False)
+    monkeypatch.setattr("src.core.modloader.java_installer_runner.subprocess.Popen", popen)
+
+    result = ModLoaderJavaRunner._invoke(Path("java"), ["-jar", "installer.jar"], tmp_path, 90)
+
+    assert isinstance(result, subprocess.CompletedProcess)
+    assert received["options"]["start_new_session"] is True
+    assert received["options"]["creationflags"] == 0
+    assert received["timeout"] == 90
+
+
+def test_invoke_kills_posix_installer_group_on_timeout(monkeypatch, tmp_path: Path):
+    killed = []
+
+    class Process:
+        args = ["java", "-jar", "installer.jar"]
+        returncode = -9
+        pid = 321
+        calls = 0
+
+        def communicate(self, timeout=None):
+            self.calls += 1
+            if self.calls == 1:
+                raise subprocess.TimeoutExpired(self.args, timeout, output="partial")
+            return "final output", "final error"
+
+        def kill(self):
+            killed.append(("process", self.pid))
+
+    fake_os = SimpleNamespace(
+        getpgid=lambda pid: pid,
+        killpg=lambda pid, sig: killed.append(("group", pid, sig)),
+    )
+    monkeypatch.setattr("src.core.modloader.java_installer_runner.PlatformInfo.is_windows", lambda: False)
+    monkeypatch.setattr("src.core.modloader.java_installer_runner.subprocess.Popen", lambda *args, **kwargs: Process())
+    monkeypatch.setattr("src.core.modloader.java_installer_runner.os", fake_os)
+    monkeypatch.setattr(
+        "src.core.modloader.java_installer_runner.signal",
+        SimpleNamespace(SIGKILL=9),
+    )
+
+    result = ModLoaderJavaRunner._invoke(Path("java"), ["-jar", "installer.jar"], tmp_path, 1)
+
+    assert isinstance(result, subprocess.TimeoutExpired)
+    assert result.stdout == "final output"
+    assert result.stderr == "final error"
+    assert killed and killed[0][0] == "group"

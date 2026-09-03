@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -130,3 +131,64 @@ def test_stop_instance_terminates_verified_root_and_registered_children(monkeypa
     assert ProcessSupervisor.stop_instance(instance, graceful_timeout=0.01) is True
     assert {pid for pid, _force in terminated} == {5000, 5001}
     assert not (Paths.process_sessions_root() / f"{session.session_id}.json").exists()
+
+
+def test_kill_instance_force_kills_registered_process_and_marks_session() -> None:
+    instance = _instance()
+    process = FakeProcess()
+    session = ProcessSupervisor.begin(instance)
+    ProcessSupervisor.attach(session.session_id, process)
+
+    assert ProcessSupervisor.kill_instance(instance, timeout=0.01) is True
+    assert process.killed is True
+    assert process.terminated is False
+    current = ProcessSupervisor.active_for(instance)
+    assert current is not None
+    assert current.state is ProcessSessionState.KILLING
+    assert current.detail == "killed_by_user"
+    assert ProcessSupervisor.kill_requested(session.session_id) is True
+
+
+def test_posix_termination_targets_dedicated_process_group(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[int, int]] = []
+    monkeypatch.setattr("src.core.runtime.process_supervisor.PlatformInfo.is_windows", lambda: False)
+    monkeypatch.setattr(
+        "src.core.runtime.process_supervisor.signal",
+        SimpleNamespace(SIGTERM=15, SIGKILL=9),
+    )
+    monkeypatch.setattr(
+        "src.core.runtime.process_supervisor.os",
+        SimpleNamespace(
+            getpid=lambda: 100,
+            getpgid=lambda pid: pid,
+            getpgrp=lambda: 100,
+            killpg=lambda pid, sig: calls.append((pid, sig)),
+            kill=lambda _pid, _sig: (_ for _ in ()).throw(AssertionError("group signal expected")),
+        ),
+    )
+
+    ProcessSupervisor._terminate_pid_tree(4321, force=False)
+
+    assert calls == [(4321, 15)]
+
+
+def test_posix_termination_falls_back_to_root_pid_without_owned_group(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[int, int]] = []
+    monkeypatch.setattr("src.core.runtime.process_supervisor.PlatformInfo.is_windows", lambda: False)
+    monkeypatch.setattr(
+        "src.core.runtime.process_supervisor.signal",
+        SimpleNamespace(SIGTERM=15, SIGKILL=9),
+    )
+    monkeypatch.setattr(
+        "src.core.runtime.process_supervisor.os",
+        SimpleNamespace(
+            getpid=lambda: 100,
+            getpgid=lambda _pid: 200,
+            getpgrp=lambda: 200,
+            kill=lambda pid, sig: calls.append((pid, sig)),
+        ),
+    )
+
+    ProcessSupervisor._terminate_pid_tree(4321, force=True)
+
+    assert calls == [(4321, 9)]

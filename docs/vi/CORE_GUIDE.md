@@ -1,4 +1,6 @@
-# Hướng dẫn đầy đủ MCW Core 1.0.1
+# Hướng dẫn MCW Core (tham chiếu API legacy)
+
+> Tài liệu này bắt nguồn từ MCW Core 1.0.1 và được giữ làm tham chiếu migration tổng quát. Với v1.5.0, hãy đối chiếu signature với public surface `mcw_core` và source hiện tại trong gói này.
 
 ## 1. Mục tiêu của tài liệu
 
@@ -22,13 +24,13 @@ Tài liệu này giải thích cách sử dụng MCW Core để xây một launc
 
 ## 2. Cài đặt
 
-### Cài từ wheel
+### Cài source Core v1.5.0 độc lập
 
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-python -m pip install .\mcw_core-1.0.1-py3-none-any.whl
+python -m pip install -e ".[dev]"
 ```
 
 Kiểm tra:
@@ -37,18 +39,9 @@ Kiểm tra:
 python -c "import mcw_core; print(mcw_core.__version__)"
 ```
 
-### Dependency chính
+Dependency contract của Core độc lập nằm trong `pyproject.toml`. Implementation Core không phụ thuộc GUI và không yêu cầu PySide6.
 
-- Python `>= 3.12`;
-- `httpx >= 0.28, < 1`;
-- `requests >= 2.32, < 3`;
-- `pywin32 >= 311` trên Windows.
-
-Core không yêu cầu PySide6. GUI của launcher là trách nhiệm của ứng dụng gọi core.
-
-### Lưu ý đóng gói của bản 1.0.0
-
-Public API nằm trong `mcw_core`, nhưng wheel hiện tại vẫn mang các module triển khai tương thích dưới `src`. Người dùng thư viện **không được import trực tiếp từ `src`**. Repo core rút gọn chỉ có `mcw_core` chưa đủ để chạy độc lập nếu không đi cùng implementation tương thích. Xem [Đóng gói và phát hành](PACKAGING_RELEASE.md).
+Public API nằm trong `mcw_core` và `mcw_core.api`, còn implementation tương thích vẫn nằm dưới `src`. Consumer **không được import trực tiếp từ `src`**. Xem [Đóng gói Core](PACKAGING_RELEASE.md).
 
 ## 3. Public API và mức ổn định
 

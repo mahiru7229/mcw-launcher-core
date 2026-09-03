@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from src.core.fs.paths import Paths
+from src.core.system.platform_info import PlatformInfo
 from src.core.instance.instance_run_lock import InstanceRunLock
 from src.models.instance.instance import Instance
 from src.models.runtime.process_session import ProcessSession, ProcessSessionState
@@ -509,7 +510,7 @@ class ProcessSupervisor:
         if pid <= 0 or pid == os.getpid():
             return False
         needle = os.path.normcase(str(instance_dir.resolve(strict=False)))
-        if os.name == "nt":
+        if PlatformInfo.is_windows():
             script = (
                 f"$p = Get-CimInstance Win32_Process -Filter 'ProcessId={pid}' -ErrorAction SilentlyContinue; "
                 "if ($p -and $p.CommandLine) { [Console]::Out.Write($p.CommandLine) }"
@@ -538,7 +539,7 @@ class ProcessSupervisor:
     def _terminate_pid_tree(pid: int, force: bool) -> None:
         if pid <= 0 or pid == os.getpid():
             return
-        if os.name == "nt":
+        if PlatformInfo.is_windows():
             command = ["taskkill", "/PID", str(pid), "/T"]
             if force:
                 command.append("/F")
@@ -555,9 +556,17 @@ class ProcessSupervisor:
                 pass
             return
         try:
-            os.kill(pid, signal.SIGKILL if force else signal.SIGTERM)
+            target_signal = signal.SIGKILL if force else signal.SIGTERM
+            group_id = os.getpgid(pid)
+            if group_id == pid and group_id != os.getpgrp():
+                os.killpg(group_id, target_signal)
+                return
+            os.kill(pid, target_signal)
         except OSError:
-            pass
+            try:
+                os.kill(pid, signal.SIGKILL if force else signal.SIGTERM)
+            except OSError:
+                pass
 
     @classmethod
     def _wait_for_exit(cls, pid: int, timeout: float) -> None:

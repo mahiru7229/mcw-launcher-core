@@ -7,6 +7,7 @@ from src.models.progress.progress_stage import ProgressStage
 import subprocess
 import re
 import os
+import shutil
 try:
     import winreg
 except ImportError:  # Windows-only standard library module
@@ -33,8 +34,8 @@ class JavaManager:
 
     @staticmethod
     def _creation_flags() -> int:
-        if os.name == "nt":
-            return subprocess.CREATE_NO_WINDOW
+        if JavaManager._is_windows():
+            return int(getattr(subprocess, "CREATE_NO_WINDOW", 0))
 
         return 0
 
@@ -83,7 +84,7 @@ class JavaManager:
         except OSError:
             return results
         for directory in directories:
-            executable = directory / "bin" / "javaw.exe"
+            executable = directory / "bin" / JavaManager._java_executable_names()[0]
             if directory.is_dir() and executable.is_file():
                 results.append(executable)
         return results
@@ -96,7 +97,7 @@ class JavaManager:
         )
     @staticmethod
     def _get_java_in_registry() -> list[Path]:
-        if winreg is None:
+        if not JavaManager._is_windows() or winreg is None:
             return []
         java_paths: list[Path] = []
 
@@ -138,7 +139,7 @@ class JavaManager:
                             )
                     except (FileNotFoundError, OSError):
                         continue
-                    java_path = Path(java_home) / "bin" / "javaw.exe"
+                    java_path = Path(java_home) / "bin" / JavaManager._java_executable_names()[0]
                     if java_path.is_file():
                         java_homes.append(java_path)
         except (FileNotFoundError, PermissionError, OSError):
@@ -148,6 +149,8 @@ class JavaManager:
 
     @staticmethod
     def _get_program_files_dirs() -> list[Path]:
+        if not JavaManager._is_windows():
+            return []
         directories: list[Path] = []
         program_files = os.environ.get("ProgramFiles")
         program_files_x86 = os.environ.get("ProgramFiles(x86)")
@@ -166,7 +169,7 @@ class JavaManager:
                 if not vendor_dir.is_dir():
                     continue
                 for java_home in vendor_dir.iterdir():
-                    java_executable = java_home / "bin" / "javaw.exe"
+                    java_executable = java_home / "bin" / JavaManager._java_executable_names()[0]
                     if java_executable.is_file():
                         java_paths.append(java_executable)
         return java_paths
@@ -208,54 +211,52 @@ class JavaManager:
             return None
         home_path = Path(java_home)
         candidates = [
-            home_path / "bin" / "javaw.exe",
-            home_path / "javaw.exe",
-        ] # they can return include "bin" dir, making this crash, so we tried 2 paths
+            directory / executable
+            for directory in (home_path / "bin", home_path)
+            for executable in JavaManager._java_executable_names()
+        ]
         for java_path in candidates:
             if java_path.is_file():
                 return [java_path]
         return None
     @staticmethod
     def _get_java_in_path() -> list[Path] | None:
-        try:
-            result = subprocess.run(
-                ["where", "java"],
-                capture_output=True,
-                text=True,
-                check=True,
-                timeout=8,
-                creationflags=JavaManager._creation_flags(),
-            )
-
-        except (
-            subprocess.CalledProcessError,
-            subprocess.TimeoutExpired,
-            FileNotFoundError,
-            PermissionError,
-            OSError,
-        ):
-            return None
-
-        paths = result.stdout.splitlines()
-
-        if not paths:
-            return None
+        if JavaManager._is_windows():
+            try:
+                result = subprocess.run(
+                    ["where", "java"],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                    timeout=8,
+                    creationflags=JavaManager._creation_flags(),
+                )
+            except (
+                subprocess.CalledProcessError,
+                subprocess.TimeoutExpired,
+                FileNotFoundError,
+                PermissionError,
+                OSError,
+            ):
+                return None
+            java_paths: list[Path] = []
+            for raw_path in result.stdout.splitlines():
+                raw_path = raw_path.strip()
+                if not raw_path:
+                    continue
+                java_path = JavaManager.normalize_executable(Path(raw_path))
+                if java_path not in java_paths:
+                    java_paths.append(java_path)
+            return java_paths or None
 
         java_paths: list[Path] = []
-
-        for raw_path in paths:
-            java_path = Path(raw_path.strip())
-
-            if not str(java_path):
+        for command_name in ("java",):
+            resolved = shutil.which(command_name)
+            if not resolved:
                 continue
-
-            javaw_path = java_path.with_name("javaw.exe")
-
-            if javaw_path.exists():
-                java_paths.append(javaw_path)
-            else:
+            java_path = JavaManager.normalize_executable(Path(resolved))
+            if java_path.is_file() and java_path not in java_paths:
                 java_paths.append(java_path)
-
         return java_paths or None
 
     @staticmethod
@@ -265,7 +266,7 @@ class JavaManager:
     @staticmethod
     def normalize_executable(java_path: Path) -> Path:
         path = Path(java_path)
-        if path.name.casefold() == "java.exe":
+        if JavaManager._is_windows() and path.name.casefold() == "java.exe":
             javaw_path = path.with_name("javaw.exe")
             if javaw_path.is_file():
                 return javaw_path
@@ -295,7 +296,7 @@ class JavaManager:
         ):
             return None
 
-        output = result.stderr.strip()
+        output = (getattr(result, "stderr", "") or getattr(result, "stdout", "") or "").strip()
 
         if not output:
             return None
@@ -324,6 +325,16 @@ class JavaManager:
                 return console_path
         return path
 
+    @staticmethod
+    def _is_windows() -> bool:
+        return os.name == "nt"
+
+    @staticmethod
+    def _java_executable_names() -> tuple[str, ...]:
+        if JavaManager._is_windows():
+            return ("javaw.exe", "java.exe")
+        return ("java",)
+
 
     @staticmethod
     def _remove_duplicate_paths(javas: list[JavaInstallation]) -> list[JavaInstallation]:
@@ -331,9 +342,9 @@ class JavaManager:
         seen: set[str] = set()
         for java in javas:
             try:
-                key = str(java.executable.resolve(strict=False)).casefold()
+                key = os.path.normcase(str(java.executable.resolve(strict=False)))
             except OSError:
-                key = str(java.executable).casefold()
+                key = os.path.normcase(str(java.executable))
             if key in seen:
                 continue
             seen.add(key)

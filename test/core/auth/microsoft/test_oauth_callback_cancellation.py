@@ -36,3 +36,5 @@ def test_wait_for_callback_can_be_cancelled_before_waiting(monkeypatch: pytest.M
         OAuthCallbackServer.wait_for_callback(cancel_event=cancel_event)
 
     assert created and created[0].closed is True
+    assert OAuthCallbackServer.HOST == "127.0.0.1"
+    assert OAuthCallbackServer.PORT == 8400

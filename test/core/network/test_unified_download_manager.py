@@ -132,3 +132,54 @@ def test_all_permanent_sources_fail_without_repeated_attempts(manager: DownloadM
     assert destination.with_name("file.jar.part").exists() is False
     entries = DownloadJournal(tmp_path / "journal.json").recoverable_entries()
     assert entries[0]["state"] == DownloadState.FAILED.value
+
+
+def test_calculate_hashes_reads_file_once_for_multiple_algorithms(manager: DownloadManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    content = (b"mcw-beta2-hash" * 100000) + b"tail"
+    path = tmp_path / "artifact.bin"
+    path.write_bytes(content)
+    real_open_file = download_manager_module.open_file
+    read_calls = 0
+
+    class CountingFile:
+        def __init__(self, handle):
+            self._handle = handle
+
+        def __enter__(self):
+            self._handle.__enter__()
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return self._handle.__exit__(exc_type, exc, tb)
+
+        def read(self, size=-1):
+            nonlocal read_calls
+            read_calls += 1
+            return self._handle.read(size)
+
+    def counting_open_file(target, mode):
+        return CountingFile(real_open_file(target, mode))
+
+    monkeypatch.setattr(download_manager_module, "open_file", counting_open_file)
+
+    hashes = manager.calculate_hashes(path, {"sha1": "x", "sha512": "y", "sha256": "z"})
+
+    assert hashes == {
+        "sha1": hashlib.sha1(content).hexdigest(),
+        "sha512": hashlib.sha512(content).hexdigest(),
+        "sha256": hashlib.sha256(content).hexdigest(),
+    }
+    expected_chunks = (len(content) + download_manager_module.CHUNK_SIZE - 1) // download_manager_module.CHUNK_SIZE
+    assert read_calls == expected_chunks + 1
+
+
+def test_recommended_concurrency_profiles_are_bounded_and_game_aware() -> None:
+    assert DownloadManager.recommended_concurrency("automatic", cores=4) == 2
+    assert DownloadManager.recommended_concurrency("automatic", cores=8) == 4
+    assert DownloadManager.recommended_concurrency("automatic", cores=16) == 6
+    assert DownloadManager.recommended_concurrency("automatic", cores=16, game_running=True) == 2
+    assert DownloadManager.recommended_concurrency("responsive", cores=16) == 2
+    assert DownloadManager.recommended_concurrency("balanced", cores=16) == 4
+    assert DownloadManager.recommended_concurrency("maximum", cores=16) == 12
+    assert DownloadManager.recommended_concurrency("maximum", configured=8, cores=16, game_running=True) == 8
+    assert DownloadManager.recommended_concurrency("unknown", cores=4) == 2

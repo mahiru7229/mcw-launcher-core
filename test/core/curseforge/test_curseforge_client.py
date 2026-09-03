@@ -181,7 +181,6 @@ def test_gateway_failure_returns_stale_cache_with_error_state(monkeypatch, tmp_p
     client.close()
 
 
-
 def test_catalog_search_filters_projects_by_latest_file_loader(monkeypatch, tmp_path: Path) -> None:
     payload = {
         "data": [

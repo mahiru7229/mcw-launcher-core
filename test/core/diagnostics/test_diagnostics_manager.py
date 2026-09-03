@@ -203,5 +203,94 @@ def test_instance_health_bundle_uses_safe_relative_paths(tmp_path, monkeypatch):
 
     payload = json.loads(DiagnosticsManager._instance_health_json())
 
-    assert payload["instances"][0]["issues"][0]["path"] == "instances/Example/mods/missing.jar"
+    assert payload["instances"][0]["issues"][0]["path"] == "root/instances/Example/mods/missing.jar"
     assert str(tmp_path) not in json.dumps(payload)
+
+
+def test_v2_bundle_contains_system_task_and_issue_context(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(diagnostics_manager.DiagnosticsManager, "_safe_log_entries", classmethod(lambda cls: {}))
+    monkeypatch.setattr(diagnostics_manager.DiagnosticsManager, "_safe_runtime_entries", classmethod(lambda cls: {}))
+    monkeypatch.setattr(diagnostics_manager.DiagnosticsManager, "_system_info_json", classmethod(lambda cls: b'{"schema_version": 1}\n'))
+    monkeypatch.setattr(diagnostics_manager.DiagnosticsManager, "_java_runtimes_json", classmethod(lambda cls: b'{"schema_version": 1, "runtimes": []}\n'))
+
+    result = DiagnosticsManager.write_bundle(
+        tmp_path / "v2.zip",
+        "1.4.0-beta.4",
+        task_timeline=({"task_id": "java.scan", "state": "cancelled"},),
+        issue_context={"title": "Example", "what_happened": "Failure"},
+    )
+
+    with zipfile.ZipFile(result, "r") as archive:
+        names = set(archive.namelist())
+        assert "system-info.json" in names
+        assert "java-runtimes.json" in names
+        assert "task-timeline.json" in names
+        assert "issue-context.json" in names
+        assert "java-recovery.json" in names
+        assert "diagnostic-summary.json" in names
+        assert "collector-errors.json" in names
+        timeline = json.loads(archive.read("task-timeline.json"))
+        issue = json.loads(archive.read("issue-context.json"))
+        manifest = json.loads(archive.read("manifest.json"))
+    assert timeline["tasks"][0]["task_id"] == "java.scan"
+    assert issue["issue"]["title"] == "Example"
+    assert manifest["schema_version"] == "2.1"
+
+
+def test_v21_bundle_isolates_collector_failure(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(diagnostics_manager.DiagnosticsManager, "_system_info_json", classmethod(lambda cls: (_ for _ in ()).throw(RuntimeError("C:\\Private\\system probe failed"))))
+    monkeypatch.setattr(diagnostics_manager.DiagnosticsManager, "_safe_log_entries", classmethod(lambda cls: {}))
+    monkeypatch.setattr(diagnostics_manager.DiagnosticsManager, "_safe_runtime_entries", classmethod(lambda cls: {}))
+    monkeypatch.setattr(diagnostics_manager.DiagnosticsManager, "_safe_installer_entries", classmethod(lambda cls: {}))
+
+    result = DiagnosticsManager.write_bundle(tmp_path / "collector.zip", "1.4.1-beta.1")
+
+    with zipfile.ZipFile(result, "r") as archive:
+        errors = json.loads(archive.read("collector-errors.json"))["errors"]
+        assert archive.testzip() is None
+        assert "report.txt" in archive.namelist()
+    assert errors[0]["collector"] == "system-info.json"
+    assert "C:" not in errors[0]["error"]
+
+
+def test_runtime_entry_reports_truncation_and_sanitizes_path_and_player(tmp_path: Path, monkeypatch) -> None:
+    root = tmp_path / "launcher"
+    log = root / "instances" / "Example" / "logs" / "latest.log"
+    log.parent.mkdir(parents=True)
+    log.write_text("ServerPlayer['PrivateName'/1]\n" + ("x" * (DiagnosticsManager.MAX_LOG_BYTES + 50)), encoding="utf-8")
+    instance = SimpleNamespace(name="Example")
+    monkeypatch.setattr(Paths, "PROJECT_ROOT", root)
+    monkeypatch.setattr(InstanceManager, "list_instances", lambda: [instance])
+    monkeypatch.setattr(diagnostics_manager.GameRuntimeManager, "latest_game_log", lambda _instance: log)
+    monkeypatch.setattr(diagnostics_manager.GameRuntimeManager, "latest_crash_report", lambda _instance: None)
+
+    entries = DiagnosticsManager._safe_runtime_entries()
+    metadata = json.loads(entries["runtime/metadata.json"])["entries"][0]
+    payload = next(value for key, value in entries.items() if key.endswith("latest.log")).decode("utf-8")
+
+    assert metadata["truncated"] is True
+    assert metadata["source"] == "root/instances/Example/logs/latest.log"
+    assert "PrivateName" not in payload
+
+
+def test_report_uses_root_alias_for_application_paths(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(Paths, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(Paths, "CONFIG_ROOT", tmp_path / "config")
+    monkeypatch.setattr(Paths, "INSTANCES_ROOT", tmp_path / "instances")
+    monkeypatch.setattr(Paths, "CACHE_ROOT", tmp_path / "cache")
+    monkeypatch.setattr(Paths, "ACCOUNTS_ROOT", tmp_path / "accounts")
+    monkeypatch.setattr(Paths, "LOGS_ROOT", tmp_path / "logs")
+    monkeypatch.setattr(InstanceManager, "list_instances", lambda: [])
+    monkeypatch.setattr(InstanceRunLock, "list_active", lambda: [])
+
+    report = DiagnosticsManager.build_report("1.4.1-beta.1")
+
+    assert "application_root: root/" in report
+    assert "config: root/config" in report
+
+
+def test_java8_update_parser_flags_legacy_runtime() -> None:
+    assert DiagnosticsManager._java8_update("1.8.0_51") == 51
+    assert DiagnosticsManager._java8_update("1.8.0_492") == 492
+    assert DiagnosticsManager._java8_update("8u402") == 402
+    assert DiagnosticsManager._java8_update("17.0.12") is None

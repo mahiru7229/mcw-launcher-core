@@ -25,12 +25,16 @@ def make_manifest_data() -> dict:
                 "id": "1.21.8",
                 "type": "release",
                 "url": "https://example.com/1.21.8.json",
+                "sha1": "a" * 40,
+                "size": 1200,
                 "releaseTime": "2026-07-01T10:30:00+00:00",
             },
             {
                 "id": "26w28a",
                 "type": "snapshot",
                 "url": "https://example.com/26w28a.json",
+                "sha1": "b" * 40,
+                "size": 1400,
                 "releaseTime": "2026-07-08T12:00:00+00:00",
             },
         ],
@@ -225,12 +229,16 @@ def test_parse_manifest_returns_version_models():
     assert release.url == (
         "https://example.com/1.21.8.json"
     )
+    assert release.sha1 == "a" * 40
+    assert release.size == 1200
 
     assert snapshot.id == "26w28a"
     assert snapshot.type == "snapshot"
     assert snapshot.url == (
         "https://example.com/26w28a.json"
     )
+    assert snapshot.sha1 == "b" * 40
+    assert snapshot.size == 1400
 
 
 def test_parse_manifest_converts_release_time_to_datetime():
@@ -271,6 +279,29 @@ def test_parse_manifest_preserves_version_order():
         "26w28a",
         "1.21.8",
     ]
+
+
+def test_parse_manifest_accepts_official_legacy_ids_with_spaces():
+    data = make_manifest_data()
+    data["versions"][0]["id"] = "1.14.2 Pre-Release 4"
+    data["versions"][1]["id"] = "3D Shareware v1.34"
+
+    result = VersionManifestManager._parse_manifest(data)
+
+    assert [version.id for version in result] == [
+        "1.14.2 Pre-Release 4",
+        "3D Shareware v1.34",
+    ]
+
+
+def test_parse_manifest_skips_one_unsafe_entry_without_discarding_valid_entries():
+    data = make_manifest_data()
+    unsafe = dict(data["versions"][0], id="../escape")
+    data["versions"].insert(0, unsafe)
+
+    result = VersionManifestManager._parse_manifest(data)
+
+    assert [version.id for version in result] == ["1.21.8", "26w28a"]
 
 
 @pytest.mark.parametrize(
@@ -349,7 +380,7 @@ def test_get_orchestrates_download_load_and_parse(
         fake_parse,
     )
 
-    result = VersionManifestManager.get()
+    result = VersionManifestManager.get(force_refresh=True)
 
     assert result is parsed_result
     assert calls == [
@@ -357,6 +388,24 @@ def test_get_orchestrates_download_load_and_parse(
         ("load", manifest_path),
         ("parse", manifest_data),
     ]
+
+
+def test_get_uses_valid_cache_without_network(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps(make_manifest_data()), encoding="utf-8")
+    monkeypatch.setattr(Paths, "version_manifest", lambda: manifest_path)
+    monkeypatch.setattr(
+        VersionManifestManager,
+        "_download_manifest",
+        lambda: (_ for _ in ()).throw(AssertionError("unexpected network refresh")),
+    )
+
+    result = VersionManifestManager.get()
+
+    assert [version.id for version in result] == ["1.21.8", "26w28a"]
 
 
 def test_latest_version_returns_latest_release(
@@ -437,7 +486,9 @@ def test_latest_version_returns_empty_string_for_invalid_manifest(
 
 def test_latest_version_returns_empty_string_after_download_failure(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ):
+    monkeypatch.setattr(Paths, "version_manifest", lambda: tmp_path / "missing.json")
     monkeypatch.setattr(
         VersionManifestManager,
         "_download_manifest",
@@ -473,3 +524,45 @@ def test_download_manifest_does_not_replace_cache_with_invalid_response(monkeypa
 
     assert VersionManifestManager._download_manifest() == manifest_path
     assert manifest_path.read_text(encoding="utf-8") == cached_text
+
+
+def test_download_manifest_falls_back_to_existing_cache_when_atomic_publish_is_locked(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    manifest_path = tmp_path / "manifest.json"
+    cached = json.dumps(make_manifest_data())
+    manifest_path.write_text(cached, encoding="utf-8")
+    monkeypatch.setattr(Paths, "version_manifest", lambda: manifest_path)
+    monkeypatch.setattr(
+        requests,
+        "get",
+        lambda url, timeout: SimpleNamespace(text=json.dumps(make_manifest_data()), raise_for_status=lambda: None),
+    )
+    monkeypatch.setattr(
+        "src.core.minecraft.version_manifest_manager.atomic_write_text",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(PermissionError("sharing violation")),
+    )
+
+    assert VersionManifestManager._download_manifest() == manifest_path
+    assert manifest_path.read_text(encoding="utf-8") == cached
+
+
+def test_concurrent_manifest_refreshes_use_independent_temporary_files(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    manifest_path = tmp_path / "manifest.json"
+    payload = json.dumps(make_manifest_data())
+    barrier = Barrier(2)
+    monkeypatch.setattr(Paths, "version_manifest", lambda: manifest_path)
+
+    def fake_get(url: str, timeout: int):
+        barrier.wait(timeout=2)
+        return SimpleNamespace(text=payload, raise_for_status=lambda: None)
+
+    monkeypatch.setattr(requests, "get", fake_get)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(lambda _value: VersionManifestManager._download_manifest(), range(2)))
+
+    assert results == [manifest_path, manifest_path]
+    assert json.loads(manifest_path.read_text(encoding="utf-8")) == make_manifest_data()
+    assert not list(tmp_path.glob(".*.tmp"))

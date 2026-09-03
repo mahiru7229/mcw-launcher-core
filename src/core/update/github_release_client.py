@@ -17,7 +17,14 @@ class GitHubReleaseClient:
     CACHE_SCHEMA_VERSION = 1
     CACHE_TTL_SECONDS = 15 * 60
 
-    def __init__(self, repository: str, current_version: str, channel: str = "stable", cache_path: Path | None = None) -> None:
+    def __init__(
+        self,
+        repository: str,
+        current_version: str,
+        channel: str = "stable",
+        cache_path: Path | None = None,
+        platform_id: str = "windows-x64",
+    ) -> None:
         repository_name = str(repository).strip().strip("/")
         if repository_name.count("/") != 1:
             raise ValueError("GitHub repository must use the 'owner/name' format.")
@@ -26,6 +33,7 @@ class GitHubReleaseClient:
         self.current_version = str(current_version).strip()
         self.channel = str(channel).strip().lower() or "beta"
         self.cache_path = Path(cache_path) if cache_path is not None else Paths.update_release_cache()
+        self.platform_id = self._normalize_platform_id(platform_id)
 
     def check(self, force_refresh: bool = False) -> UpdateInfo | None:
         releases = self._load_releases(force_refresh=force_refresh)
@@ -110,8 +118,7 @@ class GitHubReleaseClient:
             asset=asset,
         )
 
-    @staticmethod
-    def _select_asset(raw_assets: object) -> ReleaseAsset | None:
+    def _select_asset(self, raw_assets: object) -> ReleaseAsset | None:
         if not isinstance(raw_assets, list):
             return None
 
@@ -125,13 +132,9 @@ class GitHubReleaseClient:
                 continue
 
             lowered = name.casefold()
-            score = 0
-            if "windows" in lowered:
-                score += 8
-            elif "win" in lowered:
-                score += 6
-            if "x64" in lowered or "amd64" in lowered:
-                score += 4
+            if not self._asset_matches_platform(lowered):
+                continue
+            score = 20 if lowered.endswith(f"-{self.platform_id}.zip") else 10
             if "mcw" in lowered or "launcher" in lowered:
                 score += 2
             scored.append((score, raw_asset))
@@ -161,6 +164,21 @@ class GitHubReleaseClient:
             sha256=sha256,
             sha256_url=sha256_url,
         )
+
+    @staticmethod
+    def _normalize_platform_id(platform_id: str) -> str:
+        normalized = str(platform_id or "").strip().casefold()
+        if normalized not in {"windows-x64", "linux-x64"}:
+            raise ValueError(f"Unsupported launcher update platform: {platform_id!r}")
+        return normalized
+
+    def _asset_matches_platform(self, lowered_name: str) -> bool:
+        is_x64 = "x64" in lowered_name or "amd64" in lowered_name or "x86_64" in lowered_name
+        if not is_x64:
+            return False
+        if self.platform_id == "windows-x64":
+            return "windows" in lowered_name or "win-x64" in lowered_name
+        return "linux" in lowered_name
 
     def _read_cache(self) -> dict[str, Any] | None:
         try:

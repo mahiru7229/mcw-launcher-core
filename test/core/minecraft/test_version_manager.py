@@ -3,11 +3,11 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-import requests
 
 from src.core.fs.paths import Paths
 from src.core.minecraft.version_manager import VersionManager
 from src.core.minecraft.version_manifest_manager import VersionManifestManager
+from src.core.network.httpx_downloader import HttpDownloader
 from src.models.minecraft.version import Version
 
 
@@ -18,6 +18,8 @@ def make_manifest(
     return SimpleNamespace(
         id=version_id,
         url=url,
+        sha1="a" * 40,
+        size=128,
     )
 
 
@@ -212,27 +214,27 @@ def test_choosing_version_raises_when_id_does_not_exist(
         )
 
 
-def test_download_version_writes_response_to_expected_path(
+def test_download_version_uses_verified_download_engine(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ):
     manifest = make_manifest("1.20.1")
     version_path = tmp_path / "versions" / "1.20.1.json"
-
-    response = SimpleNamespace(
-        text=json.dumps(make_version_data())
-    )
+    received = {}
 
     monkeypatch.setattr(
         Paths,
         "version_json",
         lambda version: version_path,
     )
-    monkeypatch.setattr(
-        requests,
-        "get",
-        lambda url, timeout: response,
-    )
+
+    def fake_download(**kwargs):
+        received.update(kwargs)
+        version_path.parent.mkdir(parents=True, exist_ok=True)
+        version_path.write_text(json.dumps(make_version_data()), encoding="utf-8")
+        return version_path
+
+    monkeypatch.setattr(HttpDownloader, "download", fake_download)
 
     result = VersionManager._download_version(
         manifest
@@ -243,48 +245,13 @@ def test_download_version_writes_response_to_expected_path(
     assert json.loads(
         version_path.read_text(encoding="utf-8")
     ) == make_version_data()
+    assert received["download_info"] is manifest
+    assert received["path"] == version_path
+    assert received["max_retry"] == 3
+    assert received["timeout"] == 20.0
 
 
-def test_download_version_uses_manifest_url_and_timeout(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-):
-    manifest = make_manifest(
-        "1.20.1",
-        "https://example.com/1.20.1.json",
-    )
-    received = {}
-
-    monkeypatch.setattr(
-        Paths,
-        "version_json",
-        lambda version: tmp_path / "version.json",
-    )
-
-    def fake_get(url: str, timeout: int):
-        received["url"] = url
-        received["timeout"] = timeout
-        return SimpleNamespace(
-            text="{}"
-        )
-
-    monkeypatch.setattr(
-        requests,
-        "get",
-        fake_get,
-    )
-
-    VersionManager._download_version(
-        manifest
-    )
-
-    assert received == {
-        "url": "https://example.com/1.20.1.json",
-        "timeout": 10,
-    }
-
-
-def test_download_version_returns_none_on_request_error(
+def test_download_version_returns_none_when_download_and_cache_fail(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ):
@@ -296,22 +263,58 @@ def test_download_version_returns_none_on_request_error(
         lambda version: tmp_path / "version.json",
     )
 
-    def fail_get(*args, **kwargs):
-        raise requests.RequestException(
-            "network failed"
-        )
-
-    monkeypatch.setattr(
-        requests,
-        "get",
-        fail_get,
-    )
+    monkeypatch.setattr(HttpDownloader, "download", lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("network failed")))
 
     result = VersionManager._download_version(
         manifest
     )
 
     assert result is None
+
+
+def test_download_version_uses_verified_cache_when_network_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    manifest = make_manifest("1.20.1")
+    version_path = tmp_path / "version.json"
+    version_path.write_text(json.dumps(make_version_data()), encoding="utf-8")
+    manifest.size = version_path.stat().st_size
+
+    monkeypatch.setattr(Paths, "version_json", lambda _version: version_path)
+    checks = iter((False, True))
+    monkeypatch.setattr(HttpDownloader, "download", lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("offline")))
+    monkeypatch.setattr(HttpDownloader, "verify_sha1", lambda path, sha1: next(checks))
+
+    assert VersionManager._download_version(manifest) == version_path
+
+
+def test_download_version_uses_verified_cache_without_network(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    manifest = make_manifest("1.20.1")
+    version_path = tmp_path / "version.json"
+    version_path.write_text(json.dumps(make_version_data()), encoding="utf-8")
+    manifest.size = version_path.stat().st_size
+
+    monkeypatch.setattr(Paths, "version_json", lambda _version: version_path)
+    monkeypatch.setattr(
+        HttpDownloader,
+        "download",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("unexpected network download")),
+    )
+    monkeypatch.setattr(
+        HttpDownloader,
+        "verify_sha1",
+        lambda path, sha1: path == version_path and sha1 == manifest.sha1,
+    )
+
+    assert VersionManager._download_version(manifest) == version_path
+
+
+def test_load_default_is_lazy() -> None:
+    assert VersionManager.load.__defaults__ == (None,)
 
 
 def test_load_orchestrates_choose_download_load_and_parse(
@@ -399,7 +402,7 @@ def test_load_raises_clean_runtime_error_when_download_fails(
 
     with pytest.raises(
         RuntimeError,
-        match="Cannot download version metadata",
+        match="Cannot load metadata for Minecraft 1.20.1",
     ):
         VersionManager.load(
             "1.20.1"

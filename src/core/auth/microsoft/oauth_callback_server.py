@@ -75,6 +75,8 @@ class ReusableOAuthHTTPServer(HTTPServer):
 
 
 class OAuthCallbackServer:
+    HOST = "127.0.0.1"
+    PORT = 8400
     POLL_INTERVAL_SECONDS = 0.25
 
     @staticmethod
@@ -84,7 +86,7 @@ class OAuthCallbackServer:
         OAuthCallbackHandler.error = None
         OAuthCallbackHandler.error_description = None
 
-        server = ReusableOAuthHTTPServer(("localhost", 8400), OAuthCallbackHandler)
+        server = ReusableOAuthHTTPServer((OAuthCallbackServer.HOST, OAuthCallbackServer.PORT), OAuthCallbackHandler)
         server.timeout = OAuthCallbackServer.POLL_INTERVAL_SECONDS
         deadline = monotonic() + max(0.0, float(timeout))
 

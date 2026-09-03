@@ -57,3 +57,32 @@ def test_locked_journal_replace_is_best_effort(monkeypatch, tmp_path: Path) -> N
 
     assert journal_path.exists() is False
     assert tuple(tmp_path.glob("*.tmp")) == ()
+
+
+def test_downloading_progress_is_batched_until_critical_state(tmp_path: Path, monkeypatch) -> None:
+    journal_path = tmp_path / "download-journal.json"
+    journal = DownloadJournal(journal_path)
+    request = _request(tmp_path)
+    journal.start(request, downloaded_bytes=1)
+
+    writes = 0
+    real_write = journal._write
+
+    def counted_write(payload):
+        nonlocal writes
+        writes += 1
+        return real_write(payload)
+
+    monkeypatch.setattr(journal, "_write", counted_write)
+    journal._last_progress_flush_at = __import__("time").monotonic()
+
+    journal.update(request, DownloadState.DOWNLOADING, downloaded_bytes=5)
+    journal.update(request, DownloadState.DOWNLOADING, downloaded_bytes=6)
+
+    assert writes == 0
+    assert journal.snapshot()[0]["downloaded_bytes"] == 6
+
+    journal.update(request, DownloadState.CANCELLED, downloaded_bytes=6)
+
+    assert writes == 1
+    assert json.loads(journal_path.read_text(encoding="utf-8"))["entries"]["request-1"]["state"] == DownloadState.CANCELLED.value

@@ -1,0 +1,8 @@
+/* Local, code-free QSS. Do not use @import or url(). */
+QLabel#ValueLabel {
+    font-weight: 600;
+}
+
+QPushButton#PrimaryButton {
+    min-height: 40px;
+}
