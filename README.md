@@ -58,6 +58,28 @@ Supported consumers import from `mcw_core` or `mcw_core.api.*`. Modules under `s
 
 Extract the nested ZIP, follow its README, set `CURSEFORGE_API_KEY` in Vercel and configure the deployed HTTPS endpoint through `MCW_CURSEFORGE_GATEWAY_URL` or the Core configuration API.
 
+
+## Documentation
+
+The complete documentation hub is [docs/README.md](docs/README.md).
+
+Recommended entry points:
+
+- [Vietnamese complete v1.5.0 guide](docs/vi/MCW_CORE_V1_5_COMPLETE_GUIDE.md)
+- [English Core guide](docs/en/CORE_GUIDE.md)
+- [Full generated API reference (EN)](docs/en/API_REFERENCE.md)
+- [Full generated API reference (VI)](docs/vi/API_REFERENCE.md)
+- [Architecture](docs/CORE_ARCHITECTURE.md)
+- [Instance system](docs/INSTANCE_SYSTEM.md)
+- [Package format](docs/PACKAGE_FORMAT.md)
+- [Update packages](docs/UPDATE_PACKAGES.md)
+
+Regenerate the public API reference after public API changes:
+
+```bash
+python tools/generate_public_api_docs.py
+```
+
 ## Source layout
 
 - `mcw_core/`: stable public API and facade.

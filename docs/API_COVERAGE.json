@@ -1,0 +1,899 @@
+{
+  "version": "1.5.0",
+  "modules": [
+    {
+      "module": "mcw_core.api.account.account_manager",
+      "source_modules": [
+        "src.core.account.account_manager"
+      ],
+      "symbols": [
+        "AccountManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.account.account_skin_manager",
+      "source_modules": [
+        "src.core.account.account_skin_manager"
+      ],
+      "symbols": [
+        "AccountSkinManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.atlauncher.atlauncher_client",
+      "source_modules": [
+        "src.core.atlauncher.atlauncher_client"
+      ],
+      "symbols": [
+        "ATLauncherClient"
+      ]
+    },
+    {
+      "module": "mcw_core.api.atlauncher.atlauncher_content_manager",
+      "source_modules": [
+        "src.core.atlauncher.atlauncher_content_manager"
+      ],
+      "symbols": [
+        "ATLauncherContentManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.atlauncher.atlauncher_pack_installer",
+      "source_modules": [
+        "src.core.atlauncher.atlauncher_pack_installer"
+      ],
+      "symbols": [
+        "ATLauncherPackInstaller"
+      ]
+    },
+    {
+      "module": "mcw_core.api.atlauncher.atlauncher_pack_registry",
+      "source_modules": [
+        "src.core.atlauncher.atlauncher_pack_registry"
+      ],
+      "symbols": [
+        "ATLauncherPackRegistry"
+      ]
+    },
+    {
+      "module": "mcw_core.api.auth.microsoft.microsoft_auth_gate",
+      "source_modules": [
+        "src.core.auth.microsoft.microsoft_auth_gate"
+      ],
+      "symbols": [
+        "MicrosoftAuthenticationLockedError",
+        "MicrosoftAuthenticationAvailability",
+        "MicrosoftAuthenticationGate"
+      ]
+    },
+    {
+      "module": "mcw_core.api.auth.microsoft.oauth_callback_server",
+      "source_modules": [
+        "src.core.auth.microsoft.oauth_callback_server"
+      ],
+      "symbols": [
+        "MicrosoftAuthorizationCancelledError",
+        "OAuthCallbackHandler",
+        "ReusableOAuthHTTPServer",
+        "OAuthCallbackServer"
+      ]
+    },
+    {
+      "module": "mcw_core.api.backup.instance_backup_manager",
+      "source_modules": [
+        "src.core.backup.instance_backup_manager"
+      ],
+      "symbols": [
+        "InstanceBackupManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.bootstrap",
+      "source_modules": [
+        "src.core.bootstrap"
+      ],
+      "symbols": [
+        "initialize_application"
+      ]
+    },
+    {
+      "module": "mcw_core.api.config.curseforge_config_manager",
+      "source_modules": [
+        "src.core.config.curseforge_config_manager"
+      ],
+      "symbols": [
+        "CurseForgeConfigManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.config.launcher_settings_manager",
+      "source_modules": [
+        "src.core.config.launcher_settings_manager"
+      ],
+      "symbols": [
+        "LauncherSettingsManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.config.managed_content_policy",
+      "source_modules": [
+        "src.core.config.managed_content_policy"
+      ],
+      "symbols": [
+        "ManagedContentPolicy"
+      ]
+    },
+    {
+      "module": "mcw_core.api.content.content_pack_manager",
+      "source_modules": [
+        "src.core.content.content_pack_manager"
+      ],
+      "symbols": [
+        "ContentPackManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.content.content_pack_registry",
+      "source_modules": [
+        "src.core.content.content_pack_registry"
+      ],
+      "symbols": [
+        "ContentPackRegistry"
+      ]
+    },
+    {
+      "module": "mcw_core.api.content.installed_content_library",
+      "source_modules": [
+        "src.core.content.installed_content_library",
+        "src.models.content.installed_content"
+      ],
+      "symbols": [
+        "InstalledContentLibraryManager",
+        "InstalledContentItem",
+        "InstalledContentLibrary"
+      ]
+    },
+    {
+      "module": "mcw_core.api.curseforge.curseforge_client",
+      "source_modules": [
+        "src.core.curseforge.curseforge_client"
+      ],
+      "symbols": [
+        "CurseForgeClient"
+      ]
+    },
+    {
+      "module": "mcw_core.api.curseforge.curseforge_errors",
+      "source_modules": [
+        "src.core.curseforge.curseforge_errors"
+      ],
+      "symbols": [
+        "CurseForgeManagedFilesRequired",
+        "CurseForgeModpackManualDownloadRequired"
+      ]
+    },
+    {
+      "module": "mcw_core.api.curseforge.curseforge_links",
+      "source_modules": [
+        "src.core.curseforge.curseforge_links"
+      ],
+      "symbols": [
+        "normalize_project_page",
+        "project_search_url",
+        "file_page_url",
+        "best_manual_download_url"
+      ]
+    },
+    {
+      "module": "mcw_core.api.curseforge.curseforge_manual_installer",
+      "source_modules": [
+        "src.core.curseforge.curseforge_manual_installer"
+      ],
+      "symbols": [
+        "CurseForgeManualInstaller"
+      ]
+    },
+    {
+      "module": "mcw_core.api.curseforge.curseforge_mod_installer",
+      "source_modules": [
+        "src.core.curseforge.curseforge_mod_installer"
+      ],
+      "symbols": [
+        "CurseForgeModInstaller"
+      ]
+    },
+    {
+      "module": "mcw_core.api.curseforge.curseforge_pack_installer",
+      "source_modules": [
+        "src.core.curseforge.curseforge_pack_installer"
+      ],
+      "symbols": [
+        "CurseForgePackInstaller"
+      ]
+    },
+    {
+      "module": "mcw_core.api.curseforge.curseforge_registry",
+      "source_modules": [
+        "src.core.curseforge.curseforge_registry"
+      ],
+      "symbols": [
+        "CurseForgeRegistry"
+      ]
+    },
+    {
+      "module": "mcw_core.api.diagnostics.diagnostics_manager",
+      "source_modules": [
+        "src.core.diagnostics.diagnostics_manager"
+      ],
+      "symbols": [
+        "DiagnosticsManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.diagnostics.issue_report_builder",
+      "source_modules": [
+        "src.core.diagnostics.issue_report_builder"
+      ],
+      "symbols": [
+        "IssueReportBuilder"
+      ]
+    },
+    {
+      "module": "mcw_core.api.fs.paths",
+      "source_modules": [
+        "src.core.fs.paths"
+      ],
+      "symbols": [
+        "Paths"
+      ]
+    },
+    {
+      "module": "mcw_core.api.ftb.ftb_client",
+      "source_modules": [
+        "src.core.ftb.ftb_client"
+      ],
+      "symbols": [
+        "FTBClient"
+      ]
+    },
+    {
+      "module": "mcw_core.api.ftb.ftb_content_manager",
+      "source_modules": [
+        "src.core.ftb.ftb_content_manager"
+      ],
+      "symbols": [
+        "FTBContentManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.ftb.ftb_pack_installer",
+      "source_modules": [
+        "src.core.ftb.ftb_pack_installer"
+      ],
+      "symbols": [
+        "FTBPackInstaller"
+      ]
+    },
+    {
+      "module": "mcw_core.api.ftb.ftb_pack_registry",
+      "source_modules": [
+        "src.core.ftb.ftb_pack_registry"
+      ],
+      "symbols": [
+        "FTBPackRegistry"
+      ]
+    },
+    {
+      "module": "mcw_core.api.hardware.first_run_recommendation_service",
+      "source_modules": [
+        "src.core.hardware.first_run_recommendation_service",
+        "src.models.hardware.first_run_recommendation"
+      ],
+      "symbols": [
+        "FirstRunRecommendationService",
+        "JavaRuntimeSummary",
+        "FirstRunRecommendation"
+      ]
+    },
+    {
+      "module": "mcw_core.api.hardware.gpu_preference_manager",
+      "source_modules": [
+        "src.core.hardware.gpu_preference_manager"
+      ],
+      "symbols": [
+        "GraphicsAdapter",
+        "GraphicsDetectionResult",
+        "GpuPreferenceManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.instance.errors",
+      "source_modules": [
+        "src.core.instance.errors"
+      ],
+      "symbols": [
+        "InstanceAlreadyRunningError",
+        "InstanceModChangeBlockedError",
+        "InstanceDeletionError"
+      ]
+    },
+    {
+      "module": "mcw_core.api.instance.instance_health_manager",
+      "source_modules": [
+        "src.core.instance.instance_health_manager"
+      ],
+      "symbols": [
+        "InstanceHealthManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.instance.instance_manager",
+      "source_modules": [
+        "src.core.instance.instance_manager"
+      ],
+      "symbols": [
+        "InstanceManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.instance.instance_operation_journal",
+      "source_modules": [
+        "src.core.instance.instance_operation_journal"
+      ],
+      "symbols": [
+        "InstanceRecoveryRecord",
+        "InstanceOperationJournal"
+      ]
+    },
+    {
+      "module": "mcw_core.api.instance.instance_run_lock",
+      "source_modules": [
+        "src.core.instance.instance_run_lock"
+      ],
+      "symbols": [
+        "RunningInstanceInfo",
+        "InstanceRunLock"
+      ]
+    },
+    {
+      "module": "mcw_core.api.instance.settings_manager",
+      "source_modules": [
+        "src.core.instance.settings_manager"
+      ],
+      "symbols": [
+        "default_instance_settings",
+        "SettingsManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.java.java_major_policy",
+      "source_modules": [
+        "src.core.java.java_major_policy"
+      ],
+      "symbols": [
+        "JavaMajorPolicy"
+      ]
+    },
+    {
+      "module": "mcw_core.api.lan.lan_agent_manager",
+      "source_modules": [
+        "src.core.lan.lan_agent_manager"
+      ],
+      "symbols": [
+        "LanAgentInstallResult",
+        "LanAgentManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.lan.lan_hosting_manager",
+      "source_modules": [
+        "src.core.lan.lan_hosting_manager"
+      ],
+      "symbols": [
+        "LanHostingManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.language.language_manager",
+      "source_modules": [
+        "src.core.language.language_manager"
+      ],
+      "symbols": [
+        "LanguageInfo",
+        "LanguageManager",
+        "tr"
+      ]
+    },
+    {
+      "module": "mcw_core.api.minecraft.version_manifest_manager",
+      "source_modules": [
+        "src.core.minecraft.version_manifest_manager"
+      ],
+      "symbols": [
+        "VersionManifestManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.mod.mod_compatibility_manager",
+      "source_modules": [
+        "src.core.mod.mod_compatibility_manager"
+      ],
+      "symbols": [
+        "ModCompatibilityManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.mod.mod_manager",
+      "source_modules": [
+        "src.core.mod.mod_manager"
+      ],
+      "symbols": [
+        "ModManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.mod.mod_provenance_registry",
+      "source_modules": [
+        "src.core.mod.mod_provenance_registry"
+      ],
+      "symbols": [
+        "ModProvenanceRegistry"
+      ]
+    },
+    {
+      "module": "mcw_core.api.modloader.fabric.fabric_meta_client",
+      "source_modules": [
+        "src.core.modloader.fabric.fabric_meta_client"
+      ],
+      "symbols": [
+        "FabricMetaClient"
+      ]
+    },
+    {
+      "module": "mcw_core.api.modloader.forge.compatibility_confirmation",
+      "source_modules": [
+        "src.core.modloader.forge.compatibility_confirmation"
+      ],
+      "symbols": [
+        "CompatibilityConfirmationRequired"
+      ]
+    },
+    {
+      "module": "mcw_core.api.modloader.forge.forge_metadata_client",
+      "source_modules": [
+        "src.core.modloader.forge.forge_metadata_client"
+      ],
+      "symbols": [
+        "ForgeMetadataClient"
+      ]
+    },
+    {
+      "module": "mcw_core.api.modloader.mod_loader_manager",
+      "source_modules": [
+        "src.core.modloader.mod_loader_manager"
+      ],
+      "symbols": [
+        "ModLoaderManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.modloader.neoforge.neoforge_metadata_client",
+      "source_modules": [
+        "src.core.modloader.neoforge.neoforge_metadata_client"
+      ],
+      "symbols": [
+        "NeoForgeMetadataClient"
+      ]
+    },
+    {
+      "module": "mcw_core.api.modloader.quilt.quilt_meta_client",
+      "source_modules": [
+        "src.core.modloader.quilt.quilt_meta_client"
+      ],
+      "symbols": [
+        "QuiltMetaClient"
+      ]
+    },
+    {
+      "module": "mcw_core.api.modrinth.modrinth_client",
+      "source_modules": [
+        "src.core.modrinth.modrinth_client"
+      ],
+      "symbols": [
+        "ModrinthClient"
+      ]
+    },
+    {
+      "module": "mcw_core.api.modrinth.modrinth_errors",
+      "source_modules": [
+        "src.core.modrinth.modrinth_errors"
+      ],
+      "symbols": [
+        "ModrinthManagedFilesRequired",
+        "ModrinthModpackManualDownloadRequired"
+      ]
+    },
+    {
+      "module": "mcw_core.api.modrinth.modrinth_manual_installer",
+      "source_modules": [
+        "src.core.modrinth.modrinth_manual_installer"
+      ],
+      "symbols": [
+        "ModrinthManualInstaller"
+      ]
+    },
+    {
+      "module": "mcw_core.api.modrinth.modrinth_mod_installer",
+      "source_modules": [
+        "src.core.modrinth.modrinth_mod_installer"
+      ],
+      "symbols": [
+        "ModrinthModInstaller"
+      ]
+    },
+    {
+      "module": "mcw_core.api.modrinth.modrinth_mod_update_manager",
+      "source_modules": [
+        "src.core.modrinth.modrinth_mod_update_manager"
+      ],
+      "symbols": [
+        "ModrinthModUpdateManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.modrinth.modrinth_pack_installer",
+      "source_modules": [
+        "src.core.modrinth.modrinth_pack_installer"
+      ],
+      "symbols": [
+        "ModrinthPackInstaller"
+      ]
+    },
+    {
+      "module": "mcw_core.api.modrinth.modrinth_pack_registry",
+      "source_modules": [
+        "src.core.modrinth.modrinth_pack_registry"
+      ],
+      "symbols": [
+        "ModrinthPackRegistry"
+      ]
+    },
+    {
+      "module": "mcw_core.api.modrinth.modrinth_pack_repair_manager",
+      "source_modules": [
+        "src.core.modrinth.modrinth_pack_repair_manager"
+      ],
+      "symbols": [
+        "ModrinthPackRepairManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.modrinth.modrinth_pack_update_manager",
+      "source_modules": [
+        "src.core.modrinth.modrinth_pack_update_manager"
+      ],
+      "symbols": [
+        "ModrinthPackUpdateManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.modrinth.modrinth_registry",
+      "source_modules": [
+        "src.core.modrinth.modrinth_registry"
+      ],
+      "symbols": [
+        "ModrinthRegistry"
+      ]
+    },
+    {
+      "module": "mcw_core.api.network.connectivity_monitor",
+      "source_modules": [
+        "src.core.network.connectivity_monitor"
+      ],
+      "symbols": [
+        "ConnectivitySnapshot",
+        "ConnectivityMonitor"
+      ]
+    },
+    {
+      "module": "mcw_core.api.network.download_bandwidth_limiter",
+      "source_modules": [
+        "src.core.network.download_bandwidth_limiter"
+      ],
+      "symbols": [
+        "DownloadBandwidthLimiter"
+      ]
+    },
+    {
+      "module": "mcw_core.api.network.download_manager",
+      "source_modules": [
+        "src.core.network.download_manager"
+      ],
+      "symbols": [
+        "DownloadManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.network.download_pause",
+      "source_modules": [
+        "src.core.network.download_pause"
+      ],
+      "symbols": [
+        "DownloadInterruptedError",
+        "DownloadPausedError",
+        "DownloadCancelledError",
+        "DownloadPauseController",
+        "is_download_paused",
+        "is_download_cancelled"
+      ]
+    },
+    {
+      "module": "mcw_core.api.network.network_session",
+      "source_modules": [
+        "src.core.network.network_session"
+      ],
+      "symbols": [
+        "NetworkSession"
+      ]
+    },
+    {
+      "module": "mcw_core.api.package.portable_content_manager",
+      "source_modules": [
+        "src.core.package.portable_content_manager"
+      ],
+      "symbols": [
+        "PortableManualDownloadRequired",
+        "PortableContentManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.progress.progress_reporter",
+      "source_modules": [
+        "src.core.progress.progress_reporter"
+      ],
+      "symbols": [
+        "ProgressReporter"
+      ]
+    },
+    {
+      "module": "mcw_core.api.repair.repair_service",
+      "source_modules": [
+        "src.core.repair.repair_service"
+      ],
+      "symbols": [
+        "RepairService"
+      ]
+    },
+    {
+      "module": "mcw_core.api.runtime.game_runtime_manager",
+      "source_modules": [
+        "src.core.runtime.game_runtime_manager"
+      ],
+      "symbols": [
+        "GameRuntimeManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.runtime.process_supervisor",
+      "source_modules": [
+        "src.core.runtime.process_supervisor"
+      ],
+      "symbols": [
+        "ProcessSupervisor"
+      ]
+    },
+    {
+      "module": "mcw_core.api.runtime.startup_recovery_manager",
+      "source_modules": [
+        "src.core.runtime.startup_recovery_manager"
+      ],
+      "symbols": [
+        "StartupRecoveryReport",
+        "StartupRecoveryManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.security.account_security_manager",
+      "source_modules": [
+        "src.core.security.account_security_manager"
+      ],
+      "symbols": [
+        "AccountSecurityManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.security.sensitive_data_redactor",
+      "source_modules": [
+        "src.core.security.sensitive_data_redactor"
+      ],
+      "symbols": [
+        "SensitiveDataRedactor"
+      ]
+    },
+    {
+      "module": "mcw_core.api.startup_runner",
+      "source_modules": [
+        "src.core.startup_runner"
+      ],
+      "symbols": [
+        "StartupTimeoutError",
+        "StartupWorkerError",
+        "run_startup_task"
+      ]
+    },
+    {
+      "module": "mcw_core.api.storage.content_store",
+      "source_modules": [
+        "src.core.storage.content_store"
+      ],
+      "symbols": [
+        "MaterializationResult",
+        "ContentStore"
+      ]
+    },
+    {
+      "module": "mcw_core.api.storage.legacy_storage_migration_service",
+      "source_modules": [
+        "src.core.storage.legacy_storage_migration_service"
+      ],
+      "symbols": [
+        "CleanupCandidate",
+        "CleanupPlan",
+        "CleanupResult",
+        "LegacyCleanupProbe",
+        "LegacyStorageMigrationService"
+      ]
+    },
+    {
+      "module": "mcw_core.api.storage.platform_storage_migration",
+      "source_modules": [
+        "src.core.storage.platform_storage_migration"
+      ],
+      "symbols": [
+        "PlatformStorageMigrationReport",
+        "PlatformStorageMigration"
+      ]
+    },
+    {
+      "module": "mcw_core.api.system.memory",
+      "source_modules": [
+        "src.core.system.memory"
+      ],
+      "symbols": [
+        "SystemMemory",
+        "MemoryAllocationPolicy"
+      ]
+    },
+    {
+      "module": "mcw_core.api.theme.theme_animation",
+      "source_modules": [
+        "src.core.theme.theme_animation"
+      ],
+      "symbols": [
+        "ThemeAnimationDefinition",
+        "ResolvedThemeAnimation"
+      ]
+    },
+    {
+      "module": "mcw_core.api.theme.theme_authoring",
+      "source_modules": [
+        "src.core.theme.theme_authoring"
+      ],
+      "symbols": [
+        "ThemeAuthoringError",
+        "ThemeAuthoringService"
+      ]
+    },
+    {
+      "module": "mcw_core.api.theme.theme_font",
+      "source_modules": [
+        "src.core.theme.theme_font"
+      ],
+      "symbols": [
+        "ThemeFontDefinition",
+        "ResolvedThemeFont"
+      ]
+    },
+    {
+      "module": "mcw_core.api.theme.theme_manager",
+      "source_modules": [
+        "src.core.theme.theme_manager"
+      ],
+      "symbols": [
+        "ThemeError",
+        "ThemeManifestError",
+        "ThemeAssetError",
+        "ThemeDefinition",
+        "ThemeManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.theme.theme_motion",
+      "source_modules": [
+        "src.core.theme.theme_motion"
+      ],
+      "symbols": [
+        "MotionTransitionDefinition",
+        "ButtonMotionDefinition",
+        "SidebarMotionDefinition",
+        "ToastMotionDefinition",
+        "MotionPerformanceDefinition",
+        "ThemeMotionDefinition"
+      ]
+    },
+    {
+      "module": "mcw_core.api.theme.theme_palette",
+      "source_modules": [
+        "src.core.theme.theme_palette"
+      ],
+      "symbols": [
+        "ThemePaletteDefinition",
+        "normalize_hex_color",
+        "derive_custom_accent",
+        "derive_custom_text",
+        "contrast_ratio",
+        "is_readable_text"
+      ]
+    },
+    {
+      "module": "mcw_core.api.update.automatic_update_installer",
+      "source_modules": [
+        "src.core.update.automatic_update_installer"
+      ],
+      "symbols": [
+        "AutomaticUpdateInstaller"
+      ]
+    },
+    {
+      "module": "mcw_core.api.update.linux_update_installer",
+      "source_modules": [
+        "src.core.update.linux_update_installer"
+      ],
+      "symbols": [
+        "LinuxUpdateInstaller"
+      ]
+    },
+    {
+      "module": "mcw_core.api.update.update_applier",
+      "source_modules": [
+        "src.core.update.update_applier"
+      ],
+      "symbols": [
+        "UpdateApplyRequest",
+        "UpdateApplier",
+        "run_update_applier"
+      ]
+    },
+    {
+      "module": "mcw_core.api.update.update_cleanup",
+      "source_modules": [
+        "src.core.update.update_cleanup"
+      ],
+      "symbols": [
+        "UpdateCleanupRequest",
+        "UpdateCleanupWorker",
+        "consume_update_cleanup_arguments"
+      ]
+    },
+    {
+      "module": "mcw_core.api.update.update_manager",
+      "source_modules": [
+        "src.core.update.update_manager"
+      ],
+      "symbols": [
+        "UpdateManager"
+      ]
+    },
+    {
+      "module": "mcw_core.api.update.windows_update_installer",
+      "source_modules": [
+        "src.core.update.windows_update_installer"
+      ],
+      "symbols": [
+        "WindowsUpdateInstaller"
+      ]
+    }
+  ],
+  "module_count": 92,
+  "symbol_count": 154
+}

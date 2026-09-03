@@ -24,3 +24,10 @@ MCW Core `1.5.0` is the Stable headless runtime shipped with MCW Launcher `v1.5.
 - Optional CurseForge gateway source: `mcw-curseforge-gateway-main.zip`
 
 The gateway archive contains no deployed endpoint or secret. A deployment must supply its own `CURSEFORGE_API_KEY` and the Core must be configured with the resulting HTTPS URL.
+
+
+## Documentation set
+
+The v1.5.0 source archive includes a complete documentation index, Vietnamese integration
+guide, troubleshooting guide and source-generated API references covering every public
+non-`__init__` module under `mcw_core.api`.
