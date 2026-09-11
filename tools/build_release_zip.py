@@ -18,12 +18,28 @@ from src.config import VERSION_ID
 
 
 DEFAULT_FILES = ("README.md", "LICENSE")
-DEFAULT_DIRECTORIES = ("lang", "themes", "docs")
+DEFAULT_DIRECTORIES = ("lang", "themes")
+DEFAULT_CLEANUP_PATHS = ("docs",)
 SUPPORTED_PLATFORMS = ("windows-x64", "linux-x64")
+PACKAGE_MANIFEST_SCHEMA_VERSION = 2
 
 
-def copy_payload(project_root: Path, payload_root: Path, executable: Path) -> None:
+def bundled_updater_name(platform_id: str) -> str:
+    platform_id = validate_platform(platform_id)
+    return "MCW Updater.exe" if platform_id == "windows-x64" else "mcw-updater"
+
+
+def bundled_updater_relative_path(platform_id: str) -> Path:
+    return Path("updater") / bundled_updater_name(platform_id)
+
+
+def copy_payload(project_root: Path, payload_root: Path, executable: Path, updater: Path, platform_id: str) -> Path:
     shutil.copy2(executable, payload_root / executable.name)
+    updater_relative = bundled_updater_relative_path(platform_id)
+    updater_destination = payload_root / updater_relative
+    updater_destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(updater, updater_destination)
+
     for name in DEFAULT_FILES:
         source = project_root / name
         if source.is_file():
@@ -32,6 +48,7 @@ def copy_payload(project_root: Path, payload_root: Path, executable: Path) -> No
         source = project_root / name
         if source.is_dir():
             shutil.copytree(source, payload_root / name, dirs_exist_ok=True)
+    return updater_relative
 
 
 def sha256_file(path: Path) -> str:
@@ -45,7 +62,9 @@ def sha256_file(path: Path) -> str:
 def validate_platform(platform_id: str) -> str:
     normalized = str(platform_id).strip().casefold()
     if normalized not in SUPPORTED_PLATFORMS:
-        raise ValueError(f"Unsupported release platform '{platform_id}'. Expected one of: {', '.join(SUPPORTED_PLATFORMS)}.")
+        raise ValueError(
+            f"Unsupported release platform '{platform_id}'. Expected one of: {', '.join(SUPPORTED_PLATFORMS)}."
+        )
     return normalized
 
 
@@ -61,9 +80,18 @@ def validate_release_version(version: str, expected_version: str = VERSION_ID) -
     return normalized
 
 
-def build_release_zip(project_root: Path, executable: Path, version: str, output: Path, platform_id: str = "windows-x64") -> Path:
+def build_release_zip(
+    project_root: Path,
+    executable: Path,
+    updater: Path,
+    version: str,
+    output: Path,
+    platform_id: str = "windows-x64",
+) -> Path:
     if not executable.is_file():
         raise FileNotFoundError(f"Launcher executable not found: {executable}")
+    if not updater.is_file():
+        raise FileNotFoundError(f"Bundled updater executable not found: {updater}")
     platform_id = validate_platform(platform_id)
     package_name = f"MCW-Launcher-v{version}-{platform_id}"
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -71,7 +99,7 @@ def build_release_zip(project_root: Path, executable: Path, version: str, output
     with tempfile.TemporaryDirectory(prefix="mcw-release-") as temporary:
         payload_root = Path(temporary) / package_name
         payload_root.mkdir(parents=True)
-        copy_payload(project_root, payload_root, executable)
+        updater_relative = copy_payload(project_root, payload_root, executable, updater, platform_id)
         managed_files = sorted(
             path.relative_to(payload_root).as_posix()
             for path in payload_root.rglob("*")
@@ -79,53 +107,73 @@ def build_release_zip(project_root: Path, executable: Path, version: str, output
         )
         managed_files.append("mcw-update.json")
         manifest = {
-            "schema_version": 1,
+            "schema_version": PACKAGE_MANIFEST_SCHEMA_VERSION,
             "version": version,
             "platform": platform_id,
             "executable": executable.name,
+            "updater": updater_relative.as_posix(),
             "files": sorted(set(managed_files)),
+            "cleanup_paths": list(DEFAULT_CLEANUP_PATHS),
         }
-        (payload_root / "mcw-update.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        (payload_root / "mcw-update.json").write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
 
+        linux_executables = {
+            (payload_root / executable.name).resolve(),
+            (payload_root / updater_relative).resolve(),
+        }
         with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
             for path in sorted(payload_root.rglob("*")):
-                if path.is_file():
-                    archive_name = path.relative_to(payload_root.parent).as_posix()
-                    info = zipfile.ZipInfo.from_file(path, archive_name)
-                    info.compress_type = zipfile.ZIP_DEFLATED
-                    if platform_id == "linux-x64" and path == payload_root / executable.name:
-                        # A Windows filesystem cannot represent POSIX execute
-                        # bits. Encode the Linux launcher contract explicitly
-                        # so cross-builds still extract an executable binary.
-                        info.create_system = 3
-                        info.external_attr = (stat.S_IFREG | 0o755) << 16
-                    with path.open("rb") as source, archive.open(info, "w", force_zip64=True) as target:
-                        shutil.copyfileobj(source, target, length=1024 * 1024)
+                if not path.is_file():
+                    continue
+                archive_name = path.relative_to(payload_root.parent).as_posix()
+                info = zipfile.ZipInfo.from_file(path, archive_name)
+                info.compress_type = zipfile.ZIP_DEFLATED
+                if platform_id == "linux-x64" and path.resolve() in linux_executables:
+                    # Encode executable mode explicitly so Linux updates remain
+                    # valid even if a package is assembled on another filesystem.
+                    info.create_system = 3
+                    info.external_attr = (stat.S_IFREG | 0o755) << 16
+                with path.open("rb") as source, archive.open(info, "w", force_zip64=True) as target:
+                    shutil.copyfileobj(source, target, length=1024 * 1024)
 
     checksum_path = output.with_name(f"{output.name}.sha256")
-    # Write bytes so Windows cannot translate the LF terminator to CRLF.
-    # The checksum files are later verified together by GNU sha256sum on the
-    # Linux publish runner, where a trailing CR becomes part of the filename.
     checksum_path.write_bytes(f"{sha256_file(output)}  {output.name}\n".encode("utf-8"))
     return output
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Build an MCW Launcher ZIP that can be installed by the automatic updater.")
+    parser = argparse.ArgumentParser(
+        description="Build an MCW Launcher schema-2 ZIP with a bundled updater executable."
+    )
     parser.add_argument("--exe", type=Path, required=True, help="Path to the packaged native launcher executable")
+    parser.add_argument("--updater", type=Path, required=True, help="Path to the packaged native updater executable")
     parser.add_argument("--version", required=True, help=f"Version without a leading v; it must match {VERSION_ID}")
-    parser.add_argument("--platform", choices=SUPPORTED_PLATFORMS, default="windows-x64", help="Target platform encoded in the package name and manifest")
+    parser.add_argument(
+        "--platform",
+        choices=SUPPORTED_PLATFORMS,
+        default="windows-x64",
+        help="Target platform encoded in the package name and manifest",
+    )
     parser.add_argument("--output", type=Path, help="Output ZIP path")
     args = parser.parse_args()
 
-    project_root = PROJECT_ROOT
     try:
         version = validate_release_version(args.version)
         platform_id = validate_platform(args.platform)
     except ValueError as error:
         parser.error(str(error))
-    output = args.output or default_output_path(project_root, version, platform_id)
-    result = build_release_zip(project_root, args.exe.resolve(), version, output.resolve(), platform_id)
+    output = args.output or default_output_path(PROJECT_ROOT, version, platform_id)
+    result = build_release_zip(
+        PROJECT_ROOT,
+        args.exe.resolve(),
+        args.updater.resolve(),
+        version,
+        output.resolve(),
+        platform_id,
+    )
     print(result)
     print(result.with_name(f"{result.name}.sha256"))
 

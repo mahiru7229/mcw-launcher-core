@@ -6,6 +6,7 @@ from pathlib import Path
 import zipfile
 
 from src.core.fs.paths import Paths
+from src.core.mod.mod_capability_index import ModCapabilityIndex
 from src.core.mod.mod_manager import ModManager
 from src.core.modrinth.modrinth_client import ModrinthClient
 from src.core.modrinth.modrinth_downloader import ModrinthDownloader
@@ -187,9 +188,24 @@ class ModrinthContentManager:
             elif ModrinthDownloader.verify(target, sha1=sha1, sha512=sha512, expected_size=size):
                 changed |= ModrinthContentManager._set_mod_download_state(entry, False, "")
             elif target.exists():
-                warning = "The tracked file was modified and was preserved."
-                changed |= ModrinthContentManager._set_mod_download_state(entry, False, warning)
-                ModrinthContentManager._append_warning(warnings, f"{title}: {warning}")
+                is_required_dependency = (
+                    bool(entry.get("managedByModpack", False))
+                    and str(entry.get("selectionReason") or "").strip().casefold() == "required_dependency"
+                )
+                if is_required_dependency:
+                    # Required dependencies are launcher-managed artifacts. If the
+                    # tracked provider file is stale/corrupt, preserving it leaves
+                    # dependency resolution permanently blocked even after a valid
+                    # replacement was discovered. Re-download managed dependencies,
+                    # while still preserving user/direct-install mods below.
+                    changed |= ModrinthContentManager._set_mod_download_state(
+                        entry, True, "Managed required dependency is stale and will be downloaded again."
+                    )
+                    missing.append(entry)
+                else:
+                    warning = "The tracked file was modified and was preserved."
+                    changed |= ModrinthContentManager._set_mod_download_state(entry, False, warning)
+                    ModrinthContentManager._append_warning(warnings, f"{title}: {warning}")
             else:
                 if not entry.get("pendingDownload"):
                     entry["pendingDownload"] = True
@@ -330,6 +346,11 @@ class ModrinthContentManager:
                 metadata = ModManager.read_mod(downloaded_path, provider_version=str(entry.get("versionNumber") or ""))
                 expected_mod_id = str(entry.get("expectedModId") or "").strip().casefold()
                 provided_mod_ids = {metadata.mod_id.casefold()} | {mod_id.casefold() for mod_id, _version in getattr(metadata, "provided_mods", ()) if mod_id}
+                if expected_mod_id:
+                    provided_mod_ids.update(
+                        capability.mod_id.casefold()
+                        for capability in ModCapabilityIndex.provides(downloaded_path, expected_mod_id)
+                    )
                 if expected_mod_id and expected_mod_id not in provided_mod_ids:
                     provided_values = sorted(value for value in provided_mod_ids if value)
                     if len(provided_values) == 1:

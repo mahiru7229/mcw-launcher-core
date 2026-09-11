@@ -1,6 +1,6 @@
 # MCW Core Guide (legacy API reference)
 
-> This guide originated with MCW Core 1.0.1 and is retained as a broad migration reference. For v1.5.0, verify signatures against the current `mcw_core` public surface and the source included in this package.
+> This guide originated with MCW Core 1.0.1 and is retained as a broad migration reference. For v1.5.1, verify signatures against the current `mcw_core` public surface and the source included in this package.
 
 ## 1. Purpose
 
@@ -8,7 +8,7 @@ This guide explains how to use MCW Core as the backend of an independent Minecra
 
 ## 2. Installation
 
-Install the standalone v1.5.0 source package:
+Install the standalone v1.5.1 source package:
 
 ```powershell
 py -3.12 -m venv .venv

@@ -24,6 +24,7 @@ class UpdateInfo:
     published_at: str
     prerelease: bool
     asset: ReleaseAsset
+    install_strategy: str = "updater"
 
 
 @dataclass(frozen=True, slots=True)

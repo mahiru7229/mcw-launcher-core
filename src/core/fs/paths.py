@@ -803,6 +803,14 @@ class Paths:
         return directory
 
     @staticmethod
+    def mod_provider_alias_cache() -> Path:
+        """Return the disposable cache of verified mod-ID/provider aliases."""
+
+        directory = Paths.CACHE_ROOT / "content"
+        directory.mkdir(parents=True, exist_ok=True)
+        return directory / "mod-provider-aliases.json"
+
+    @staticmethod
     def modrinth_api_cache(cache_key: str) -> Path:
         return Paths.modrinth_api_cache_root() / f"{cache_key}.json"
 

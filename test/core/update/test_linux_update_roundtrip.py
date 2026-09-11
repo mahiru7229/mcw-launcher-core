@@ -23,8 +23,11 @@ def test_packaged_beta1_to_beta2_linux_update_roundtrip_preserves_user_data(tmp_
     executable = project / "mcw-launcher"
     executable.write_bytes(b"beta-2-linux-binary")
     executable.chmod(0o755)
+    updater = project / "mcw-updater"
+    updater.write_bytes(b"beta-2-linux-updater")
+    updater.chmod(0o755)
     package = tmp_path / "MCW-Launcher-v1.5.0-beta.2-linux-x64.zip"
-    build_release_zip(project, executable, "1.5.0-beta.2", package, "linux-x64")
+    build_release_zip(project, executable, updater, "1.5.0-beta.2", package, "linux-x64")
     digest = hashlib.sha256(package.read_bytes()).hexdigest()
     info = UpdateInfo(
         current_version="1.5.0-beta.1",
@@ -70,7 +73,7 @@ def test_packaged_beta1_to_beta2_linux_update_roundtrip_preserves_user_data(tmp_
         request.updater_directory.mkdir()
         applier = UpdateApplier(request)
         monkeypatch.setattr(applier, "_wait_for_process_exit", lambda _pid: None)
-        monkeypatch.setattr(applier, "_start_launcher", lambda: None)
+        monkeypatch.setattr(applier, "_start_launcher", lambda **_kwargs: None)
 
         assert applier.run() == 0
         assert installed_executable.read_bytes() == b"beta-2-linux-binary"

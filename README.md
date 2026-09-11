@@ -1,8 +1,16 @@
-# MCW Core 1.5.0
+# MCW Core 1.5.1
 
-MCW Core is the headless runtime shipped with MCW Launcher `v1.5.0`. This source distribution contains the complete public API, implementation, data models, tests, documentation, examples, LAN Agent resource and the optional CurseForge gateway source package.
+MCW Core is the headless runtime shipped with MCW Launcher `v1.5.1`. This source distribution contains the complete public API, implementation, data models, tests, documentation, examples and LAN Agent resource. The separate CurseForge gateway source archive is intentionally not bundled with MCW Core.
 
 PySide6 and the launcher GUI are intentionally not part of the Core distribution.
+
+## What changed in 1.5.1
+
+- Added Fabric `provides` alias support so dependency IDs such as `cloth-config2` resolve correctly.
+- Added verified recovery for undeclared Modrinth dependencies in managed modpacks.
+- Improved dependency error grouping and provider alias caching.
+- Aligned update services with Launcher 1.5.1: schema-2 package validation, bundled updater handoff, emergency Bridge strategy and hardened Windows executable replacement.
+- Kept the CurseForge gateway source separate from the Core distribution.
 
 ## Install for development
 
@@ -52,33 +60,11 @@ mcw-core-launch --root ./mcw-data --instance "My Instance" --username Player
 
 Supported consumers import from `mcw_core` or `mcw_core.api.*`. Modules under `src.core` and `src.models` are implementation details and may change outside the public compatibility contract.
 
-## Included CurseForge gateway
+## CurseForge gateway integration
 
-`mcw-curseforge-gateway-main.zip` contains the optional Vercel gateway source used to keep a CurseForge API key outside desktop clients. The gateway is not enabled automatically and the Core bundles no gateway URL, client token or CurseForge API key.
+MCW Core keeps CurseForge credentials outside desktop clients and supports configured HTTPS gateway endpoints. The gateway source is distributed separately and is not included in this Core source archive or wheel. Core bundles no gateway URL, client token or CurseForge API key.
 
-Extract the nested ZIP, follow its README, set `CURSEFORGE_API_KEY` in Vercel and configure the deployed HTTPS endpoint through `MCW_CURSEFORGE_GATEWAY_URL` or the Core configuration API.
-
-
-## Documentation
-
-The complete documentation hub is [docs/README.md](docs/README.md).
-
-Recommended entry points:
-
-- [Vietnamese complete v1.5.0 guide](docs/vi/MCW_CORE_V1_5_COMPLETE_GUIDE.md)
-- [English Core guide](docs/en/CORE_GUIDE.md)
-- [Full generated API reference (EN)](docs/en/API_REFERENCE.md)
-- [Full generated API reference (VI)](docs/vi/API_REFERENCE.md)
-- [Architecture](docs/CORE_ARCHITECTURE.md)
-- [Instance system](docs/INSTANCE_SYSTEM.md)
-- [Package format](docs/PACKAGE_FORMAT.md)
-- [Update packages](docs/UPDATE_PACKAGES.md)
-
-Regenerate the public API reference after public API changes:
-
-```bash
-python tools/generate_public_api_docs.py
-```
+Deploy the gateway separately, configure its `CURSEFORGE_API_KEY`, then configure the resulting HTTPS endpoint through `MCW_CURSEFORGE_GATEWAY_URL` or the Core configuration API.
 
 ## Source layout
 
@@ -89,6 +75,5 @@ python tools/generate_public_api_docs.py
 - `docs/`: API, architecture, package and theme contracts.
 - `examples/`: integration examples.
 - `runtime/` and `mcw_core/resources/`: MCW LAN Agent.
-- `mcw-curseforge-gateway-main.zip`: optional gateway source.
 
 See [RELEASE.md](RELEASE.md) and [docs/MCW_CORE_LIBRARY.md](docs/MCW_CORE_LIBRARY.md) for the release contract.

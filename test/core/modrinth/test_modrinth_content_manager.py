@@ -432,3 +432,39 @@ def test_disk_full_aborts_modrinth_content_without_manual_pause(tmp_path, monkey
 
     assert captured.value is expected
     assert attempts == [1]
+
+
+def test_stale_required_dependency_is_redownloaded_but_user_mod_is_preserved(tmp_path, monkeypatch):
+    instance = make_instance(tmp_path)
+    expected = b"fresh-cloth"
+    stale = b"stale-cloth"
+    ModrinthRegistry.save(instance, {
+        "mods": {
+            "cloth": {
+                "projectId": "cloth",
+                "versionId": "v1",
+                "fileName": "cloth-config.jar",
+                "sha1": hashlib.sha1(expected).hexdigest(),
+                "sha512": hashlib.sha512(expected).hexdigest(),
+                "size": len(expected),
+                "downloadUrls": ["https://cdn.modrinth.com/data/cloth/v1/cloth-config.jar"],
+                "title": "Cloth Config API",
+                "managedByModpack": True,
+                "selectionReason": "required_dependency",
+            }
+        }
+    })
+    target = instance.instance_dir / "mods" / "cloth-config.jar"
+    target.parent.mkdir(parents=True)
+    target.write_bytes(stale)
+    patch_mod_install(monkeypatch, tmp_path, instance, expected)
+
+    def fake_download(urls, destination, **kwargs):
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(expected)
+        return destination
+
+    monkeypatch.setattr(ModrinthDownloader, "download_urls", fake_download)
+
+    assert ModrinthContentManager.ensure(instance) == ()
+    assert target.read_bytes() == expected

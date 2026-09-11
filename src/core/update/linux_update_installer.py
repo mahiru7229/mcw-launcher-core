@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import shutil
 import stat
 import subprocess
@@ -18,9 +18,14 @@ from src.models.update.update_info import PreparedUpdate
 
 
 class LinuxUpdateInstaller:
-    """Start a detached copy of the packaged launcher to apply a Linux update."""
+    """Launch the updater binary bundled inside the incoming Linux package."""
 
     STARTUP_GRACE_SECONDS = 1.0
+    READY_TIMEOUT_SECONDS = 5.0
+    READY_POLL_SECONDS = 0.05
+    PACKAGE_MANIFEST_NAME = "mcw-update.json"
+    PACKAGE_MANIFEST_SCHEMA_VERSION = 2
+    EXPECTED_UPDATER = PurePosixPath("updater/mcw-updater")
 
     @staticmethod
     def is_supported() -> bool:
@@ -51,17 +56,19 @@ class LinuxUpdateInstaller:
 
         cls._validate_paths(source, destination, executable)
         cls._verify_write_access(destination)
+        incoming_updater = cls._bundled_updater(source)
 
         updater_directory = Path(tempfile.gettempdir()) / f"mcw-launcher-updater-{uuid.uuid4().hex}"
         updater_directory.mkdir(parents=True, exist_ok=False, mode=0o700)
-        updater_executable = updater_directory / "mcw-launcher-updater"
+        updater_executable = updater_directory / "mcw-updater"
         request_path = updater_directory / "update-request.json"
+        ready_path = updater_directory / "updater-ready.json"
 
         try:
-            shutil.copy2(executable, updater_executable)
+            shutil.copy2(incoming_updater, updater_executable)
             updater_executable.chmod(stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
             request = {
-                "schema_version": 1,
+                "schema_version": 2,
                 "parent_pid": int(parent_pid if parent_pid is not None else os.getpid()),
                 "source_directory": str(source),
                 "destination_directory": str(destination),
@@ -70,18 +77,36 @@ class LinuxUpdateInstaller:
                 "staging_directory": str(prepared.staging_directory.resolve()),
                 "persistent_log_path": str(persistent_log),
                 "target_version": str(prepared.info.version),
+                "ready_path": str(ready_path),
             }
             request_path.write_text(json.dumps(request, ensure_ascii=False, indent=2), encoding="utf-8")
             request_path.chmod(stat.S_IRUSR | stat.S_IWUSR)
             process = cls._start_updater_process(updater_executable, request_path, destination)
-            time.sleep(cls.STARTUP_GRACE_SECONDS)
+            if cls._wait_for_ready(process, ready_path, cls.READY_TIMEOUT_SECONDS):
+                return request_path
+
             exit_code = process.poll()
             if exit_code is not None:
                 detail = cls._read_startup_error(updater_directory, persistent_log)
                 raise RuntimeError(
-                    f"The Linux updater process exited before the launcher closed (code {exit_code}).{detail}"
+                    f"The bundled Linux updater exited before the launcher closed (code {exit_code}).{detail}"
                 )
-            return request_path
+            cls._stop_process(process)
+            installed_updater = destination.joinpath(*cls.EXPECTED_UPDATER.parts)
+            if installed_updater.is_file() and not installed_updater.is_symlink():
+                fallback_executable = updater_directory / "mcw-updater-fallback"
+                shutil.copy2(installed_updater, fallback_executable)
+                fallback_executable.chmod(stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
+                ready_path.unlink(missing_ok=True)
+                fallback = cls._start_updater_process(fallback_executable, request_path, destination)
+                time.sleep(cls.STARTUP_GRACE_SECONDS)
+                if fallback.poll() is None:
+                    return request_path
+                detail = cls._read_startup_error(updater_directory, persistent_log)
+                raise RuntimeError(f"Both incoming and installed fallback Linux updaters failed to start.{detail}")
+
+            detail = cls._read_startup_error(updater_directory, persistent_log)
+            raise RuntimeError(f"The bundled Linux updater did not signal ready and no installed fallback updater is available.{detail}")
         except Exception:
             shutil.rmtree(updater_directory, ignore_errors=True)
             raise
@@ -101,6 +126,30 @@ class LinuxUpdateInstaller:
             raise RuntimeError(f"The update ZIP does not contain a regular {executable.name} executable.")
         if incoming.stat().st_mode & 0o111 == 0:
             raise RuntimeError("The Linux launcher in the update ZIP is not executable.")
+
+    @classmethod
+    def _bundled_updater(cls, source: Path) -> Path:
+        manifest_path = source / cls.PACKAGE_MANIFEST_NAME
+        try:
+            payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as error:
+            raise RuntimeError(f"Could not read the bundled updater manifest: {error}") from error
+        if not isinstance(payload, dict):
+            raise RuntimeError("The update package manifest must be a JSON object.")
+        if int(payload.get("schema_version", 0) or 0) != cls.PACKAGE_MANIFEST_SCHEMA_VERSION:
+            raise RuntimeError("The update package does not use bundled-updater schema 2.")
+        if str(payload.get("platform") or "").strip().casefold() != "linux-x64":
+            raise RuntimeError("The update package does not target linux-x64.")
+        raw = str(payload.get("updater") or "").replace("\\", "/").strip()
+        path = PurePosixPath(raw)
+        if path != cls.EXPECTED_UPDATER:
+            raise RuntimeError(f"The update package must declare {cls.EXPECTED_UPDATER.as_posix()} as its updater.")
+        updater = source.joinpath(*path.parts)
+        if not updater.is_file() or updater.is_symlink():
+            raise RuntimeError(f"The bundled updater is missing or invalid: {path.as_posix()}")
+        if updater.stat().st_mode & 0o111 == 0:
+            raise RuntimeError("The bundled Linux updater is not executable.")
+        return updater
 
     @staticmethod
     def _verify_write_access(destination: Path) -> None:
@@ -133,6 +182,29 @@ class LinuxUpdateInstaller:
             close_fds=True,
             start_new_session=True,
         )
+
+    @classmethod
+    def _wait_for_ready(cls, process: subprocess.Popen, ready_path: Path, timeout_seconds: float) -> bool:
+        deadline = time.monotonic() + max(0.0, timeout_seconds)
+        while time.monotonic() <= deadline:
+            if ready_path.is_file():
+                return True
+            if process.poll() is not None:
+                return False
+            time.sleep(cls.READY_POLL_SECONDS)
+        return ready_path.is_file()
+
+    @staticmethod
+    def _stop_process(process: subprocess.Popen) -> None:
+        try:
+            if process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=2.0)
+                except Exception:
+                    process.kill()
+        except Exception:
+            pass
 
     @staticmethod
     def _read_startup_error(updater_directory: Path, persistent_log: Path) -> str:

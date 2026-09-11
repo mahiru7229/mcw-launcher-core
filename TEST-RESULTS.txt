@@ -1,12 +1,16 @@
-MCW Core 1.5.0 release verification
+MCW Core 1.5.1 release verification
 
-- Core source regression: 1572 passed
-- CurseForge gateway: 18 passed
+- Core source regression: 1600 passed, 2 expected warnings
+- Focused mod/modrinth/update/distribution regression: 269 passed
+- Core distribution audit: 4 passed
 - Core release preflight: passed
 - Python compileall: passed
 - Wheel metadata and content audit: passed
 - Headless boundary: no src/gui or PySide6 dependency
-- Bundled gateway: opt-in source only; no endpoint, token or API key
+- LAN Agent resource: included in wheel
+- CurseForge gateway source archive: intentionally not bundled; Core gateway integration remains configurable
+- Fabric provides aliases: supported, including nested Fabric JAR capabilities
+- Update services: aligned with MCW Launcher v1.5.1 schema-2 updater/Bridge path
 
-Environment: Python 3.12 / Linux x64
-Date: 2026-09-03
+Environment: Python 3.13 / Linux x64
+Date: 2026-09-11

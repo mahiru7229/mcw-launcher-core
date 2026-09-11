@@ -476,3 +476,33 @@ def test_forge_parser_does_not_promote_other_mod_dependency_group(tmp_path) -> N
     assert mod.mod_id == "primary"
     assert "fabricloader" not in mod.dependencies
     assert mod.dependencies["forge"] == "[47,)"
+
+
+def test_fabric_provides_alias_satisfies_dependency(tmp_path):
+    instance = make_instance(tmp_path)
+    mods = instance.instance_dir / "mods"
+    provider = {
+        "schemaVersion": 1,
+        "id": "cloth-config",
+        "name": "Cloth Config API",
+        "version": "15.0.140+fabric",
+        "provides": ["cloth-config2"],
+    }
+    consumer = {
+        "schemaVersion": 1,
+        "id": "bettercaves",
+        "name": "Better Caves",
+        "version": "1.0.0",
+        "depends": {"cloth-config2": ">=15.0.140"},
+    }
+    with zipfile.ZipFile(mods / "cloth-config.jar", "w") as archive:
+        archive.writestr("fabric.mod.json", json.dumps(provider))
+    with zipfile.ZipFile(mods / "bettercaves.jar", "w") as archive:
+        archive.writestr("fabric.mod.json", json.dumps(consumer))
+
+    report = ModCompatibilityManager.scan(instance)
+
+    assert not any(
+        issue.code.startswith("dependency-") and "cloth-config2" in issue.mod_ids
+        for issue in report.issues
+    )

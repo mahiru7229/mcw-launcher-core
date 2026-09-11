@@ -60,7 +60,9 @@ def test_validates_matching_update_package_manifest(tmp_path: Path) -> None:
     content = tmp_path / "content"
     content.mkdir()
     (content / "MCW Launcher.exe").write_bytes(b"exe")
-    (content / "mcw-update.json").write_text('{"schema_version": 1, "version": "0.5.0-beta.3", "platform": "windows-x64", "executable": "MCW Launcher.exe", "files": ["MCW Launcher.exe", "mcw-update.json"]}', encoding="utf-8")
+    (content / "updater").mkdir()
+    (content / "updater" / "MCW Updater.exe").write_bytes(b"updater")
+    (content / "mcw-update.json").write_text('{"schema_version": 2, "version": "0.5.0-beta.3", "platform": "windows-x64", "executable": "MCW Launcher.exe", "updater": "updater/MCW Updater.exe", "files": ["MCW Launcher.exe", "updater/MCW Updater.exe", "mcw-update.json"]}', encoding="utf-8")
     from src.models.update.update_info import ReleaseAsset, UpdateInfo
 
     info = UpdateInfo(current_version="0.5.0-beta.2", version="0.5.0-beta.3", tag_name="v0.5.0-beta.3", title="Beta 3", release_notes="", release_url="", published_at="", prerelease=True, asset=ReleaseAsset("update.zip", "https://example.com/update.zip", 1))
@@ -72,7 +74,9 @@ def test_rejects_update_package_version_mismatch(tmp_path: Path) -> None:
     content = tmp_path / "content"
     content.mkdir()
     (content / "MCW Launcher.exe").write_bytes(b"exe")
-    (content / "mcw-update.json").write_text('{"schema_version": 1, "version": "0.5.0-beta.4", "platform": "windows-x64", "executable": "MCW Launcher.exe", "files": ["MCW Launcher.exe", "mcw-update.json"]}', encoding="utf-8")
+    (content / "updater").mkdir()
+    (content / "updater" / "MCW Updater.exe").write_bytes(b"updater")
+    (content / "mcw-update.json").write_text('{"schema_version": 2, "version": "0.5.0-beta.4", "platform": "windows-x64", "executable": "MCW Launcher.exe", "updater": "updater/MCW Updater.exe", "files": ["MCW Launcher.exe", "updater/MCW Updater.exe", "mcw-update.json"]}', encoding="utf-8")
     from src.models.update.update_info import ReleaseAsset, UpdateInfo
 
     info = UpdateInfo(current_version="0.5.0-beta.2", version="0.5.0-beta.3", tag_name="v0.5.0-beta.3", title="Beta 3", release_notes="", release_url="", published_at="", prerelease=True, asset=ReleaseAsset("update.zip", "https://example.com/update.zip", 1))
@@ -186,11 +190,15 @@ def test_validates_linux_manifest_and_restores_executable_mode(tmp_path: Path) -
     executable_info = zipfile.ZipInfo("MCW-Launcher/mcw-launcher")
     executable_info.create_system = 3
     executable_info.external_attr = (0o100755 << 16)
+    updater_info = zipfile.ZipInfo("MCW-Launcher/updater/mcw-updater")
+    updater_info.create_system = 3
+    updater_info.external_attr = (0o100755 << 16)
     with zipfile.ZipFile(archive_path, "w") as archive:
         archive.writestr(executable_info, b"linux-binary")
+        archive.writestr(updater_info, b"linux-updater")
         archive.writestr(
             "MCW-Launcher/mcw-update.json",
-            '{"schema_version": 1, "version": "0.5.0-beta.3", "platform": "linux-x64", "executable": "mcw-launcher", "files": ["mcw-launcher", "mcw-update.json"]}',
+            '{"schema_version": 2, "version": "0.5.0-beta.3", "platform": "linux-x64", "executable": "mcw-launcher", "updater": "updater/mcw-updater", "files": ["mcw-launcher", "updater/mcw-updater", "mcw-update.json"]}',
         )
 
     updater = UpdateManager("example/repo", "0.5.0-beta.2", platform_id="linux-x64")
@@ -211,7 +219,7 @@ def test_rejects_update_package_for_another_platform(tmp_path: Path) -> None:
     executable.write_bytes(b"linux")
     executable.chmod(0o755)
     (content / "mcw-update.json").write_text(
-        '{"schema_version": 1, "version": "0.5.0-beta.3", "platform": "windows-x64", "executable": "mcw-launcher", "files": ["mcw-launcher", "mcw-update.json"]}',
+        '{"schema_version": 2, "version": "0.5.0-beta.3", "platform": "windows-x64", "executable": "mcw-launcher", "updater": "updater/MCW Updater.exe", "files": ["mcw-launcher", "mcw-update.json"]}',
         encoding="utf-8",
     )
     from src.models.update.update_info import ReleaseAsset, UpdateInfo
@@ -247,8 +255,12 @@ def test_rejects_undeclared_update_package_file(tmp_path: Path) -> None:
     executable.write_bytes(b"linux")
     executable.chmod(0o755)
     (content / "unexpected.sh").write_text("malicious", encoding="utf-8")
+    (content / "updater").mkdir()
+    bundled = content / "updater" / "mcw-updater"
+    bundled.write_bytes(b"updater")
+    bundled.chmod(0o755)
     (content / "mcw-update.json").write_text(
-        '{"schema_version": 1, "version": "0.5.0-beta.3", "platform": "linux-x64", "executable": "mcw-launcher", "files": ["mcw-launcher", "mcw-update.json"]}',
+        '{"schema_version": 2, "version": "0.5.0-beta.3", "platform": "linux-x64", "executable": "mcw-launcher", "updater": "updater/mcw-updater", "files": ["mcw-launcher", "updater/mcw-updater", "mcw-update.json"]}',
         encoding="utf-8",
     )
     from src.models.update.update_info import ReleaseAsset, UpdateInfo

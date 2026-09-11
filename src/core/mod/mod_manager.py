@@ -403,7 +403,30 @@ class ModManager:
             breaks=dict(data.get("breaks") or {}) if isinstance(data.get("breaks"), dict) else {},
             status=status,
             error=error,
+            provided_mods=ModManager._fabric_provided_mods(data, mod_id, version),
         )
+
+    @staticmethod
+    def _fabric_provided_mods(data: dict, primary_id: str, version: str) -> tuple[tuple[str, str], ...]:
+        """Return Fabric ``provides`` aliases using the provider mod version.
+
+        Fabric Loader treats each entry in ``provides`` as an additional mod ID
+        supplied by the same JAR. Dependency resolution must therefore index
+        these aliases exactly like the primary ``id``.
+        """
+
+        raw = data.get("provides")
+        values = [raw] if isinstance(raw, str) else raw if isinstance(raw, list) else []
+        primary = str(primary_id or "").strip().casefold()
+        provided: dict[str, str] = {}
+        for value in values:
+            if not isinstance(value, str):
+                continue
+            alias = value.strip().casefold()
+            if not alias or alias == primary or alias == "unknown":
+                continue
+            provided.setdefault(alias, str(version or "Unknown").strip() or "Unknown")
+        return tuple(sorted(provided.items()))
 
     @staticmethod
     def _read_quilt_mod(path: Path, file_name: str, enabled: bool, raw_metadata: bytes, manifest: dict[str, str] | None = None, provider_version: str = "") -> ModInfo:
@@ -778,7 +801,10 @@ class ModManager:
             if isinstance(data, dict):
                 mod_id = str(data.get("id") or "").strip().casefold()
                 if mod_id:
-                    found.setdefault(mod_id, ModManager._resolve_mod_version(data.get("version"), manifest, data, provider_version, "fabric.mod.json"))
+                    version = ModManager._resolve_mod_version(data.get("version"), manifest, data, provider_version, "fabric.mod.json")
+                    found.setdefault(mod_id, version)
+                    for alias, alias_version in ModManager._fabric_provided_mods(data, mod_id, version):
+                        found.setdefault(alias, alias_version)
 
         if "quilt.mod.json" in names:
             try:

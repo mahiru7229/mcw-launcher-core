@@ -78,7 +78,7 @@ class GitHubReleaseClient:
 
     def _select_update(self, releases: list[dict[str, Any]]) -> UpdateInfo | None:
         current = LauncherVersion.parse(self.current_version)
-        candidates: list[tuple[LauncherVersion, dict[str, Any], ReleaseAsset]] = []
+        candidates: list[tuple[LauncherVersion, dict[str, Any], ReleaseAsset, str]] = []
 
         for release in releases:
             if release.get("draft") is True:
@@ -97,15 +97,25 @@ class GitHubReleaseClient:
             if version <= current:
                 continue
 
-            asset = self._select_asset(release.get("assets"))
+            raw_assets = release.get("assets")
+            asset = self._select_asset(raw_assets)
             if asset is None:
                 continue
-            candidates.append((version, release, asset))
+            strategy = "updater"
+            if self._release_uses_bridge(raw_assets):
+                bridge_asset = self._select_bridge_asset(raw_assets)
+                if bridge_asset is None:
+                    raise RuntimeError(
+                        f"Release {tag_name} requests MCW Update Bridge, but no verified {self.platform_id} bridge asset is attached."
+                    )
+                asset = bridge_asset
+                strategy = "bridge"
+            candidates.append((version, release, asset, strategy))
 
         if not candidates:
             return None
 
-        version, release, asset = max(candidates, key=lambda item: item[0].comparison_key())
+        version, release, asset, strategy = max(candidates, key=lambda item: item[0].comparison_key())
         return UpdateInfo(
             current_version=self.current_version,
             version=str(version),
@@ -116,6 +126,64 @@ class GitHubReleaseClient:
             published_at=str(release.get("published_at") or release.get("created_at") or ""),
             prerelease=bool(release.get("prerelease")),
             asset=asset,
+            install_strategy=strategy,
+        )
+
+
+    @staticmethod
+    def _release_uses_bridge(raw_assets: object) -> bool:
+        if not isinstance(raw_assets, list):
+            return False
+        return any(
+            isinstance(item, dict) and str(item.get("name") or "").strip().casefold() == "mcw-use-bridge"
+            for item in raw_assets
+        )
+
+    def _select_bridge_asset(self, raw_assets: object) -> ReleaseAsset | None:
+        if not isinstance(raw_assets, list):
+            return None
+        candidates: list[dict[str, Any]] = []
+        for item in raw_assets:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name") or "").strip()
+            lowered = name.casefold()
+            url = str(item.get("browser_download_url") or "").strip()
+            if not url.startswith("https://") or not lowered.startswith("mcw-update-bridge-"):
+                continue
+            if lowered.endswith(".sha256"):
+                continue
+            if self.platform_id == "windows-x64":
+                if not lowered.endswith("-windows-x64.exe"):
+                    continue
+            elif not lowered.endswith("-linux-x64"):
+                continue
+            candidates.append(item)
+        if len(candidates) != 1:
+            return None
+        raw_asset = candidates[0]
+        name = str(raw_asset.get("name") or "")
+        digest = str(raw_asset.get("digest") or "").strip().casefold()
+        sha256 = digest.removeprefix("sha256:") if digest.startswith("sha256:") and len(digest) == 71 else None
+        sidecar_name = f"{name}.sha256".casefold()
+        sha256_url = None
+        for candidate in raw_assets:
+            if not isinstance(candidate, dict):
+                continue
+            if str(candidate.get("name") or "").strip().casefold() != sidecar_name:
+                continue
+            candidate_url = str(candidate.get("browser_download_url") or "").strip()
+            if candidate_url.startswith("https://"):
+                sha256_url = candidate_url
+                break
+        if sha256 is None and sha256_url is None:
+            return None
+        return ReleaseAsset(
+            name=name,
+            download_url=str(raw_asset.get("browser_download_url") or ""),
+            size=max(0, int(raw_asset.get("size") or 0)),
+            sha256=sha256,
+            sha256_url=sha256_url,
         )
 
     def _select_asset(self, raw_assets: object) -> ReleaseAsset | None:

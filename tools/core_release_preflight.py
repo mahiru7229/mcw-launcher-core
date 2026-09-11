@@ -4,7 +4,6 @@ import ast
 import json
 from pathlib import Path
 import tomllib
-import zipfile
 
 import mcw_core
 from src.config import CURSEFORGE_DEFAULT_GATEWAY_URL, UPDATE_CHANNEL, VERSION_ID
@@ -32,8 +31,8 @@ def validate() -> list[str]:
         errors.append("Distribution name must be mcw-core.")
     if project.get("version") != VERSION_ID or mcw_core.__version__ != VERSION_ID:
         errors.append("pyproject, src.config and mcw_core runtime versions must match.")
-    if VERSION_ID != "1.5.0" or UPDATE_CHANNEL != "stable":
-        errors.append("This source package must be Stable v1.5.0.")
+    if VERSION_ID != "1.5.1" or UPDATE_CHANNEL != "stable":
+        errors.append("This source package must be Stable v1.5.1.")
     if CURSEFORGE_DEFAULT_GATEWAY_URL:
         errors.append("A default CurseForge gateway URL must not be bundled.")
     if (PROJECT_ROOT / "src" / "gui").exists():
@@ -51,15 +50,8 @@ def validate() -> list[str]:
             errors.append(f"Private/runtime directory must not be packaged: {name}/")
 
     gateway = PROJECT_ROOT / "mcw-curseforge-gateway-main.zip"
-    try:
-        with zipfile.ZipFile(gateway) as archive:
-            names = [name.replace("\\", "/") for name in archive.namelist()]
-            if not any(name.endswith("/vercel.json") for name in names):
-                errors.append("Gateway archive is missing vercel.json.")
-            if any(name.endswith("/.env.local") or "node_modules/" in name for name in names):
-                errors.append("Gateway archive contains local credentials or node_modules.")
-    except (FileNotFoundError, zipfile.BadZipFile):
-        errors.append("CurseForge gateway source archive is missing or invalid.")
+    if gateway.exists():
+        errors.append("CurseForge gateway source archive must be distributed separately, not bundled with MCW Core.")
 
     for locale in ("en-US", "vi-VN"):
         path = PROJECT_ROOT / "lang" / f"{locale}.json"
@@ -80,7 +72,7 @@ def main() -> int:
         return 1
     print(f"MCW Core release preflight passed for {VERSION_ID} ({UPDATE_CHANNEL}).")
     print("Public boundary: mcw_core and mcw_core.api.*")
-    print("CurseForge gateway source: present, opt-in, no bundled credentials")
+    print("CurseForge gateway source: not bundled; integration remains configurable")
     return 0
 
 

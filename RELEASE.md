@@ -1,33 +1,25 @@
-# MCW Core v1.5.0
+# MCW Core v1.5.1
 
-MCW Core `1.5.0` is the Stable headless runtime shipped with MCW Launcher `v1.5.0`.
+MCW Core `1.5.1` is the Stable headless runtime shipped with MCW Launcher `v1.5.1`.
 
 ## Highlights
 
-- Windows x64 and Linux x64 runtime abstractions, XDG storage and safe legacy migration.
-- Vanilla, Fabric, Quilt, Forge and NeoForge instance pipelines.
-- Automatic Java 8/16/17/21 selection and managed runtime provisioning.
-- Microsoft authentication with platform credential protection.
-- Modrinth, CurseForge, FTB and ATLauncher integrations.
-- Transactional modpack/content installation, repair, backups and diagnostics.
-- Process supervision, offline cache behavior and automatic update services.
-- Stable `mcw_core` facade, models, progress events and operation controls.
+- Fabric `provides` aliases are indexed as real mod capabilities, including nested Fabric JARs.
+- Managed modpacks can recover undeclared Modrinth dependencies only after the downloaded JAR is hash-verified and proven to provide the requested mod ID/version.
+- Dependency errors are grouped for clearer diagnostics when many mods require the same missing capability.
+- Update services match Launcher 1.5.1, including schema-2 manifests, bundled updater handoff, emergency Bridge strategy and hardened Windows executable replacement/rollback.
+- Windows x64 and Linux x64 runtime abstractions, XDG storage and safe legacy migration remain supported.
+- Vanilla, Fabric, Quilt, Forge and NeoForge instance pipelines remain supported.
+- Microsoft authentication, managed Java, Modrinth, CurseForge, FTB and ATLauncher integrations remain available.
 
 ## Distribution contract
 
-- Distribution: `mcw-core 1.5.0`
-- Runtime: `mcw_core.__version__ == "1.5.0"`
+- Distribution: `mcw-core 1.5.1`
+- Runtime: `mcw_core.__version__ == "1.5.1"`
 - Python: `>=3.12`
 - GUI dependency: none
 - Public imports: `mcw_core` and `mcw_core.api.*`
 - Bundled LAN Agent: included
-- Optional CurseForge gateway source: `mcw-curseforge-gateway-main.zip`
+- CurseForge gateway source archive: not bundled with MCW Core
 
-The gateway archive contains no deployed endpoint or secret. A deployment must supply its own `CURSEFORGE_API_KEY` and the Core must be configured with the resulting HTTPS URL.
-
-
-## Documentation set
-
-The v1.5.0 source archive includes a complete documentation index, Vietnamese integration
-guide, troubleshooting guide and source-generated API references covering every public
-non-`__init__` module under `mcw_core.api`.
+The gateway is distributed/deployed separately. A deployment must supply its own `CURSEFORGE_API_KEY` and the Core must be configured with the resulting HTTPS URL.

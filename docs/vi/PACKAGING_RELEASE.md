@@ -1,10 +1,10 @@
-# Đóng gói MCW Core v1.5.0
+# Đóng gói MCW Core v1.5.1
 
-Archive source này là bản phân phối độc lập `mcw-core 1.5.0`.
+Archive source này là bản phân phối độc lập `mcw-core 1.5.1`.
 
 Python package gồm `mcw_core`, `src.core`, `src.models` và MCW LAN Agent đi kèm. Gói loại trừ `src.gui`, PySide6, tài khoản người dùng, cấu hình private, cache, instance, log và managed runtime.
 
-File `mcw-curseforge-gateway-main.zip` là source gateway tùy chọn đặt cạnh Python package. Wheel không cài gateway và gateway không chứa secret triển khai hay endpoint mặc định.
+Source archive của CurseForge gateway được phát hành riêng và chủ động không được đóng gói trong source archive hoặc wheel của MCW Core. MCW Core chỉ giữ phần client/cấu hình tích hợp gateway, không chứa secret triển khai hay endpoint mặc định.
 
 Trước khi phát hành:
 
