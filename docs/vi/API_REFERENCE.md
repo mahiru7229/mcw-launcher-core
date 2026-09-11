@@ -1,2153 +1,1533 @@
-# MCW Core v1.5.0 API Reference
+# Tham chiếu API MCW Core (snapshot legacy)
 
-Tài liệu này được sinh trực tiếp từ source public của MCW Core v1.5.0. Public boundary được hỗ trợ là `mcw_core` và `mcw_core.api.*`.
+> Snapshot từ thời 1.0.1 được giữ lại cho mục đích migration. Consumer v1.5.1 cần đối chiếu export trong source `mcw_core` và `mcw_core.api` hiện tại của gói này.
 
-> Không import `src.core.*` hoặc `src.models.*` từ application bên ngoài.
+Tài liệu này liệt kê public re-export modules và signature được đọc trực tiếp từ source/wheel. Kiểu trả về `Any` nghĩa là source không khai báo annotation rõ ràng.
 
-## Stable facade and models
+## Top-level `mcw_core`
 
-### `mcw_core/facade.py`
+`Account`, `Authentication`, `CorePaths`, `Instance`, instance state/health models, `LaunchRequest`, `LaunchResult`, `InstanceCreateRequest`, `MCWCore`, services, operation/progress/session models, cancellation helpers and default-core functions.
 
-#### `MCWCore`
+## `MCWCore` facade
 
-Public, GUI-independent facade for MCW Launcher core operations.
+| Call | Return | Notes |
+|---|---|---|
+| `MCWCore(paths=None)` | `MCWCore` | Applies the data root and creates services. |
+| `MCWCore.create_default(root=None)` | `MCWCore` | Creates from a root or current path registry. |
+| `core.launch(LaunchRequest)` | `LaunchResult` | Returns after process start; `on_exit` fires later. |
+| `get_default_core()` | `MCWCore` | Process singleton. |
+| `configure_default_core(paths)` | `MCWCore` | Replaces singleton and process-wide root. |
 
-Methods:
+## Services
 
-#### `get_default_core`
+### `InstanceService`
 
-```python
-get_default_core() -> MCWCore
-```
+`list`, `load`, `list_running`, `is_running`, `status`, `list_statuses`, `health`, `list_health`, `set_icon`, `reset_icon`, `create`, `change_loader`, `repair_loader`, `restore_previous_loader`, `export_loader_diagnostics`, `repair`, `scan_repair`, `execute_repair`, `rename`, `clone`, `delete`, instance package inspect/import/export, modpack package inspect/import/export and manual portable file installation.
 
-#### `configure_default_core`
+### `LoaderService`
 
-```python
-configure_default_core(paths: CorePaths | Path | str) -> MCWCore
-```
+`normalize`, `resolve`, `prepare` plus loader constants.
 
-### `mcw_core/models.py`
+### `JavaService`
 
-#### `LaunchRequest`
+`scan`, `latest_feature_release`, `normalize_feature_major`, `install`.
 
-Headless launch request accepted by the public MCW Core API.
-
-Fields / public attributes:
-
-- `instance: Instance | str`
-- `account: Account | None = None`
-- `authentication: Authentication | None = None`
-- `offline_username: str = ''`
-- `debug_mode: bool = False`
-- `on_progress: ProgressCallback | None = None`
-- `on_exit: Callable[[GameExitResult], None] | None = None`
-- `on_manual_content_required: Callable[[Exception], None] | None = None`
-- `on_compatibility_confirmation: Callable[[Exception], bool] | None = None`
-- `allow_compatibility_issues_once: bool = False`
-
-#### `LaunchResult`
-
-Bases: `Mapping[str, Any]`
-
-Fields / public attributes:
-
-- `java_path: Path`
-- `minecraft_java_major_version: int`
-- `minecraft_version: str`
-- `warnings: tuple[str, ...] = field(default_factory=tuple)`
-
-Methods:
-
-#### `InstanceRuntimeProfile`
-
-Fields / public attributes:
-
-- `instance_name: str`
-- `minecraft_version: str`
-- `loader_name: str`
-- `loader_version: str`
-- `required_java_major: int`
-- `managed_java_major: int`
-- `java_automatic: bool`
-- `configured_java_path: str = ''`
-
-#### `InstanceCreateRequest`
-
-Fields / public attributes:
-
-- `name: str`
-- `version_id: str`
-- `loader_name: str = 'vanilla'`
-- `loader_version: str = 'auto'`
-- `on_progress: ProgressCallback | None = None`
-
-### `mcw_core/operations.py`
-
-#### `OperationState`
-
-Fields / public attributes:
-
-- `active: bool`
-- `paused: bool`
-- `cancel_requested: bool`
-
-#### `OperationHandle`
-
-GUI-independent cooperative pause, resume and cancel controls.
-
-Methods:
-
-```python
-state() -> OperationState
-```
-*(property)*
-
-### `mcw_core/paths.py`
-
-#### `CorePaths`
-
-Filesystem roots used by MCW Core.
-
-Fields / public attributes:
-
-- `root: Path`
-- `cache: Path | None = None`
-- `instances: Path | None = None`
-- `accounts: Path | None = None`
-- `config: Path | None = None`
-- `logs: Path | None = None`
-- `backups: Path | None = None`
-- `themes: Path | None = None`
-- `runtimes: Path | None = None`
-
-Methods:
-
-### `mcw_core/services.py`
-
-#### `LoaderService`
-
-Public constants:
-
-- `VANILLA = ModLoaderManager.VANILLA`
-- `FABRIC = ModLoaderManager.FABRIC`
-- `FORGE = ModLoaderManager.FORGE`
-- `NEOFORGE = ModLoaderManager.NEOFORGE`
-- `QUILT = ModLoaderManager.QUILT`
-- `AUTO = ModLoaderManager.AUTO`
-- `MODDED_LOADERS = ModLoaderManager.MODDED_LOADERS`
-- `FORGE_FAMILY = ModLoaderManager.FORGE_FAMILY`
-
-Methods:
-
-#### `InstanceService`
-
-Methods:
-
-#### `OptiFineService`
-
-Public constants:
-
-- `OFFICIAL_DOWNLOADS_URL = 'https://optifine.net/downloads'`
-
-Methods:
-
-#### `JavaService`
-
-Methods:
-
-## Granular `mcw_core.api.*` modules
+## Granular modules
 
 ### `mcw_core.api.account.account_manager`
 
-Source re-export: `src.core.account.account_manager`
+Tài khoản, skin và account repository.  
+Implementation tương thích hiện tại: `src/core/account/account_manager.py`
 
 #### `AccountManager`
 
-Methods:
+| Method | Return |
+|---|---|
+| `create_offline_account(username: str)` | `Account` |
+| `create_microsoft_account(cancel_event: Event \| None=None)` | `Account` |
+| `list_accounts()` | `list[Account]` |
+| `get_account(account_id: str)` | `Account \| None` |
+| `get_selected_account()` | `Account \| None` |
+| `set_selected_account(account_id: str)` | `bool` |
+| `synchronize_microsoft_profile(account_id: str)` | `Account` |
+| `remove_account(account_id: str)` | `bool` |
+| `is_account_exist(username: str)` | `bool` |
+
 
 ### `mcw_core.api.account.account_skin_manager`
 
-Source re-export: `src.core.account.account_skin_manager`
+Tài khoản, skin và account repository.  
+Implementation tương thích hiện tại: `src/core/account/account_skin_manager.py`
 
 #### `AccountSkinManager`
-
 Cache Minecraft skin textures without making the GUI depend on network APIs.
 
-Public constants:
+| Method | Return |
+|---|---|
+| `cache_profile(cls, profile: MinecraftProfile)` | `Path \| None` |
+| `cache_account(cls, account: Account)` | `Path \| None` |
+| `cache_texture(cls, profile_uuid: str, skin_url: str)` | `Path` |
+| `cached_texture(cls, account_or_uuid: Account \| str)` | `Path \| None` |
+| `remove_cached_texture(cls, account_or_uuid: Account \| str)` | `None` |
+| `texture_path(profile_uuid: str)` | `Path` |
 
-- `MAX_TEXTURE_BYTES = 4 * 1024 * 1024`
-- `REQUEST_TIMEOUT_SECONDS = 20.0`
-- `PNG_SIGNATURE = b'\x89PNG\r\n\x1a\n'`
-
-Methods:
-
-### `mcw_core.api.atlauncher.atlauncher_client`
-
-Source re-export: `src.core.atlauncher.atlauncher_client`
-
-#### `ATLauncherClient`
-
-ATLauncher metadata adapter with public V2, V1, and CDN fallbacks.
-
-Public constants:
-
-- `GRAPHQL_URL = 'https://api.atlauncher.com/v2/graphql'`
-- `V1_BASE_URL = 'https://api.atlauncher.com/v1/'`
-- `CDN_BASE_URL = 'https://download.nodecdn.net/containers/atl/'`
-- `WEBSITE_BASE_URL = 'https://atlauncher.com/pack/'`
-- `SEARCH_TTL_SECONDS = 5 * 60`
-- `PROJECT_TTL_SECONDS = 15 * 60`
-- `VERSION_TTL_SECONDS = 30 * 60`
-- `REQUEST_TIMEOUT_SECONDS = 25.0`
-- `MAX_PAGE_SIZE = 50`
-- `MAX_SEARCH_WINDOW = 250`
-
-Methods:
-
-### `mcw_core.api.atlauncher.atlauncher_content_manager`
-
-Source re-export: `src.core.atlauncher.atlauncher_content_manager`
-
-#### `ATLauncherContentManager`
-
-Materialize deferred ATLauncher pack files before the first launch.
-
-Public constants:
-
-- `PROGRESS_EMIT_INTERVAL_SECONDS = 0.08`
-- `MAX_CONFIG_ENTRIES = 100000`
-- `MAX_CONFIG_BYTES = 10 * 1024 * 1024 * 1024`
-
-Methods:
-
-### `mcw_core.api.atlauncher.atlauncher_pack_installer`
-
-Source re-export: `src.core.atlauncher.atlauncher_pack_installer`
-
-#### `ATLauncherPackInstaller`
-
-Public constants:
-
-- `MAX_FILES = 20000`
-- `MAX_TOTAL_BYTES = 50 * 1024 * 1024 * 1024`
-- `MAX_PATH_LENGTH = 240`
-- `RESERVED_ROOT_NAMES = {'instance.json', 'settings.json', '.mcw'}`
-- `INSTANCE_NAME_PATTERN = re.compile('^[^<>:"/\\\\|?*\\x00-\\x1F]{1,80}$')`
-- `SUPPORTED_LOADERS = frozenset({ModLoaderManager.VANILLA, *ModLoaderManager.MODDED_LOADERS})`
-
-Methods:
-
-### `mcw_core.api.atlauncher.atlauncher_pack_registry`
-
-Source re-export: `src.core.atlauncher.atlauncher_pack_registry`
-
-#### `ATLauncherPackRegistry`
-
-Public constants:
-
-- `SCHEMA_VERSION = 1`
-
-Methods:
 
 ### `mcw_core.api.auth.microsoft.microsoft_auth_gate`
 
-Source re-export: `src.core.auth.microsoft.microsoft_auth_gate`
+Authentication Microsoft/OAuth.  
+Implementation tương thích hiện tại: `src/core/auth/microsoft/microsoft_auth_gate.py`
 
 #### `MicrosoftAuthenticationLockedError`
-
-Bases: `RuntimeError`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `MicrosoftAuthenticationAvailability`
-
-Fields / public attributes:
-
-- `enabled: bool`
-- `status: str`
-- `message: str`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `MicrosoftAuthenticationGate`
 
-Methods:
+| Method | Return |
+|---|---|
+| `availability()` | `MicrosoftAuthenticationAvailability` |
+| `require_enabled()` | `None` |
+
 
 ### `mcw_core.api.auth.microsoft.oauth_callback_server`
 
-Source re-export: `src.core.auth.microsoft.oauth_callback_server`
+Authentication Microsoft/OAuth.  
+Implementation tương thích hiện tại: `src/core/auth/microsoft/oauth_callback_server.py`
 
 #### `MicrosoftAuthorizationCancelledError`
-
-Bases: `RuntimeError`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `OAuthCallbackHandler`
 
-Bases: `BaseHTTPRequestHandler`
-
-Fields / public attributes:
-
-- `authorization_code: str | None = None`
-- `returned_state: str | None = None`
-- `error: str | None = None`
-- `error_description: str | None = None`
-
-Methods:
+| Method | Return |
+|---|---|
+| `do_GET(self)` | `None` |
+| `log_message(self, format: str, *args)` | `None` |
 
 #### `ReusableOAuthHTTPServer`
-
-Bases: `HTTPServer`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `OAuthCallbackServer`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `wait_for_callback(timeout: float=180.0, cancel_event: Event \| None=None)` | `tuple[str, str]` |
 
-- `HOST = '127.0.0.1'`
-- `PORT = 8400`
-- `POLL_INTERVAL_SECONDS = 0.25`
-
-Methods:
 
 ### `mcw_core.api.backup.instance_backup_manager`
 
-Source re-export: `src.core.backup.instance_backup_manager`
+Backup và restore instance.  
+Implementation tương thích hiện tại: `src/core/backup/instance_backup_manager.py`
 
 #### `InstanceBackupManager`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `create(instance: Instance, scope: str=SCOPE_FULL, reason: str='manual', destination: Path \| None=None)` | `InstanceBackupResult` |
+| `inspect(path: Path)` | `InstanceBackupInfo` |
+| `list_backups(instance: Instance)` | `list[InstanceBackupInfo]` |
+| `restore(instance: Instance, backup_path: Path, create_safety_backup: bool=True)` | `InstanceRestoreResult` |
 
-- `MANIFEST_NAME = 'mcw-backup.json'`
-- `FORMAT_VERSION = 1`
-- `EXTENSION = '.mcwbackup'`
-- `SCOPE_FULL = 'full'`
-- `SCOPE_WORLDS = 'worlds'`
-- `VALID_SCOPES = {SCOPE_FULL, SCOPE_WORLDS}`
-- `MAX_FILES = 200000`
-- `MAX_EXTRACT_BYTES = 200 * 1024 * 1024 * 1024`
-- `PROTECTED_ROOTS = {'instance.json', '.mcw', 'logs', 'crash-reports'}`
-
-Methods:
 
 ### `mcw_core.api.bootstrap`
 
-Source re-export: `src.core.bootstrap`
+Implementation tương thích hiện tại: `src/core/bootstrap.py`
 
-#### `initialize_application`
-
-```python
-initialize_application(progress_callback: BootstrapProgressCallback | None = None) -> dict[str, Any]
-```
+- `initialize_application(progress_callback: BootstrapProgressCallback | None=None) -> dict[str, Any]` — Prepare persistent application resources and report startup progress when requested.
 
 ### `mcw_core.api.config.curseforge_config_manager`
 
-Source re-export: `src.core.config.curseforge_config_manager`
+Launcher settings, CurseForge gateway và policy.  
+Implementation tương thích hiện tại: `src/core/config/curseforge_config_manager.py`
 
 #### `CurseForgeConfigManager`
-
 Loads CurseForge gateway endpoints with safe local overrides.
 
-Public constants:
+| Method | Return |
+|---|---|
+| `path()` | `Path` |
+| `legacy_path()` | `Path` |
+| `gateway_urls(cls)` | `tuple[str, ...]` |
+| `gateway_url(cls)` | `str` |
+| `client_token(cls)` | `str` |
+| `is_configured(cls)` | `bool` |
+| `save_local(cls, gateway_urls: Iterable[str] \| str, client_token: str \| None=None)` | `Path` |
 
-- `SCHEMA_VERSION = 3`
-- `MAX_GATEWAYS = 5`
-- `PURPOSE_PREFIX = 'curseforge:gateway'`
-- `TOKEN_PURPOSE = 'curseforge:client-token'`
-- `ENV_GATEWAY_URL = 'MCW_CURSEFORGE_GATEWAY_URL'`
-- `ENV_GATEWAY_URL_PREFIX = 'MCW_CURSEFORGE_GATEWAY_URL_'`
-- `ENV_CLIENT_TOKEN = 'MCW_CURSEFORGE_CLIENT_TOKEN'`
-- `DEFAULT_GATEWAY_URLS = (CURSEFORGE_DEFAULT_GATEWAY_URL,)`
-
-Methods:
 
 ### `mcw_core.api.config.launcher_settings_manager`
 
-Source re-export: `src.core.config.launcher_settings_manager`
+Launcher settings, CurseForge gateway và policy.  
+Implementation tương thích hiện tại: `src/core/config/launcher_settings_manager.py`
 
 #### `LauncherSettingsManager`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `initialize(self)` | `Path` |
+| `load(self)` | `dict[str, Any]` |
+| `save(self, settings: dict[str, Any])` | `dict[str, Any]` |
+| `update_section(self, section: str, values: dict[str, Any])` | `dict[str, Any]` |
+| `reset(self)` | `dict[str, Any]` |
+| `load_window_geometry(self)` | `bytes \| None` |
+| `save_window_geometry(self, geometry: bytes \| bytearray \| memoryview)` | `None` |
 
-- `SCHEMA_VERSION = 19`
-- `UPDATE_CHANNEL_POLICY_VERSION = 2`
-- `DEFAULT_SETTINGS = {'schema_version': SCHEMA_VERSION, 'gui': {'start_page': 'instances', 'show_snapshots': False, 'remember_window_size': True, 'language': 'en-US', 'show_content_descriptions': False}, 'launch': {'debug_mode': False, 'prefer_dedicated_gpu': False}, 'onboarding': {'completed': False, 'version': 1}, 'window': {'geometry': None}, 'appearance': {'theme': 'mcw-default', 'show_static_text': False, 'motion_mode': 'full', 'live_theme_reload': False, 'accent_mode': 'theme', 'accent_color': '#8ed35b', 'text_color_mode': 'theme', 'text_color': '#f4f4f4'}, 'modrinth': {'include_beta': False, 'include_alpha': False}, 'managed_content': {'modrinth_failure_policy': 'block', 'curseforge_failure_policy': 'block', 'forge_preflight_failure_policy': 'ask'}, 'network': {'download_limit_mbps': 0.0, 'download_concurrency': 0, 'download_performance_mode': 'automatic'}, 'storage': {'notify_legacy_cache_cleanup': True, 'unused_version_retention_days': 14}, 'instance_defaults': default_instance_settings(), 'updates': {'auto_check': True, 'channel': 'stable', 'channel_policy_version': UPDATE_CHANNEL_POLICY_VERSION, 'last_checked_at': None}}`
-
-Methods:
 
 ### `mcw_core.api.config.managed_content_policy`
 
-Source re-export: `src.core.config.managed_content_policy`
+Launcher settings, CurseForge gateway và policy.  
+Implementation tương thích hiện tại: `src/core/config/managed_content_policy.py`
 
 #### `ManagedContentPolicy`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `normalize_instance(cls, value: object, default: str=INHERIT)` | `str` |
+| `normalize_global(cls, value: object, default: str=BLOCK)` | `str` |
+| `from_legacy_bool(cls, value: object, default: bool=True)` | `str` |
+| `resolve(cls, instance_settings: object, launcher_settings: dict[str, Any], provider: str)` | `str` |
+| `blocks_launch(cls, instance_settings: object, launcher_settings: dict[str, Any], provider: str)` | `bool` |
 
-- `INHERIT = 'inherit'`
-- `BLOCK = 'block'`
-- `ALLOW = 'allow'`
-- `ASK = 'ask'`
-- `PROVIDERS = {'modrinth', 'curseforge', 'forge_preflight'}`
-
-Methods:
 
 ### `mcw_core.api.content.content_pack_manager`
 
-Source re-export: `src.core.content.content_pack_manager`
+Resource pack, shader pack và Content Library.  
+Implementation tương thích hiện tại: `src/core/content/content_pack_manager.py`
 
 #### `ContentPackManager`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `list_entries(cls, instance: Instance, content_type: str='')` | `list[ContentPackEntry]` |
+| `install_modrinth(cls, instance: Instance, content_type: str, version_id: str, reporter: ProgressReporter \| None=None)` | `ContentPackInstallResult` |
+| `install_curseforge(cls, instance: Instance, content_type: str, file: CurseForgeFile, project_name: str='', project_url: str='', reporter: ProgressReporter \| None=None)` | `ContentPackInstallResult` |
+| `import_local(cls, instance: Instance, content_type: str, source: Path)` | `ContentPackInstallResult` |
+| `set_enabled(cls, instance: Instance, entry_id: str, enabled: bool)` | `ContentPackEntry` |
+| `remove(cls, instance: Instance, entry_id: str)` | `ContentPackEntry` |
+| `destination_dir(cls, instance: Instance, content_type: str)` | `Path` |
+| `validate_archive(cls, source: Path, content_type: str)` | `dict[str, object]` |
+| `normalize_type(cls, value: str)` | `str` |
+| `display_name(cls, content_type: str)` | `str` |
+| `curseforge_project_url(cls, content_type: str, project_id: int \| str)` | `str` |
 
-- `RESOURCE_PACK = 'resourcepack'`
-- `SHADER_PACK = 'shader'`
-- `SUPPORTED_TYPES = frozenset({RESOURCE_PACK, SHADER_PACK})`
-- `MAX_ARCHIVE_ENTRIES = 20000`
-- `MAX_UNCOMPRESSED_BYTES = 2 * 1024 * 1024 * 1024`
-
-Methods:
 
 ### `mcw_core.api.content.content_pack_registry`
 
-Source re-export: `src.core.content.content_pack_registry`
+Resource pack, shader pack và Content Library.  
+Implementation tương thích hiện tại: `src/core/content/content_pack_registry.py`
 
 #### `ContentPackRegistry`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `path(cls, instance: Instance)` | `Path` |
+| `load(cls, instance: Instance)` | `dict` |
+| `save(cls, instance: Instance, payload: dict)` | `Path` |
+| `entries(cls, instance: Instance, content_type: str='')` | `list[ContentPackEntry]` |
+| `upsert(cls, instance: Instance, entry: ContentPackEntry)` | `None` |
+| `remove(cls, instance: Instance, entry_id: str)` | `ContentPackEntry \| None` |
 
-- `SCHEMA_VERSION = 1`
-- `REGISTRY_RELATIVE_PATH = Path('.mcw') / 'content-packs.json'`
-
-Methods:
 
 ### `mcw_core.api.content.installed_content_library`
 
-Source re-export: `src.core.content.installed_content_library`
+Resource pack, shader pack và Content Library.  
+Implementation tương thích hiện tại: `src/core/content/installed_content_library.py`
 
 #### `InstalledContentLibraryManager`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `scan(cls, instance: Instance)` | `InstalledContentLibrary` |
+| `set_enabled(cls, instance: Instance, item_ids: list[str] \| tuple[str, ...], enabled: bool)` | `tuple[str, ...]` |
+| `remove(cls, instance: Instance, item_ids: list[str] \| tuple[str, ...])` | `tuple[str, ...]` |
+| `set_pinned(instance: Instance, item_ids: list[str] \| tuple[str, ...], pinned: bool)` | `tuple[str, ...]` |
+| `set_ignored_update(instance: Instance, item_ids: list[str] \| tuple[str, ...], ignored: bool)` | `tuple[str, ...]` |
+| `destination_folder(cls, instance: Instance, content_type: str)` | `Path` |
 
-- `MOD = 'mod'`
-- `RESOURCE_PACK = ContentPackManager.RESOURCE_PACK`
-- `SHADER_PACK = ContentPackManager.SHADER_PACK`
-- `MODPACK = 'modpack'`
-- `SUPPORTED_TYPES = frozenset({MOD, RESOURCE_PACK, SHADER_PACK, MODPACK})`
-
-Methods:
-
-Source re-export: `src.models.content.installed_content`
-
-#### `InstalledContentItem`
-
-Fields / public attributes:
-
-- `item_id: str`
-- `content_type: str`
-- `name: str`
-- `version: str`
-- `provider: str`
-- `project_id: str`
-- `version_id: str`
-- `file_id: str`
-- `file_name: str`
-- `target_path: str`
-- `enabled: bool`
-- `managed_by_modpack: bool`
-- `source_pack_provider: str`
-- `size: int`
-- `sha1: str`
-- `sha512: str`
-- `project_url: str`
-- `status: str`
-- `pinned: bool = False`
-- `ignored_update: bool = False`
-- `toggleable: bool = False`
-- `removable: bool = False`
-
-#### `InstalledContentLibrary`
-
-Fields / public attributes:
-
-- `instance_name: str`
-- `items: tuple[InstalledContentItem, ...]`
-
-Methods:
-
-```python
-total_count() -> int
-```
-*(property)*
-
-```python
-enabled_count() -> int
-```
-*(property)*
-
-```python
-pending_count() -> int
-```
-*(property)*
-
-```python
-missing_count() -> int
-```
-*(property)*
-
-```python
-managed_count() -> int
-```
-*(property)*
-
-```python
-total_size() -> int
-```
-*(property)*
 
 ### `mcw_core.api.curseforge.curseforge_client`
 
-Source re-export: `src.core.curseforge.curseforge_client`
+Search, metadata, download và installer CurseForge.  
+Implementation tương thích hiện tại: `src/core/curseforge/curseforge_client.py`
 
 #### `CurseForgeClient`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `is_available()` | `bool` |
+| `gateway_urls()` | `tuple[str, ...]` |
+| `gateway_url()` | `str` |
+| `cache_status()` | `CurseForgeCacheInfo` |
+| `clear_cache()` | `None` |
+| `manual_refresh_remaining_seconds()` | `int` |
+| `search_projects(project_type: str, query: str='', game_version: str='', loader: str='forge', index: int=0, page_size: int=25, sort: str='popularity', force_refresh: bool=False, manual_refresh: bool=False)` | `CurseForgeSearchResult` |
+| `get_project(project_id: int \| str, force_refresh: bool=False)` | `CurseForgeProject` |
+| `get_project_details(project_id: int \| str, force_refresh: bool=False)` | `CurseForgeProject` |
+| `get_projects_batch(project_ids: list[int] \| tuple[int, ...] \| set[int])` | `dict[int, CurseForgeProject]` |
+| `list_files_result(project_id: int \| str, game_version: str='', loader: str='forge', release_types: tuple[str, ...] \| list[str] \| set[str] \| None=None, page_size: int=50, force_refresh: bool=False, manual_refresh: bool=False)` | `CurseForgeFileListResult` |
+| `list_files(project_id: int \| str, game_version: str='', loader: str='forge', release_types: tuple[str, ...] \| list[str] \| set[str] \| None=None, page_size: int=50, force_refresh: bool=False)` | `list[CurseForgeFile]` |
+| `get_file(project_id: int \| str, file_id: int \| str, force_refresh: bool=False)` | `CurseForgeFile` |
+| `get_files_batch(file_ids: list[int] \| tuple[int, ...] \| set[int])` | `dict[int, CurseForgeFile]` |
+| `get_download_url(project_id: int \| str, file_id: int \| str, force_refresh: bool=False)` | `str` |
+| `latest_compatible_file(project_id: int \| str, game_version: str, loader: str='forge', release_types: tuple[str, ...] \| list[str] \| set[str] \| None=None)` | `CurseForgeFile` |
+| `normalize_loader(loader: str)` | `str` |
+| `loader_compatibility(file: CurseForgeFile, loader: str)` | `str` |
+| `is_permanent_error(error: BaseException)` | `bool` |
+| `normalize_release_types(release_types: tuple[str, ...] \| list[str] \| set[str] \| None=None)` | `tuple[str, ...]` |
 
-- `MINECRAFT_GAME_ID = 432`
-- `CLASS_MODS = 6`
-- `CLASS_RESOURCE_PACKS = 12`
-- `CLASS_MODPACKS = 4471`
-- `CLASS_SHADERS = 6552`
-- `CLASS_IDS = {'mod': CLASS_MODS, 'modpack': CLASS_MODPACKS, 'resourcepack': CLASS_RESOURCE_PACKS, 'shader': CLASS_SHADERS}`
-- `SEARCH_TTL_SECONDS = 2 * 60`
-- `FILES_TTL_SECONDS = 5 * 60`
-- `PROJECT_TTL_SECONDS = 10 * 60`
-- `FILE_TTL_SECONDS = 30 * 60`
-- `BATCH_TTL_SECONDS = 30 * 60`
-- `REQUEST_TIMEOUT_SECONDS = 15.0`
-- `FAILOVER_STATUS_CODES = frozenset({404, 408, 425, 429, *range(500, 600)})`
-- `PERMANENT_GATEWAY_CODES = frozenset({'CURSEFORGE_CREDENTIALS_UNAVAILABLE', 'FILE_UNAVAILABLE', 'THIRD_PARTY_DISTRIBUTION_DISABLED', 'MANUAL_DOWNLOAD_REQUIRED', 'GATEWAY_CREDENTIALS_REJECTED', 'UPSTREAM_FORBIDDEN', 'UPSTREAM_REJECTED_REQUEST'})`
-
-Methods:
 
 ### `mcw_core.api.curseforge.curseforge_errors`
 
-Source re-export: `src.core.curseforge.curseforge_errors`
+Search, metadata, download và installer CurseForge.  
+Implementation tương thích hiện tại: `src/core/curseforge/curseforge_errors.py`
 
 #### `CurseForgeManagedFilesRequired`
-
 Raised when managed CurseForge files require user-assisted recovery.
-
-Bases: `RuntimeError`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `CurseForgeModpackManualDownloadRequired`
-
 Raised when a CurseForge modpack archive must be downloaded manually.
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
-Bases: `RuntimeError`
-
-### `mcw_core.api.curseforge.curseforge_links`
-
-Source re-export: `src.core.curseforge.curseforge_links`
-
-#### `normalize_project_page`
-
-```python
-normalize_project_page(url: object) -> str
-```
-
-#### `project_search_url`
-
-```python
-project_search_url(project_id: int | str) -> str
-```
-
-#### `file_page_url`
-
-```python
-file_page_url(project_url: object, file_id: int | str) -> str
-```
-
-#### `best_manual_download_url`
-
-```python
-best_manual_download_url(requirement: object) -> str
-```
 
 ### `mcw_core.api.curseforge.curseforge_manual_installer`
 
-Source re-export: `src.core.curseforge.curseforge_manual_installer`
+Search, metadata, download và installer CurseForge.  
+Implementation tương thích hiện tại: `src/core/curseforge/curseforge_manual_installer.py`
 
 #### `CurseForgeManualInstaller`
 
-Methods:
+| Method | Return |
+|---|---|
+| `install(instance: Instance, requirement: CurseForgeManualDownload, source: Path)` | `str` |
+| `install_many(instance: Instance, requirements: tuple[CurseForgeManualDownload, ...] \| list[CurseForgeManualDownload], sources: tuple[Path, ...] \| list[Path])` | `CurseForgeManualImportResult` |
+| `copy_to_cache(source: Path, destination: Path)` | `Path` |
+
 
 ### `mcw_core.api.curseforge.curseforge_mod_installer`
 
-Source re-export: `src.core.curseforge.curseforge_mod_installer`
+Search, metadata, download và installer CurseForge.  
+Implementation tương thích hiện tại: `src/core/curseforge/curseforge_mod_installer.py`
 
 #### `CurseForgeModInstaller`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `install(instance: Instance, project_id: int, file_id: int, install_dependencies: bool=True, allowed_release_types: tuple[str, ...] \| list[str] \| set[str] \| None=None, reporter: ProgressReporter \| None=None, allow_unverified: bool=False)` | `CurseForgeModInstallResult` |
 
-- `MAX_DEPENDENCIES = 64`
-
-Methods:
 
 ### `mcw_core.api.curseforge.curseforge_pack_installer`
 
-Source re-export: `src.core.curseforge.curseforge_pack_installer`
+Search, metadata, download và installer CurseForge.  
+Implementation tương thích hiện tại: `src/core/curseforge/curseforge_pack_installer.py`
 
 #### `CurseForgePackInstaller`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `install(project_id: int, file_id: int, instance_name: str, install_optional_files: bool=True, allowed_release_types: tuple[str, ...] \| list[str] \| set[str] \| None=None, reporter: ProgressReporter \| None=None, expected_loader: str='', settings_override: dict \| None=None)` | `CurseForgeModpackInstallResult` |
+| `install_local_archive(pack_path: Path, instance_name: str='', install_optional_files: bool=True, reporter: ProgressReporter \| None=None, settings_override: dict \| None=None)` | `CurseForgeModpackInstallResult` |
+| `install_manual_archive(request: CurseForgeModpackManualDownloadRequired, source: Path, reporter: ProgressReporter \| None=None)` | `CurseForgeModpackInstallResult` |
 
-- `MANIFEST_NAME = 'manifest.json'`
-- `MAX_MANIFEST_BYTES = 4 * 1024 * 1024`
-- `MAX_FILES = 5000`
-- `MAX_OVERRIDE_BYTES = 2 * 1024 * 1024 * 1024`
-- `MAX_PATH_LENGTH = 240`
-- `MAX_WORKERS = 8`
-- `RESERVED_ROOT_NAMES = {'instance.json', 'settings.json', '.mcw'}`
-- `INSTANCE_NAME_PATTERN = re.compile('^[^<>:"/\\\\|?*\\x00-\\x1F]{1,80}$')`
-- `SUPPORTED_LOADERS = (ModLoaderManager.FABRIC, ModLoaderManager.QUILT, ModLoaderManager.FORGE, ModLoaderManager.NEOFORGE)`
-
-Methods:
 
 ### `mcw_core.api.curseforge.curseforge_registry`
 
-Source re-export: `src.core.curseforge.curseforge_registry`
+Search, metadata, download và installer CurseForge.  
+Implementation tương thích hiện tại: `src/core/curseforge/curseforge_registry.py`
 
 #### `CurseForgeRegistry`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `empty()` | `dict` |
+| `load(instance: Instance)` | `dict` |
+| `save(instance: Instance, data: dict)` | `None` |
+| `remove_by_filenames(instance: Instance, filenames: list[str] \| tuple[str, ...] \| set[str])` | `tuple[str, ...]` |
+| `safe_tracked_path(instance: Instance, filename: str)` | `Path \| None` |
 
-- `SCHEMA_VERSION = 1`
-
-Methods:
 
 ### `mcw_core.api.diagnostics.diagnostics_manager`
 
-Source re-export: `src.core.diagnostics.diagnostics_manager`
+Diagnostic report/bundle.  
+Implementation tương thích hiện tại: `src/core/diagnostics/diagnostics_manager.py`
 
 #### `DiagnosticsManager`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `build_report(cls, launcher_version: str, settings: dict[str, Any] \| None=None, activity_log: str='')` | `str` |
+| `write_report(cls, path: Path, launcher_version: str, settings: dict[str, Any] \| None=None, activity_log: str='')` | `Path` |
+| `write_bundle(cls, path: Path, launcher_version: str, settings: dict[str, Any] \| None=None, activity_log: str='')` | `Path` |
 
-- `REPORT_SCHEMA_VERSION = '2.1'`
-- `BUNDLE_SCHEMA_VERSION = '2.1'`
-- `MAX_LOG_FILES = 8`
-- `MAX_LOG_BYTES = 256 * 1024`
-- `MAX_TOTAL_LOG_BYTES = 2 * 1024 * 1024`
-
-Methods:
-
-### `mcw_core.api.diagnostics.issue_report_builder`
-
-Source re-export: `src.core.diagnostics.issue_report_builder`
-
-#### `IssueReportBuilder`
-
-Build a privacy-filtered GitHub issue draft from user-provided context.
-
-Methods:
 
 ### `mcw_core.api.fs.paths`
 
-Source re-export: `src.core.fs.paths`
+Đường dẫn và filesystem root.  
+Implementation tương thích hiện tại: `src/core/fs/paths.py`
 
 #### `Paths`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `initialize()` | `None` |
+| `backups_root()` | `Path` |
+| `instance_backups_dir(instance: Instance)` | `Path` |
+| `backup_staging_root()` | `Path` |
+| `theme_asset(theme: str, *paths: str)` | `Path` |
+| `theme_dir(name: str)` | `Path` |
+| `root()` | `Path` |
+| `snapshot()` | `dict[str, Path]` |
+| `restore(snapshot: dict[str, Path], initialize: bool=False)` | `None` |
+| `configure(root: Path \| str \| None=None, *, cache_root: Path \| str \| None=None, instances_root: Path \| str \| None=None, accounts_root: Path \| str \| None=None, config_root: Path \| str \| None=None, logs_root: Path \| str \| None=None, backups_root: Path \| str \| None=None, theme_root: Path \| str \| None=None, runtimes_root: Path \| str \| None=None, initialize: bool=True)` | `dict[str, Path]` |
+| `configured(root: Path \| str \| None=None, **overrides: object)` | `Iterator[None]` |
+| `microsoft_config_root()` | `Path` |
+| `launcher_settings_path()` | `Path` |
+| `logs_root()` | `Path` |
+| `updater_log_path()` | `Path` |
+| `diagnostics_default_path()` | `Path` |
+| `download_journal_path()` | `Path` |
+| `update_root()` | `Path` |
+| `update_release_cache()` | `Path` |
+| `update_download_path(tag_name: str, asset_name: str)` | `Path` |
+| `update_staging_root()` | `Path` |
+| `account_database_path()` | `Any` |
+| `account_skins_root()` | `Path` |
+| `accounts_path()` | `Path` |
+| `instance_metadata(instance_name: str)` | `Path` |
+| `instance_settings_path(instance: Instance)` | `Path` |
+| `instance_settings_create(instance: Instance)` | `Path` |
+| `instances_root()` | `Path` |
+| `instance_runtime_root()` | `Path` |
+| `instance_operations_root()` | `Path` |
+| `instance_staging_root()` | `Path` |
+| `process_sessions_root()` | `Path` |
+| `process_session_history_root()` | `Path` |
+| `load_instance_dir(name: str)` | `Path` |
+| `create_instance_dir(name: str)` | `Path` |
+| `instance_data_path_create()` | `Any` |
+| `instance_data_path()` | `Any` |
+| `version_dir(version: Version)` | `Any` |
+| `client(version: Version)` | `Any` |
+| `fabric_version_dir(game_version: str, loader_version: str)` | `Path` |
+| `fabric_version_json(game_version: str, loader_version: str)` | `Path` |
+| `fabric_metadata_root()` | `Path` |
+| `fabric_catalog_json(game_version: str)` | `Path` |
+| `fabric_install_metadata_json(game_version: str, loader_version: str)` | `Path` |
+| `fabric_profile_json(game_version: str, loader_version: str)` | `Path` |
+| `quilt_version_dir(game_version: str, loader_version: str)` | `Path` |
+| `quilt_version_json(game_version: str, loader_version: str)` | `Path` |
+| `quilt_metadata_root()` | `Path` |
+| `quilt_catalog_json(game_version: str)` | `Path` |
+| `quilt_install_metadata_json(game_version: str, loader_version: str)` | `Path` |
+| `quilt_profile_json(game_version: str, loader_version: str)` | `Path` |
+| `neoforge_root()` | `Path` |
+| `neoforge_version_dir(game_version: str, neoforge_version: str)` | `Path` |
+| `neoforge_version_json(game_version: str, neoforge_version: str)` | `Path` |
+| `neoforge_installer_path(game_version: str, neoforge_version: str)` | `Path` |
+| `neoforge_staging_dir(game_version: str, neoforge_version: str)` | `Path` |
+| `forge_root()` | `Path` |
+| `forge_version_dir(game_version: str, forge_version: str)` | `Path` |
+| `forge_version_json(game_version: str, forge_version: str)` | `Path` |
+| `forge_installer_path(game_version: str, forge_version: str)` | `Path` |
+| `forge_staging_dir(game_version: str, forge_version: str)` | `Path` |
+| `forge_instance_root(instance: Instance)` | `Path` |
+| `forge_rollback_path(instance: Instance)` | `Path` |
+| `forge_instance_log_path(instance: Instance)` | `Path` |
+| `forge_diagnostics_default_path(instance: Instance)` | `Path` |
+| `ftb_root()` | `Path` |
+| `ftb_file_cache(project_id: int \| str, version_id: int \| str, filename: str)` | `Path` |
+| `ftb_pack_registry(instance: Instance)` | `Path` |
+| `curseforge_root()` | `Path` |
+| `curseforge_api_cache(cache_key: str)` | `Path` |
+| `curseforge_file_cache(project_id: int \| str, file_id: int \| str, filename: str)` | `Path` |
+| `curseforge_pack_cache(project_id: int \| str, file_id: int \| str, filename: str)` | `Path` |
+| `instance_artwork_cache(provider: str, project_id: str, artwork_url: str)` | `Path` |
+| `curseforge_instance_registry(instance: Instance)` | `Path` |
+| `curseforge_instance_transaction_root(instance: Instance)` | `Path` |
+| `curseforge_pack_registry(instance: Instance)` | `Path` |
+| `instance_logs_dir(instance: Instance)` | `Path` |
+| `instance_crash_reports_dir(instance: Instance)` | `Path` |
+| `instance_runtime_history(instance: Instance)` | `Path` |
+| `instance_repair_report(instance: Instance)` | `Path` |
+| `instance_repair_cache(instance: Instance)` | `Path` |
+| `instance_repair_scan_report(instance: Instance)` | `Path` |
+| `instance_repair_execution_report(instance: Instance)` | `Path` |
+| `instance_mods_dir(instance: Instance)` | `Path` |
+| `mod_provenance_registry(instance: Instance)` | `Path` |
+| `modrinth_root()` | `Path` |
+| `modrinth_api_cache(cache_key: str)` | `Path` |
+| `modrinth_file_cache(project_id: str, version_id: str, filename: str)` | `Path` |
+| `modrinth_pack_cache(project_id: str, version_id: str, filename: str)` | `Path` |
+| `modrinth_staging_root()` | `Path` |
+| `modrinth_instance_registry(instance: Instance)` | `Path` |
+| `libraries()` | `Any` |
+| `version_manifest()` | `Path` |
+| `version_json(version: Version)` | `Path` |
+| `asset_index(version: Version)` | `Any` |
+| `asset_index_dir()` | `Any` |
+| `asset_object(asset: DownloadAsset)` | `Any` |
+| `assets_dir()` | `Any` |
+| `natives(version: Version)` | `Any` |
 
-- `PROJECT_ROOT = PROJECT_ROOT`
-- `CACHE_ROOT = PROJECT_ROOT / 'cache'`
-- `INSTANCES_ROOT = PROJECT_ROOT / 'instances'`
-- `ACCOUNTS_ROOT = PROJECT_ROOT / 'accounts'`
-- `CONFIG_ROOT = PROJECT_ROOT / 'config'`
-- `LOGS_ROOT = PROJECT_ROOT / 'logs'`
-- `BACKUPS_ROOT = PROJECT_ROOT / 'backups'`
-- `THEME_ROOT = PROJECT_ROOT / 'themes'`
-- `RUNTIMES_ROOT = PROJECT_ROOT / 'runtimes'`
-- `INSTANCE_LOCKS_ROOT = INSTANCES_ROOT / '.runtime' / 'locks'`
-- `SHORT_WORKSPACE_ROOT = _default_short_workspace_root()`
-
-Methods:
 
 ### `mcw_core.api.ftb.ftb_client`
 
-Source re-export: `src.core.ftb.ftb_client`
+FTB project/version/installer.  
+Implementation tương thích hiện tại: `src/core/ftb/ftb_client.py`
 
 #### `FTBClient`
-
 Small public FTB modpack API adapter.
 
-Public constants:
+| Method | Return |
+|---|---|
+| `cache_status()` | `FTBCacheInfo` |
+| `clear_cache()` | `None` |
+| `search_projects(query: str='', index: int=0, page_size: int=25, sort: str='popularity', force_refresh: bool=False)` | `FTBSearchResult` |
+| `get_project(project_id: int \| str, force_refresh: bool=False)` | `FTBProject` |
+| `get_project_details(project_id: int \| str, force_refresh: bool=False)` | `FTBProject` |
+| `list_versions(project_id: int \| str, release_types: Iterable[str] \| None=None, force_refresh: bool=False)` | `tuple[FTBVersionSummary, ...]` |
+| `get_version(project_id: int \| str, version_id: int \| str, force_refresh: bool=False)` | `FTBVersion` |
+| `normalize_release_type(value: object)` | `str` |
+| `normalize_loader(value: object)` | `str` |
 
-- `PUBLIC_BASE_URL = 'https://api.feed-the-beast.com/v1/modpacks/public'`
-- `DIRECT_BASE_URL = 'https://api.feed-the-beast.com/v1/modpacks'`
-- `BASE_URLS = (PUBLIC_BASE_URL, DIRECT_BASE_URL)`
-- `SEARCH_TTL_SECONDS = 5 * 60`
-- `PROJECT_TTL_SECONDS = 15 * 60`
-- `VERSION_TTL_SECONDS = 30 * 60`
-- `REQUEST_TIMEOUT_SECONDS = 20.0`
-- `MAX_SEARCH_FETCH = 100`
-- `FAILOVER_STATUS_CODES = frozenset({404, 408, 425, 429, *range(500, 600)})`
-
-Methods:
 
 ### `mcw_core.api.ftb.ftb_content_manager`
 
-Source re-export: `src.core.ftb.ftb_content_manager`
+FTB project/version/installer.  
+Implementation tương thích hiện tại: `src/core/ftb/ftb_content_manager.py`
 
 #### `FTBContentManager`
-
 Materialize deferred FTB modpack files immediately before launch.
 
-Public constants:
+| Method | Return |
+|---|---|
+| `ensure(instance: Instance, reporter: ProgressReporter \| None=None, launch_lock_token: str \| None=None)` | `tuple[str, ...]` |
 
-- `PROGRESS_EMIT_INTERVAL_SECONDS = 0.08`
-
-Methods:
 
 ### `mcw_core.api.ftb.ftb_pack_installer`
 
-Source re-export: `src.core.ftb.ftb_pack_installer`
+FTB project/version/installer.  
+Implementation tương thích hiện tại: `src/core/ftb/ftb_pack_installer.py`
 
 #### `FTBPackInstaller`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `install(project_id: int, version_id: int, instance_name: str, install_optional_files: bool=True, allowed_release_types: tuple[str, ...] \| list[str] \| set[str] \| None=None, reporter: ProgressReporter \| None=None, settings_override: dict \| None=None)` | `FTBModpackInstallResult` |
 
-- `MAX_FILES = 20000`
-- `MAX_TOTAL_BYTES = 50 * 1024 * 1024 * 1024`
-- `MAX_PATH_LENGTH = 240`
-- `RESERVED_ROOT_NAMES = {'instance.json', 'settings.json', '.mcw'}`
-- `INSTANCE_NAME_PATTERN = re.compile('^[^<>:"/\\\\|?*\\x00-\\x1F]{1,80}$')`
-- `SUPPORTED_LOADERS = frozenset(ModLoaderManager.MODDED_LOADERS)`
-
-Methods:
 
 ### `mcw_core.api.ftb.ftb_pack_registry`
 
-Source re-export: `src.core.ftb.ftb_pack_registry`
+FTB project/version/installer.  
+Implementation tương thích hiện tại: `src/core/ftb/ftb_pack_registry.py`
 
 #### `FTBPackRegistry`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `load(instance: Instance \| Path)` | `dict` |
+| `save(instance: Instance \| Path, data: dict)` | `None` |
+| `safe_relative_path(value: str, fallback_filename: str)` | `str` |
 
-- `SCHEMA_VERSION = 2`
-
-Methods:
-
-### `mcw_core.api.hardware.first_run_recommendation_service`
-
-Source re-export: `src.core.hardware.first_run_recommendation_service`
-
-#### `FirstRunRecommendationService`
-
-Collect safe first-run defaults without depending on the GUI.
-
-Methods:
-
-Source re-export: `src.models.hardware.first_run_recommendation`
-
-#### `JavaRuntimeSummary`
-
-Fields / public attributes:
-
-- `major: int`
-- `executable: Path`
-- `source: str`
-
-#### `FirstRunRecommendation`
-
-Fields / public attributes:
-
-- `total_memory_mb: int`
-- `available_memory_mb: int`
-- `recommended_min_memory_mb: int`
-- `recommended_max_memory_mb: int`
-- `java_installations: tuple[JavaRuntimeSummary, ...]`
-- `recommended_java_path: str = ''`
-
-Methods:
-
-```python
-java_majors() -> tuple[int, ...]
-```
-*(property)*
 
 ### `mcw_core.api.hardware.gpu_preference_manager`
 
-Source re-export: `src.core.hardware.gpu_preference_manager`
+GPU detection và Windows preference.  
+Implementation tương thích hiện tại: `src/core/hardware/gpu_preference_manager.py`
 
 #### `GraphicsAdapter`
-
-Fields / public attributes:
-
-- `name: str`
-- `vendor: str = ''`
-- `adapter_ram: int = 0`
-- `pnp_device_id: str = ''`
-- `dedicated: bool = False`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `GraphicsDetectionResult`
 
-Fields / public attributes:
-
-- `supported: bool`
-- `adapters: tuple[GraphicsAdapter, ...] = ()`
-- `error: str = ''`
-
-Methods:
-
-```python
-dedicated_adapters() -> tuple[GraphicsAdapter, ...]
-```
-*(property)*
-
-```python
-has_dedicated_gpu() -> bool
-```
-*(property)*
+| Method | Return |
+|---|---|
+| `dedicated_adapters(self)` | `tuple[GraphicsAdapter, ...]` |
+| `has_dedicated_gpu(self)` | `bool` |
 
 #### `GpuPreferenceManager`
-
 Best-effort Windows graphics preference integration.
 
-Public constants:
+| Method | Return |
+|---|---|
+| `detect(cls)` | `GraphicsDetectionResult` |
+| `apply_for_executable(cls, executable: Path \| str, enabled: bool)` | `bool` |
+| `apply_to_java(cls, java_path: Path \| str, enabled: bool)` | `bool` |
+| `adapter_summary(cls, adapters: Iterable[GraphicsAdapter])` | `str` |
 
-- `REGISTRY_PATH = 'Software\\Microsoft\\DirectX\\UserGpuPreferences'`
-- `HIGH_PERFORMANCE_VALUE = 'GpuPreference=2;'`
-- `DETECTION_TIMEOUT_SECONDS = 8`
-
-Methods:
 
 ### `mcw_core.api.instance.errors`
 
-Source re-export: `src.core.instance.errors`
+Instance lifecycle, status, health, journal và settings.  
+Implementation tương thích hiện tại: `src/core/instance/errors.py`
 
 #### `InstanceAlreadyRunningError`
-
-Bases: `RuntimeError`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `InstanceModChangeBlockedError`
-
-Bases: `RuntimeError`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `InstanceDeletionError`
-
 Structured failure raised when an instance cannot be removed safely.
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
-Bases: `RuntimeError`
 
 ### `mcw_core.api.instance.instance_health_manager`
 
-Source re-export: `src.core.instance.instance_health_manager`
+Instance lifecycle, status, health, journal và settings.  
+Implementation tương thích hiện tại: `src/core/instance/instance_health_manager.py`
 
 #### `InstanceHealthManager`
-
 Run a fast, non-networked health check suitable for launcher startup.
 
-Methods:
+| Method | Return |
+|---|---|
+| `scan(cls, instance: Instance)` | `InstanceHealthReport` |
+| `list(cls, instances: list[Instance])` | `list[InstanceHealthReport]` |
+
 
 ### `mcw_core.api.instance.instance_manager`
 
-Source re-export: `src.core.instance.instance_manager`
+Instance lifecycle, status, health, journal và settings.  
+Implementation tương thích hiện tại: `src/core/instance/instance_manager.py`
 
 #### `InstanceManager`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `validate_name(value: str)` | `str` |
+| `list_instances()` | `list[Instance]` |
+| `clone(source_name: str, new_name: str, include_saves: bool=False)` | `Instance` |
+| `export(instance_name: str, output_path: Path, include_saves: bool=False, on_progress: ProgressCallback \| None=None)` | `Path` |
+| `set_icon(instance_name: str, source_path: Path, origin: dict \| None=None)` | `Instance` |
+| `reset_icon(instance_name: str)` | `Instance` |
+| `resolve_icon_path(instance: Instance)` | `Path \| None` |
+| `inspect_import(package_path: Path)` | `InstancePackagePreview` |
+| `import_instance(package_path: Path, on_progress: ProgressCallback \| None=None, settings_override: dict \| InstanceSettings \| None=None)` | `Instance` |
+| `rename(instance_name: str, new_name: str)` | `Path` |
+| `load(name: str)` | `Instance` |
+| `create(name: str, version: Version, mod_loader=('vanilla', '-1'), settings: dict \| InstanceSettings \| None=None)` | `Instance` |
+| `default_instance_settings()` | `dict` |
+| `set_runtime_profile(name: str, version: Version, mod_loader: tuple[str, str])` | `Instance` |
+| `set_mod_loader(name: str, mod_loader: tuple[str, str])` | `Instance` |
+| `delete_instance(name: str)` | `bool` |
+| `reconcile_registry()` | `dict` |
+| `next_available_name(preferred_name: str)` | `str` |
+| `is_instance_exist(name: str)` | `bool` |
 
-- `METADATA_VERSION = 3`
-- `DEFAULT_ICON = 'grass_block'`
-- `ICON_DIRECTORY = '.mcw'`
-- `ICON_BASENAME = 'instance-icon'`
-- `ICON_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp', '.bmp', '.ico'}`
-- `MAX_ICON_BYTES = 8 * 1024 * 1024`
-- `DIRECTORY_COMMIT_ATTEMPTS = 8`
-- `DIRECTORY_COMMIT_RETRY_SECONDS = 0.15`
-- `INSTANCE_NAME_PATTERN = re.compile('^[^<>:"/\\\\|?*\\x00-\\x1F]{1,80}$')`
-- `WINDOWS_RESERVED_NAMES = {'con', 'prn', 'aux', 'nul', *(f'com{index}' for index in range(1, 10)), *(f'lpt{index}' for index in range(1, 10))}`
-
-Methods:
 
 ### `mcw_core.api.instance.instance_operation_journal`
 
-Source re-export: `src.core.instance.instance_operation_journal`
+Instance lifecycle, status, health, journal và settings.  
+Implementation tương thích hiện tại: `src/core/instance/instance_operation_journal.py`
 
 #### `InstanceRecoveryRecord`
-
-Fields / public attributes:
-
-- `operation_id: str`
-- `operation: str`
-- `result: str`
-- `instance_name: str`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `InstanceOperationJournal`
 
-Fields / public attributes:
+| Method | Return |
+|---|---|
+| `begin(cls, operation: str, instance_name: str, *, source_path: Path \| None=None, target_path: Path \| None=None, staging_path: Path \| None=None)` | `InstanceOperationJournal` |
+| `update(self, phase: str, **updates: Any)` | `None` |
+| `complete(self)` | `None` |
+| `abandon(self)` | `None` |
+| `recover_all(cls)` | `tuple[InstanceRecoveryRecord, ...]` |
 
-- `operation_id: str`
-- `operation: str`
-- `instance_name: str`
-- `path: Path`
-- `payload: dict[str, Any]`
-
-Public constants:
-
-- `SCHEMA_VERSION = 1`
-
-Methods:
 
 ### `mcw_core.api.instance.instance_run_lock`
 
-Source re-export: `src.core.instance.instance_run_lock`
+Instance lifecycle, status, health, journal và settings.  
+Implementation tương thích hiện tại: `src/core/instance/instance_run_lock.py`
 
 #### `RunningInstanceInfo`
-
-Fields / public attributes:
-
-- `instance_id: str | None`
-- `name: str`
-- `state: str`
-- `launcher_pid: int | None`
-- `minecraft_pid: int | None`
-- `created_at: str`
-- `updated_at: str`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `InstanceRunLock`
 
-Fields / public attributes:
+| Method | Return |
+|---|---|
+| `acquire(cls, instance: Instance)` | `InstanceRunLock` |
+| `track_process(self, process: Any)` | `bool` |
+| `release(self)` | `None` |
+| `is_active(cls, instance: Instance)` | `bool` |
+| `owns_preparing_lock(cls, instance: Instance, token: str \| None)` | `bool` |
+| `active_for(cls, instance: Instance)` | `RunningInstanceInfo \| None` |
+| `remove_for(cls, instance: Instance, force: bool=False)` | `bool` |
+| `reconcile(cls)` | `tuple[str, ...]` |
+| `list_active(cls)` | `list[RunningInstanceInfo]` |
+| `lock_path_for(cls, instance: Instance)` | `Path` |
 
-- `instance_name: str`
-- `lock_path: Path`
-- `token: str`
-
-Public constants:
-
-- `LOCK_FILENAME = '.mcw-launcher.lock'`
-- `SCHEMA_VERSION = 1`
-- `MALFORMED_LOCK_GRACE_SECONDS = 5.0`
-- `ACQUIRE_ATTEMPTS = 5`
-
-Methods:
 
 ### `mcw_core.api.instance.settings_manager`
 
-Source re-export: `src.core.instance.settings_manager`
+Instance lifecycle, status, health, journal và settings.  
+Implementation tương thích hiện tại: `src/core/instance/settings_manager.py`
 
-#### `default_instance_settings`
-
-```python
-default_instance_settings() -> dict[str, Any]
-```
-
+- `default_instance_settings() -> dict[str, Any]`
 #### `SettingsManager`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `load(instance: Instance)` | `InstanceSettings` |
+| `save(instance: Instance, settings: InstanceSettings)` | `None` |
+| `save_default(instance: Instance)` | `None` |
+| `default_dict(cls)` | `dict[str, Any]` |
+| `from_dict(data: dict[str, Any] \| InstanceSettings \| None)` | `InstanceSettings` |
+| `to_dict(settings: InstanceSettings)` | `dict[str, Any]` |
+| `normalize_dict(data: dict[str, Any] \| InstanceSettings \| None)` | `dict[str, Any]` |
+| `save_dict(instance: Instance, data: dict[str, Any] \| InstanceSettings \| None)` | `None` |
+| `update_memory(instance: Instance, min_memory: int, max_memory: int)` | `InstanceSettings` |
+| `update_java_path(instance: Instance, java_path: str)` | `InstanceSettings` |
+| `update_window(instance: Instance, width: int, height: int, fullscreen: bool)` | `InstanceSettings` |
+| `update_jvm_arguments(instance: Instance, arguments: list[str])` | `InstanceSettings` |
+| `update_game_arguments(instance: Instance, arguments: list[str])` | `InstanceSettings` |
 
-- `DEFAULT_SETTINGS = {'java': {'path': '', 'min_memory': 1024, 'max_memory': 2048, 'arguments': []}, 'window': {'width': 1280, 'height': 720, 'fullscreen': False}, 'launch': {'game_arguments': [], 'offline_multiplayer_enabled': False, 'lan_auth_mode': 'microsoft_only', 'lan_connection_provider': 'manual', 'modrinth_failure_policy': 'inherit', 'curseforge_failure_policy': 'inherit', 'forge_preflight_failure_policy': 'inherit'}}`
-
-Methods:
 
 ### `mcw_core.api.java.java_major_policy`
 
-Source re-export: `src.core.java.java_major_policy`
+Java policy/metadata.  
+Implementation tương thích hiện tại: `src/core/java/java_major_policy.py`
 
 #### `JavaMajorPolicy`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `resolve(cls, required_major: int \| None)` | `int` |
+| `accepted_majors(cls, required_major: int \| None)` | `tuple[int, ...]` |
 
-- `SUPPORTED_MAJORS = (8, 17, 21, 25)`
-
-Methods:
 
 ### `mcw_core.api.lan.lan_agent_manager`
 
-Source re-export: `src.core.lan.lan_agent_manager`
+LAN agent và hosting.  
+Implementation tương thích hiện tại: `src/core/lan/lan_agent_manager.py`
 
 #### `LanAgentInstallResult`
-
-Fields / public attributes:
-
-- `path: Path`
-- `installed: bool`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `LanAgentManager`
-
 Install and attach the bundled host-side LAN agent.
 
-Public constants:
+| Method | Return |
+|---|---|
+| `is_enabled(cls, auth_mode: object)` | `bool` |
+| `install(cls)` | `LanAgentInstallResult` |
+| `runtime_arguments(cls, version: Version, auth_mode: object, instance: Instance, reporter: ProgressReporter \| None=None)` | `list[str]` |
+| `log_path(cls, instance: Instance)` | `Path` |
+| `prepare_log(cls, instance: Instance, auth_mode: object='unknown')` | `Path` |
+| `append_log(cls, instance: Instance, message: str)` | `None` |
+| `append_log_path(path: Path, message: str)` | `None` |
+| `read_log(cls, instance: Instance)` | `str` |
+| `sanitize_user_jvm_arguments(cls, arguments: list[str])` | `list[str]` |
+| `runtime_agent_path(cls)` | `Path` |
 
-- `AUTH_PRIVATE_OFFLINE = 'private_offline'`
-- `AGENT_FILENAME = 'mcw-lan-agent.jar'`
-- `AGENT_LOG_FILENAME = 'mcw-lan-agent.log'`
-- `AGENT_SHA256 = 'c682cd51fbfc9b5e3ed34520eb38a667212c183a68e37ad17694f14f4eace4dc'`
-- `TARGET_CLASS = 'net/minecraft/server/MinecraftServer'`
-- `TARGET_METHOD = 'setUsesAuthentication'`
-- `TARGET_DESCRIPTOR = '(Z)V'`
-- `RESERVED_ARGUMENT_PREFIXES = ('-Dmcw.lan.', '-javaagent:')`
-
-Methods:
 
 ### `mcw_core.api.lan.lan_hosting_manager`
 
-Source re-export: `src.core.lan.lan_hosting_manager`
+LAN agent và hosting.  
+Implementation tương thích hiện tại: `src/core/lan/lan_hosting_manager.py`
 
 #### `LanHostingManager`
-
 Prepare per-instance LAN hosting support.
 
-Public constants:
+| Method | Return |
+|---|---|
+| `normalize_auth_mode(value: object)` | `str` |
+| `normalize_connection_provider(value: object)` | `str` |
+| `plan(instance: Instance, auth_mode: object, connection_provider: object)` | `LanHostingPlan` |
+| `prepare(instance: Instance, auth_mode: object, connection_provider: object, reporter: ProgressReporter \| None=None)` | `LanHostingPrepareResult` |
+| `disable_legacy_auth_bridges(instance: Instance)` | `tuple[str, ...]` |
 
-- `AUTH_MICROSOFT_ONLY = 'microsoft_only'`
-- `AUTH_PRIVATE_OFFLINE = 'private_offline'`
-- `AUTH_FRIENDS_LEGACY = 'friends'`
-- `CONNECTION_MANUAL = 'manual'`
-- `CONNECTION_E4MC = 'e4mc'`
-- `ROLE_AUTH_BRIDGE = 'auth_bridge'`
-- `ROLE_CONNECTION = 'connection'`
-- `MANAGED_BY = 'mcw_lan_hosting'`
-- `LEGACY_LAN_WORLD_PNP = LanHostingComponent(role=ROLE_AUTH_BRIDGE, project_slug='mcwifipnp', title='LAN World Plug-n-Play')`
-- `E4MC = LanHostingComponent(role=ROLE_CONNECTION, project_slug='e4mc', title='e4mc')`
-- `SUPPORTED_LOADERS = ModLoaderManager.MODDED_LOADERS`
-
-Methods:
 
 ### `mcw_core.api.language.language_manager`
 
-Source re-export: `src.core.language.language_manager`
+Language pack và translation.  
+Implementation tương thích hiện tại: `src/core/language/language_manager.py`
 
 #### `LanguageInfo`
-
-Fields / public attributes:
-
-- `locale: str`
-- `name: str`
-- `path: Path`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `LanguageManager`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `current_locale(self)` | `str` |
+| `language_dir(self)` | `Path` |
+| `language_dirs(self)` | `tuple[Path, ...]` |
+| `reload(self)` | `list[LanguageInfo]` |
+| `available_languages(self)` | `list[LanguageInfo]` |
+| `set_language(self, locale: str, notify: bool=True)` | `bool` |
+| `resolve_key(self, key: str)` | `str` |
+| `translate(self, key: str, default: str \| None=None, **values: object)` | `str` |
+| `has_key(self, key: str)` | `bool` |
+| `missing_keys(self, locale: str \| None=None)` | `list[str]` |
+| `placeholder_mismatches(self, locale: str \| None=None)` | `dict[str, tuple[set[str], set[str]]]` |
+| `subscribe(self, listener: Callable[[str], None])` | `None` |
+| `unsubscribe(self, listener: Callable[[str], None])` | `None` |
 
-- `DEFAULT_LOCALE = 'en-US'`
-
-Methods:
-
-```python
-current_locale() -> str
-```
-*(property)*
-
-```python
-language_dir() -> Path
-```
-*(property)*
-
-```python
-language_dirs() -> tuple[Path, ...]
-```
-*(property)*
-
-#### `tr`
-
-```python
-tr(key: str, default: str | None = None, **values: object) -> str
-```
+- `tr(key: str, default: str | None=None, **values: object) -> str`
 
 ### `mcw_core.api.minecraft.version_manifest_manager`
 
-Source re-export: `src.core.minecraft.version_manifest_manager`
+Minecraft version manifest.  
+Implementation tương thích hiện tại: `src/core/minecraft/version_manifest_manager.py`
 
 #### `VersionManifestManager`
 
-Methods:
+| Method | Return |
+|---|---|
+| `get()` | `list[VersionManifest]` |
+| `latest_version(is_snapshot: bool=False)` | `str` |
+
 
 ### `mcw_core.api.mod.mod_compatibility_manager`
 
-Source re-export: `src.core.mod.mod_compatibility_manager`
+Mod files, compatibility và provenance.  
+Implementation tương thích hiện tại: `src/core/mod/mod_compatibility_manager.py`
 
 #### `ModCompatibilityManager`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `scan(instance: Instance, mods: list[ModInfo] \| None=None)` | `ModHealthReport` |
 
-- `SYSTEM_DEPENDENCY_IDS = {'minecraft', 'java', 'forge', 'neoforge', 'javafml', 'fml', 'fabric', 'fabricloader', 'quilt', 'quilt_loader', 'quiltloader'}`
-
-Methods:
 
 ### `mcw_core.api.mod.mod_manager`
 
-Source re-export: `src.core.mod.mod_manager`
+Mod files, compatibility và provenance.  
+Implementation tương thích hiện tại: `src/core/mod/mod_manager.py`
 
 #### `ModManager`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `mods_dir(instance: Instance)` | `Path` |
+| `list_mods(instance: Instance)` | `list[ModInfo]` |
+| `add_mods(instance: Instance, source_paths: Iterable[Path], replace: bool=False, launch_lock_token: str \| None=None, allow_unverified: bool=False)` | `list[ModInfo]` |
+| `remove_mods(instance: Instance, paths: Iterable[Path])` | `None` |
+| `set_enabled(instance: Instance, paths: Iterable[Path], enabled: bool)` | `list[ModInfo]` |
+| `read_mod(path: Path, preferred_loader: str='', provider_version: str='')` | `ModInfo` |
+| `validate_mod_for_instance(instance: Instance, mod: ModInfo, allow_unverified: bool=False)` | `None` |
+| `compatibility_warning(instance: Instance, mod: ModInfo)` | `str` |
+| `ensure_modifiable(instance: Instance, launch_lock_token: str \| None=None)` | `None` |
 
-- `DISABLED_SUFFIX = '.disabled'`
-- `MAX_EMBEDDED_MOD_JARS = 64`
-- `MAX_EMBEDDED_MOD_JAR_SIZE = 32 * 1024 * 1024`
-- `MAX_EMBEDDED_MOD_DEPTH = 2`
-
-Methods:
 
 ### `mcw_core.api.mod.mod_provenance_registry`
 
-Source re-export: `src.core.mod.mod_provenance_registry`
+Mod files, compatibility và provenance.  
+Implementation tương thích hiện tại: `src/core/mod/mod_provenance_registry.py`
 
 #### `ModProvenanceRegistry`
-
 Unified source identity for installed and manifest-managed mod files.
 
-Public constants:
+| Method | Return |
+|---|---|
+| `empty()` | `dict` |
+| `load(instance: Instance)` | `dict` |
+| `save(instance: Instance, data: dict)` | `None` |
+| `synchronize(instance: Instance)` | `dict[str, dict]` |
+| `entries_by_file(instance: Instance, synchronize: bool=True)` | `dict[str, dict]` |
+| `entry_for_file(instance: Instance, filename: str)` | `dict \| None` |
+| `record_many(instance: Instance, entries: list[dict] \| tuple[dict, ...])` | `None` |
+| `remove_by_filenames(instance: Instance, filenames: list[str] \| tuple[str, ...] \| set[str])` | `tuple[str, ...]` |
 
-- `SCHEMA_VERSION = 2`
-
-Methods:
 
 ### `mcw_core.api.modloader.fabric.fabric_meta_client`
 
-Source re-export: `src.core.modloader.fabric.fabric_meta_client`
+Fabric/Quilt/Forge/NeoForge.  
+Implementation tương thích hiện tại: `src/core/modloader/fabric/fabric_meta_client.py`
 
 #### `FabricMetaClient`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `list_loader_versions(game_version: str, force_refresh: bool=False)` | `list[FabricLoaderVersion]` |
+| `get_install_metadata(game_version: str, loader_version: str, force_refresh: bool=False)` | `FabricInstallMetadata` |
+| `get_profile(game_version: str, loader_version: str, force_refresh: bool=False)` | `dict` |
+| `clear_cached_install(game_version: str, loader_version: str)` | `None` |
 
-- `BASE_URL = 'https://meta.fabricmc.net/v2'`
-- `CATALOG_CACHE_SCHEMA = 1`
-- `INSTALL_CACHE_SCHEMA = 1`
-- `PROFILE_CACHE_SCHEMA = 1`
-- `CATALOG_TTL_SECONDS = 6 * 60 * 60`
-
-Methods:
-
-### `mcw_core.api.modloader.forge.compatibility_confirmation`
-
-Source re-export: `src.core.modloader.forge.compatibility_confirmation`
-
-#### `CompatibilityConfirmationRequired`
-
-Raised when bypassable compatibility errors require user consent.
-
-Bases: `RuntimeError`
 
 ### `mcw_core.api.modloader.forge.forge_metadata_client`
 
-Source re-export: `src.core.modloader.forge.forge_metadata_client`
+Fabric/Quilt/Forge/NeoForge.  
+Implementation tương thích hiện tại: `src/core/modloader/forge/forge_metadata_client.py`
 
 #### `ForgeMetadataClient`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `list_versions(game_version: str, force_refresh: bool=False)` | `list[ForgeLoaderVersion]` |
+| `recommended_version(game_version: str)` | `str` |
+| `installer_url(game_version: str, forge_version: str)` | `str` |
+| `installer_sha1(game_version: str, forge_version: str)` | `str` |
 
-- `MAVEN_ROOT = 'https://maven.minecraftforge.net/net/minecraftforge/forge'`
-- `METADATA_URL = f'{MAVEN_ROOT}/maven-metadata.xml'`
-- `CACHE_TTL_SECONDS = 6 * 60 * 60`
-
-Methods:
 
 ### `mcw_core.api.modloader.mod_loader_manager`
 
-Source re-export: `src.core.modloader.mod_loader_manager`
+Fabric/Quilt/Forge/NeoForge.  
+Implementation tương thích hiện tại: `src/core/modloader/mod_loader_manager.py`
 
 #### `ModLoaderManager`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `load(instance: Instance, reporter: ProgressReporter \| None=None)` | `Version` |
+| `prepare(version: Version, loader_name: str, loader_version: str, reporter: ProgressReporter \| None=None)` | `Version` |
+| `repair(instance: Instance, reporter: ProgressReporter \| None=None)` | `Version` |
+| `resolve(game_version: str, loader_name: str, loader_version: str=AUTO)` | `tuple[str, str]` |
+| `normalize(mod_loader: object)` | `tuple[str, str]` |
 
-- `VANILLA = 'vanilla'`
-- `FABRIC = 'fabric'`
-- `FORGE = 'forge'`
-- `NEOFORGE = 'neoforge'`
-- `QUILT = 'quilt'`
-- `AUTO = 'auto'`
-- `MODDED_LOADERS = frozenset({FABRIC, FORGE, NEOFORGE, QUILT})`
-- `FORGE_FAMILY = frozenset({FORGE, NEOFORGE})`
-
-Methods:
 
 ### `mcw_core.api.modloader.neoforge.neoforge_metadata_client`
 
-Source re-export: `src.core.modloader.neoforge.neoforge_metadata_client`
+Fabric/Quilt/Forge/NeoForge.  
+Implementation tương thích hiện tại: `src/core/modloader/neoforge/neoforge_metadata_client.py`
 
 #### `NeoForgeMetadataClient`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `list_versions(game_version: str, force_refresh: bool=False)` | `list[NeoForgeLoaderVersion]` |
+| `recommended_version(game_version: str)` | `str` |
+| `coordinate(game_version: str, neoforge_version: str)` | `tuple[str, str]` |
+| `installer_url(game_version: str, neoforge_version: str)` | `str` |
+| `installer_sha1(game_version: str, neoforge_version: str)` | `str` |
 
-- `MAVEN_BASE = 'https://maven.neoforged.net/releases/net/neoforged'`
-- `MODERN_ARTIFACT = 'neoforge'`
-- `LEGACY_ARTIFACT = 'forge'`
-- `MODERN_MAVEN_ROOT = f'{MAVEN_BASE}/{MODERN_ARTIFACT}'`
-- `LEGACY_MAVEN_ROOT = f'{MAVEN_BASE}/{LEGACY_ARTIFACT}'`
-- `MODERN_METADATA_URL = f'{MODERN_MAVEN_ROOT}/maven-metadata.xml'`
-- `LEGACY_METADATA_URL = f'{LEGACY_MAVEN_ROOT}/maven-metadata.xml'`
-- `CACHE_TTL_SECONDS = 6 * 60 * 60`
-
-Methods:
 
 ### `mcw_core.api.modloader.quilt.quilt_meta_client`
 
-Source re-export: `src.core.modloader.quilt.quilt_meta_client`
+Fabric/Quilt/Forge/NeoForge.  
+Implementation tương thích hiện tại: `src/core/modloader/quilt/quilt_meta_client.py`
 
 #### `QuiltMetaClient`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `list_loader_versions(game_version: str, force_refresh: bool=False)` | `list[QuiltLoaderVersion]` |
+| `version_sort_key(version: str)` | `tuple` |
+| `get_install_metadata(game_version: str, loader_version: str, force_refresh: bool=False)` | `QuiltInstallMetadata` |
+| `get_profile(game_version: str, loader_version: str, force_refresh: bool=False)` | `dict` |
+| `clear_cached_install(game_version: str, loader_version: str)` | `None` |
 
-- `BASE_URL = 'https://meta.quiltmc.org/v3'`
-- `CATALOG_CACHE_SCHEMA = 2`
-- `INSTALL_CACHE_SCHEMA = 1`
-- `PROFILE_CACHE_SCHEMA = 1`
-- `CATALOG_TTL_SECONDS = 6 * 60 * 60`
-
-Methods:
 
 ### `mcw_core.api.modrinth.modrinth_client`
 
-Source re-export: `src.core.modrinth.modrinth_client`
+Search, metadata, installer và repair/update Modrinth.  
+Implementation tương thích hiện tại: `src/core/modrinth/modrinth_client.py`
 
 #### `ModrinthClient`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `search_projects(project_type: str, query: str='', game_version: str='', loader: str='fabric', index: str='relevance', offset: int=0, limit: int=25, force_refresh: bool=False)` | `ModrinthSearchResult` |
+| `get_project(project_id: str, force_refresh: bool=False)` | `ModrinthProject` |
+| `list_project_versions(project_id: str, loader: str='fabric', game_version: str='', version_types: tuple[str, ...] \| list[str] \| set[str] \| None=None, force_refresh: bool=False)` | `list[ModrinthVersion]` |
+| `get_version(version_id: str, force_refresh: bool=False)` | `ModrinthVersion` |
+| `select_version(project_id: str, game_version: str, loader: str='fabric', version_types: tuple[str, ...] \| list[str] \| set[str] \| None=None)` | `ModrinthVersion` |
+| `compatible_loaders(loader: str)` | `tuple[str, ...]` |
+| `normalize_version_types(version_types: tuple[str, ...] \| list[str] \| set[str] \| None=None)` | `tuple[str, ...]` |
 
-- `BASE_URL = 'https://api.modrinth.com/v2'`
-- `CACHE_SCHEMA = 4`
-- `SEARCH_TTL_SECONDS = 10 * 60`
-- `VERSIONS_TTL_SECONDS = 30 * 60`
-- `PROJECT_TTL_SECONDS = 60 * 60`
-- `USER_AGENT = MODRINTH_USER_AGENT`
-
-Methods:
 
 ### `mcw_core.api.modrinth.modrinth_errors`
 
-Source re-export: `src.core.modrinth.modrinth_errors`
+Search, metadata, installer và repair/update Modrinth.  
+Implementation tương thích hiện tại: `src/core/modrinth/modrinth_errors.py`
 
 #### `ModrinthManagedFilesRequired`
-
-Bases: `RuntimeError`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `ModrinthModpackManualDownloadRequired`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
-Bases: `RuntimeError`
 
 ### `mcw_core.api.modrinth.modrinth_manual_installer`
 
-Source re-export: `src.core.modrinth.modrinth_manual_installer`
+Search, metadata, installer và repair/update Modrinth.  
+Implementation tương thích hiện tại: `src/core/modrinth/modrinth_manual_installer.py`
 
 #### `ModrinthManualInstaller`
 
-Methods:
+| Method | Return |
+|---|---|
+| `install(instance: Instance, requirement: ModrinthManualDownload, source: Path)` | `str` |
+| `install_many(instance: Instance, requirements: tuple[ModrinthManualDownload, ...] \| list[ModrinthManualDownload], sources: tuple[Path, ...] \| list[Path])` | `ModrinthManualImportResult` |
+
 
 ### `mcw_core.api.modrinth.modrinth_mod_installer`
 
-Source re-export: `src.core.modrinth.modrinth_mod_installer`
+Search, metadata, installer và repair/update Modrinth.  
+Implementation tương thích hiện tại: `src/core/modrinth/modrinth_mod_installer.py`
 
 #### `ModrinthModInstaller`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `install(instance: Instance, version_id: str, install_dependencies: bool=True, allowed_version_types: tuple[str, ...] \| list[str] \| set[str] \| None=None, reporter: ProgressReporter \| None=None)` | `ModrinthModInstallResult` |
 
-- `MAX_DEPENDENCIES = 64`
-- `SUPPORTED_LOADERS = ModLoaderManager.MODDED_LOADERS`
-
-Methods:
 
 ### `mcw_core.api.modrinth.modrinth_mod_update_manager`
 
-Source re-export: `src.core.modrinth.modrinth_mod_update_manager`
+Search, metadata, installer và repair/update Modrinth.  
+Implementation tương thích hiện tại: `src/core/modrinth/modrinth_mod_update_manager.py`
 
 #### `ModrinthModUpdateManager`
 
-Methods:
+| Method | Return |
+|---|---|
+| `check(instance: Instance, allowed_version_types: tuple[str, ...] \| list[str] \| set[str] \| None=None, force_refresh: bool=False, reporter: ProgressReporter \| None=None)` | `ModrinthModUpdateReport` |
+| `update(instance: Instance, project_ids: list[str] \| tuple[str, ...] \| set[str], allowed_version_types: tuple[str, ...] \| list[str] \| set[str] \| None=None, reporter: ProgressReporter \| None=None)` | `ModrinthModUpdateResult` |
+| `update_all(instance: Instance, allowed_version_types: tuple[str, ...] \| list[str] \| set[str] \| None=None, reporter: ProgressReporter \| None=None)` | `ModrinthModUpdateResult` |
+| `set_locked(instance: Instance, project_ids: list[str] \| tuple[str, ...] \| set[str], locked: bool)` | `tuple[str, ...]` |
+
 
 ### `mcw_core.api.modrinth.modrinth_pack_installer`
 
-Source re-export: `src.core.modrinth.modrinth_pack_installer`
+Search, metadata, installer và repair/update Modrinth.  
+Implementation tương thích hiện tại: `src/core/modrinth/modrinth_pack_installer.py`
 
 #### `ModrinthPackInstaller`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `install(project_id: str, version_id: str, instance_name: str, install_optional_files: bool=True, allowed_version_types: tuple[str, ...] \| list[str] \| set[str] \| None=None, reporter: ProgressReporter \| None=None, expected_loader: str='', settings_override: dict \| None=None)` | `ModrinthModpackInstallResult` |
+| `install_local_archive(pack_path: Path, instance_name: str='', install_optional_files: bool=True, reporter: ProgressReporter \| None=None, settings_override: dict \| None=None)` | `ModrinthModpackInstallResult` |
+| `install_manual_archive(request: ModrinthModpackManualDownloadRequired, source: Path, reporter: ProgressReporter \| None=None)` | `ModrinthModpackInstallResult` |
+| `inspect(pack_path: Path)` | `dict` |
 
-- `INDEX_NAME = 'modrinth.index.json'`
-- `FORMAT_VERSION = 1`
-- `MAX_WORKERS = 8`
-- `MAX_INDEX_BYTES = 8 * 1024 * 1024`
-- `MAX_FILES = 20000`
-- `MAX_TOTAL_DOWNLOAD_BYTES = 50 * 1024 * 1024 * 1024`
-- `MAX_OVERRIDE_BYTES = 2 * 1024 * 1024 * 1024`
-- `MAX_PATH_LENGTH = 240`
-- `RESERVED_ROOT_NAMES = {'instance.json', 'settings.json', '.mcw'}`
-- `INSTANCE_NAME_PATTERN = re.compile('^[^<>:"/\\\\|?*\\x00-\\x1F]{1,80}$')`
-
-Methods:
 
 ### `mcw_core.api.modrinth.modrinth_pack_registry`
 
-Source re-export: `src.core.modrinth.modrinth_pack_registry`
+Search, metadata, installer và repair/update Modrinth.  
+Implementation tương thích hiện tại: `src/core/modrinth/modrinth_pack_registry.py`
 
 #### `ModrinthPackRegistry`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `path(instance_dir: Path)` | `Path` |
+| `load(instance: Instance)` | `dict` |
+| `load_from_dir(instance_dir: Path)` | `dict` |
+| `save(instance_dir: Path, data: dict)` | `None` |
+| `scan(instance: Instance, reporter: ProgressReporter \| None=None, force_hash: bool=False)` | `ModrinthPackStateReport` |
+| `verify_entry(instance_dir: Path, entry: dict, cache: dict \| None=None, force_hash: bool=False)` | `tuple[bool, bool, int]` |
+| `build_verification_cache(instance_dir: Path, managed_files: list[dict])` | `dict` |
 
-- `SCHEMA_VERSION = 6`
-- `FILE_NAME = 'modrinth-pack.json'`
-
-Methods:
 
 ### `mcw_core.api.modrinth.modrinth_pack_repair_manager`
 
-Source re-export: `src.core.modrinth.modrinth_pack_repair_manager`
+Search, metadata, installer và repair/update Modrinth.  
+Implementation tương thích hiện tại: `src/core/modrinth/modrinth_pack_repair_manager.py`
 
 #### `ModrinthPackRepairManager`
 
-Methods:
+| Method | Return |
+|---|---|
+| `repair(instance: Instance, reporter: ProgressReporter \| None=None)` | `ModrinthPackRepairResult` |
+
 
 ### `mcw_core.api.modrinth.modrinth_pack_update_manager`
 
-Source re-export: `src.core.modrinth.modrinth_pack_update_manager`
+Search, metadata, installer và repair/update Modrinth.  
+Implementation tương thích hiện tại: `src/core/modrinth/modrinth_pack_update_manager.py`
 
 #### `ModrinthPackUpdateManager`
 
-Methods:
+| Method | Return |
+|---|---|
+| `check(instance: Instance, allowed_version_types: tuple[str, ...] \| list[str] \| set[str] \| None=None, force_refresh: bool=False, reporter: ProgressReporter \| None=None)` | `ModrinthPackUpdateInfo \| None` |
+| `preview(instance: Instance, target_version_id: str='', allowed_version_types: tuple[str, ...] \| list[str] \| set[str] \| None=None, reporter: ProgressReporter \| None=None)` | `ModrinthPackUpdatePlan` |
+| `update(instance: Instance, target_version_id: str='', allowed_version_types: tuple[str, ...] \| list[str] \| set[str] \| None=None, reporter: ProgressReporter \| None=None)` | `ModrinthPackUpdateResult` |
+
 
 ### `mcw_core.api.modrinth.modrinth_registry`
 
-Source re-export: `src.core.modrinth.modrinth_registry`
+Search, metadata, installer và repair/update Modrinth.  
+Implementation tương thích hiện tại: `src/core/modrinth/modrinth_registry.py`
 
 #### `ModrinthRegistry`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `load(instance: Instance)` | `dict` |
+| `empty()` | `dict` |
+| `save(instance: Instance, data: dict)` | `None` |
+| `set_locked(instance: Instance, project_ids: list[str] \| tuple[str, ...] \| set[str], locked: bool)` | `tuple[str, ...]` |
+| `remove_by_filenames(instance: Instance, filenames: list[str] \| tuple[str, ...] \| set[str])` | `tuple[str, ...]` |
+| `entries_by_file(instance: Instance)` | `dict[str, dict]` |
+| `safe_tracked_path(instance: Instance, filename: str)` | `Path \| None` |
 
-- `SCHEMA_VERSION = 2`
-
-Methods:
-
-### `mcw_core.api.network.connectivity_monitor`
-
-Source re-export: `src.core.network.connectivity_monitor`
-
-#### `ConnectivitySnapshot`
-
-Fields / public attributes:
-
-- `online: bool`
-- `checked_at: float`
-- `latency_ms: float`
-- `detail: str = ''`
-
-#### `ConnectivityMonitor`
-
-Perform a bounded Internet reachability check without DNS lookups.
-
-Public constants:
-
-- `DEFAULT_TARGETS = (('1.1.1.1', 443), ('8.8.8.8', 443))`
-- `DEFAULT_TIMEOUT_SECONDS = 0.6`
-- `DEFAULT_MAX_AGE_SECONDS = 10.0`
-
-Methods:
-
-```python
-snapshot() -> ConnectivitySnapshot | None
-```
-*(property)*
 
 ### `mcw_core.api.network.download_bandwidth_limiter`
 
-Source re-export: `src.core.network.download_bandwidth_limiter`
+Download, bandwidth, pause/cancel và sessions.  
+Implementation tương thích hiện tại: `src/core/network/download_bandwidth_limiter.py`
 
 #### `DownloadBandwidthLimiter`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `limit_mbps(self)` | `float` |
+| `is_enabled(self)` | `bool` |
+| `configure_mbps(self, value: object)` | `float` |
+| `throttle(self, byte_count: int)` | `None` |
 
-- `BYTES_PER_MEGABYTE = 1024 * 1024`
-
-Methods:
-
-```python
-limit_mbps() -> float
-```
-*(property)*
-
-```python
-is_enabled() -> bool
-```
-*(property)*
 
 ### `mcw_core.api.network.download_manager`
 
-Source re-export: `src.core.network.download_manager`
+Download, bandwidth, pause/cancel và sessions.  
+Implementation tương thích hiện tại: `src/core/network/download_manager.py`
 
 #### `DownloadManager`
 
-Methods:
+| Method | Return |
+|---|---|
+| `max_concurrent_downloads(self)` | `int` |
+| `per_host_limit(self)` | `int` |
+| `configure(self, max_concurrent_downloads: object=DEFAULT_MAX_CONCURRENT_DOWNLOADS, per_host_limit: object \| None=None)` | `tuple[int, int]` |
+| `get_path_lock(self, path: Path)` | `RLock` |
+| `download(self, request: DownloadRequest, reporter: ProgressReporter \| None=None, progress_stage: ProgressStage \| None=None, progress_message: str \| None=None, client_provider=None)` | `DownloadResult` |
+| `download_and_hash(self, url: str, path: Path, max_attempts: int=2, timeout: float=20.0, force: bool=False, reporter: ProgressReporter \| None=None, progress_stage: ProgressStage \| None=None, progress_message: str \| None=None, client_provider=None)` | `tuple[Path, str, int]` |
+| `verify(self, path: Path, expected_size: int, hashes: dict \| object)` | `bool` |
+| `calculate_hash(path: Path, algorithm: str)` | `str` |
+| `calculate_hashes(self, path: Path, expected: dict \| object)` | `dict[str, str]` |
+| `content_length(response: httpx.Response, fallback: int)` | `int` |
+| `parse_content_range(response: httpx.Response)` | `tuple[int, int, int \| None] \| None` |
+| `valid_content_range(cls, response: httpx.Response, expected_start: int, expected_size: int)` | `bool` |
+| `content_range_total(cls, response: httpx.Response)` | `int` |
+| `partial_size(cls, path: Path, expected_size: int)` | `int` |
+| `delete_file(path: Path)` | `None` |
+| `describe_error(error: Exception \| None)` | `str` |
 
-```python
-max_concurrent_downloads() -> int
-```
-*(property)*
-
-```python
-per_host_limit() -> int
-```
-*(property)*
 
 ### `mcw_core.api.network.download_pause`
 
-Source re-export: `src.core.network.download_pause`
+Download, bandwidth, pause/cancel và sessions.  
+Implementation tương thích hiện tại: `src/core/network/download_pause.py`
 
 #### `DownloadInterruptedError`
-
 Base class for cooperative download interruption requests.
-
-Bases: `RuntimeError`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `DownloadPausedError`
-
 Legacy terminal pause error kept for compatibility with older callers.
-
-Bases: `DownloadInterruptedError`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `DownloadCancelledError`
-
 Raised when the user cancels the active launcher download session.
-
-Bases: `DownloadPausedError`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `DownloadPauseController`
 
-Methods:
+| Method | Return |
+|---|---|
+| `is_active(self)` | `bool` |
+| `is_pause_requested(self)` | `bool` |
+| `is_paused(self)` | `bool` |
+| `is_cancel_requested(self)` | `bool` |
+| `begin(self)` | `None` |
+| `finish(self)` | `None` |
+| `request_pause(self)` | `bool` |
+| `request_resume(self)` | `bool` |
+| `request_cancel(self)` | `bool` |
+| `raise_if_requested(self)` | `None` |
+| `wait(self, seconds: float)` | `None` |
 
-```python
-is_active() -> bool
-```
-*(property)*
-
-```python
-is_pause_requested() -> bool
-```
-*(property)*
-
-```python
-is_paused() -> bool
-```
-*(property)*
-
-```python
-is_cancel_requested() -> bool
-```
-*(property)*
-
-#### `is_download_paused`
-
-```python
-is_download_paused(error: BaseException | None) -> bool
-```
-
-#### `is_download_cancelled`
-
-```python
-is_download_cancelled(error: BaseException | None) -> bool
-```
+- `is_download_paused(error: BaseException | None) -> bool` — Compatibility helper; cancellation is also an interrupted download.
+- `is_download_cancelled(error: BaseException | None) -> bool`
 
 ### `mcw_core.api.network.network_session`
 
-Source re-export: `src.core.network.network_session`
+Download, bandwidth, pause/cancel và sessions.  
+Implementation tương thích hiện tại: `src/core/network/network_session.py`
 
 #### `NetworkSession`
 
-Methods:
+| Method | Return |
+|---|---|
+| `max_concurrent_downloads(self)` | `int` |
+| `configure(self, max_concurrent_downloads: object=DEFAULT_MAX_CONCURRENT_DOWNLOADS)` | `int` |
+| `get_client(self)` | `httpx.Client` |
+| `close(self)` | `None` |
 
-```python
-max_concurrent_downloads() -> int
-```
-*(property)*
 
 ### `mcw_core.api.package.portable_content_manager`
 
-Source re-export: `src.core.package.portable_content_manager`
+Portable content/manual files.  
+Implementation tương thích hiện tại: `src/core/package/portable_content_manager.py`
 
 #### `PortableManualDownloadRequired`
-
-Bases: `RuntimeError`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `PortableContentManager`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `ensure(instance: Instance)` | `None` |
+| `prefetch_referenced(instance: Instance, reporter: ProgressReporter \| None=None)` | `None` |
+| `finalize_disabled(instance: Instance)` | `None` |
+| `install_many(instance: Instance, requirements: tuple[PortableManualDownload, ...] \| list[PortableManualDownload], sources: tuple[Path, ...] \| list[Path])` | `tuple[str, ...]` |
 
-- `FILE_NAME = 'manual-files.json'`
-- `REFERENCED_FILE_NAME = 'portable-referenced-files.json'`
-- `DISABLED_FILE_NAME = 'portable-disabled-files.json'`
-- `COPY_CHUNK_SIZE = 1024 * 1024`
-
-Methods:
 
 ### `mcw_core.api.progress.progress_reporter`
 
-Source re-export: `src.core.progress.progress_reporter`
+ProgressReporter.  
+Implementation tương thích hiện tại: `src/core/progress/progress_reporter.py`
 
 #### `ProgressReporter`
 
-Methods:
+| Method | Return |
+|---|---|
+| `report(self, stage: ProgressStage, message: str, current: int \| None=None, total: int \| None=None, unit: ProgressUnit=ProgressUnit.NONE, bytes_per_second: float \| None=None, state: ProgressState=ProgressState.RUNNING, detail: str='')` | `None` |
+| `status(self, stage: ProgressStage, message: str)` | `None` |
+| `bytes(self, stage: ProgressStage, message: str, current: int, total: int, bytes_per_second: float \| None=None)` | `None` |
+| `files(self, stage: ProgressStage, message: str, current: int, total: int, bytes_per_second: float \| None=None)` | `None` |
+| `steps(self, stage: ProgressStage, message: str, current: int, total: int)` | `None` |
+| `succeeded(self, stage: ProgressStage, message: str, detail: str='')` | `None` |
+| `failed(self, stage: ProgressStage, message: str, detail: str='')` | `None` |
+| `cancelled(self, stage: ProgressStage, message: str, detail: str='')` | `None` |
+| `task(self, stage: ProgressStage, start_message: str, success_message: str, failure_message: str)` | `Iterator[None]` |
+
 
 ### `mcw_core.api.repair.repair_service`
 
-Source re-export: `src.core.repair.repair_service`
+Repair scan/plan/execute.  
+Implementation tương thích hiện tại: `src/core/repair/repair_service.py`
 
 #### `RepairService`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `scan(cls, instance: Instance, mode: RepairMode \| str=RepairMode.QUICK, components: Iterable[RepairComponent \| str] \| None=None, on_progress: ProgressCallback \| None=None)` | `RepairReport` |
+| `build_plan(cls, report: RepairReport, components: Iterable[RepairComponent \| str] \| None=None)` | `RepairPlan` |
+| `repair(cls, instance: Instance, plan: RepairPlan, on_progress: ProgressCallback \| None=None)` | `RepairExecutionResult` |
 
-- `REPORT_SCHEMA_VERSION = 1`
-- `DEFAULT_COMPONENTS = tuple(RepairComponent)`
-- `INSTANCE_SCOPED_COMPONENTS = frozenset({RepairComponent.MOD_LOADER, RepairComponent.MODPACK, RepairComponent.SETTINGS})`
-
-Methods:
 
 ### `mcw_core.api.runtime.game_runtime_manager`
 
-Source re-export: `src.core.runtime.game_runtime_manager`
+Process supervisor và recovery.  
+Implementation tương thích hiện tại: `src/core/runtime/game_runtime_manager.py`
 
 #### `GameRuntimeManager`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `watch(cls, process: object, instance: Instance, minecraft_version: str, started_at: datetime, on_exit: GameExitCallback \| None=None, session_id: str \| None=None, crash_report_snapshot: Mapping[str, tuple[int, int]] \| None=None)` | `bool` |
+| `stop(cls, instance: Instance, graceful_timeout: float=2.5)` | `bool` |
+| `latest_game_log(instance: Instance)` | `Path \| None` |
+| `crash_report_snapshot(instance: Instance)` | `dict[str, tuple[int, int]]` |
+| `latest_crash_report(instance: Instance, since: datetime \| None=None, previous: Mapping[str, tuple[int, int]] \| None=None)` | `Path \| None` |
+| `record_start(cls, instance: Instance, started_at: datetime, session_id: str \| None)` | `None` |
 
-- `HISTORY_SCHEMA_VERSION = 1`
-- `HISTORY_LIMIT = 50`
-- `POLL_INTERVAL_SECONDS = 0.5`
-
-Methods:
 
 ### `mcw_core.api.runtime.process_supervisor`
 
-Source re-export: `src.core.runtime.process_supervisor`
+Process supervisor và recovery.  
+Implementation tương thích hiện tại: `src/core/runtime/process_supervisor.py`
 
 #### `ProcessSupervisor`
-
 Persist and supervise Minecraft process sessions without touching unrelated Java processes.
 
-Public constants:
+| Method | Return |
+|---|---|
+| `begin(cls, instance: Instance)` | `ProcessSession` |
+| `attach(cls, session_id: str, process: object)` | `ProcessSession` |
+| `register_child(cls, session_id: str, pid: int)` | `ProcessSession` |
+| `finish(cls, session_id: str, exit_code: int, crashed: bool, detail: str='')` | `ProcessSession \| None` |
+| `abort(cls, session_id: str, detail: str='')` | `ProcessSession \| None` |
+| `stop_requested(cls, session_id: str \| None)` | `bool` |
+| `active_for(cls, instance: Instance)` | `ProcessSession \| None` |
+| `list_active(cls)` | `tuple[ProcessSession, ...]` |
+| `stop_process(cls, process: object, graceful_timeout: float=2.5)` | `bool` |
+| `stop_instance(cls, instance: Instance, graceful_timeout: float=2.5)` | `bool` |
+| `reconcile(cls)` | `tuple[str, ...]` |
+| `load(cls, session_id: str)` | `ProcessSession` |
 
-- `SCHEMA_VERSION = 1`
-- `HISTORY_LIMIT = 100`
-
-Methods:
 
 ### `mcw_core.api.runtime.startup_recovery_manager`
 
-Source re-export: `src.core.runtime.startup_recovery_manager`
+Process supervisor và recovery.  
+Implementation tương thích hiện tại: `src/core/runtime/startup_recovery_manager.py`
 
 #### `StartupRecoveryReport`
 
-Fields / public attributes:
-
-- `deleted_instances: tuple[str, ...]`
-- `stale_locks: tuple[str, ...]`
-- `interrupted_sessions: tuple[str, ...]`
-- `operations: tuple[InstanceRecoveryRecord, ...]`
-- `orphan_staging_paths: tuple[str, ...]`
-- `orphan_partial_paths: tuple[str, ...]`
-- `download_journal_entries_cleaned: int = 0`
-
-Methods:
-
-```python
-recovered_item_count() -> int
-```
-*(property)*
+| Method | Return |
+|---|---|
+| `recovered_item_count(self)` | `int` |
 
 #### `StartupRecoveryManager`
 
-Methods:
+| Method | Return |
+|---|---|
+| `reconcile()` | `StartupRecoveryReport` |
+
 
 ### `mcw_core.api.security.account_security_manager`
 
-Source re-export: `src.core.security.account_security_manager`
+Account security và redaction.  
+Implementation tương thích hiện tại: `src/core/security/account_security_manager.py`
 
 #### `AccountSecurityManager`
 
-Methods:
+| Method | Return |
+|---|---|
+| `audit(cls)` | `AccountSecurityReport` |
+| `migrate_if_needed(cls)` | `AccountSecurityReport` |
+| `migrate_and_reprotect(cls)` | `AccountSecurityReport` |
+
 
 ### `mcw_core.api.security.sensitive_data_redactor`
 
-Source re-export: `src.core.security.sensitive_data_redactor`
+Account security và redaction.  
+Implementation tương thích hiện tại: `src/core/security/sensitive_data_redactor.py`
 
 #### `SensitiveDataRedactor`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `redact_text(cls, value: object)` | `str` |
+| `redact_value(cls, value: Any, key: str='')` | `Any` |
+| `redact_json(cls, value: Any)` | `str` |
 
-- `REDACTED = '<redacted>'`
-
-Methods:
 
 ### `mcw_core.api.startup_runner`
 
-Source re-export: `src.core.startup_runner`
+Implementation tương thích hiện tại: `src/core/startup_runner.py`
 
 #### `StartupTimeoutError`
-
-Bases: `RuntimeError`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `StartupWorkerError`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
-Bases: `RuntimeError`
-
-#### `run_startup_task`
-
-```python
-run_startup_task(task: StartupTask, on_progress: StartupProgressHandler, pump_events: EventPump, timeout_seconds: float = 45.0) -> Any
-```
-
-### `mcw_core.api.storage.content_store`
-
-Source re-export: `src.core.storage.content_store`
-
-#### `MaterializationResult`
-
-Fields / public attributes:
-
-- `path: Path`
-- `canonical_path: Path`
-- `sha256: str`
-- `size_bytes: int`
-- `hardlinked: bool`
-
-#### `ContentStore`
-
-Content-addressed store for immutable downloaded provider artifacts.
-
-Public constants:
-
-- `HASH_CHUNK_SIZE = 1024 * 1024`
-
-Methods:
-
-### `mcw_core.api.storage.legacy_storage_migration_service`
-
-Source re-export: `src.core.storage.legacy_storage_migration_service`
-
-#### `CleanupCandidate`
-
-Fields / public attributes:
-
-- `candidate_id: str`
-- `path: Path`
-- `category: str`
-- `reason: str`
-- `safety: str`
-- `size_bytes: int`
-- `file_count: int`
-- `directory_count: int`
-- `reference_status: str = 'unreferenced'`
-- `reclaimable_bytes: int = -1`
-
-Methods:
-
-```python
-effective_reclaimable_bytes() -> int
-```
-*(property)*
-
-#### `CleanupPlan`
-
-Fields / public attributes:
-
-- `candidates: tuple[CleanupCandidate, ...]`
-
-Methods:
-
-```python
-total_bytes() -> int
-```
-*(property)*
-
-```python
-file_count() -> int
-```
-*(property)*
-
-```python
-directory_count() -> int
-```
-*(property)*
-
-#### `CleanupResult`
-
-Fields / public attributes:
-
-- `reclaimed_bytes: int`
-- `removed: tuple[CleanupCandidate, ...]`
-- `skipped: tuple[CleanupCandidate, ...]`
-- `failures: tuple[tuple[CleanupCandidate, str], ...]`
-
-#### `LegacyCleanupProbe`
-
-Fields / public attributes:
-
-- `candidate_count: int`
-- `estimated_bytes: int`
-
-Methods:
-
-```python
-has_candidates() -> bool
-```
-*(property)*
-
-#### `LegacyStorageMigrationService`
-
-Reference-aware migration/cleanup for storage left by pre-v1.3 builds.
-
-Public constants:
-
-- `SAFE = 'safe'`
-- `REVIEWED = 'reviewed'`
-- `STALE_TEMP_SECONDS = 7 * 24 * 60 * 60`
-- `LOADER_STAGING_GRACE_SECONDS = 60 * 60`
-- `DEFAULT_UNUSED_VERSION_RETENTION_DAYS = 14`
-- `MIN_UNUSED_VERSION_RETENTION_DAYS = 1`
-- `MAX_UNUSED_VERSION_RETENTION_DAYS = 365`
-- `UNUSED_VERSION_RETENTION_SECONDS = DEFAULT_UNUSED_VERSION_RETENTION_DAYS * 24 * 60 * 60`
-- `UNREFERENCED_CONTENT_RETENTION_SECONDS = 14 * 24 * 60 * 60`
-
-Methods:
-
-### `mcw_core.api.storage.platform_storage_migration`
-
-Source re-export: `src.core.storage.platform_storage_migration`
-
-#### `PlatformStorageMigrationReport`
-
-Fields / public attributes:
-
-- `copied_files: int = 0`
-- `copied_bytes: int = 0`
-- `skipped_files: int = 0`
-- `conflicts: tuple[str, ...] = ()`
-- `errors: tuple[str, ...] = ()`
-- `already_completed: bool = False`
-
-Methods:
-
-```python
-completed() -> bool
-```
-*(property)*
-
-#### `PlatformStorageMigration`
-
-Copy Alpha 2's portable Linux data into XDG roots without deleting it.
-
-Public constants:
-
-- `SCHEMA_VERSION = 1`
-- `MARKER_NAME = '.platform-storage-migration-v1.json'`
-
-Methods:
+- `run_startup_task(task: StartupTask, on_progress: StartupProgressHandler, pump_events: EventPump, timeout_seconds: float=45.0) -> Any` — Run blocking startup I/O away from the Qt thread while keeping the splash responsive.
 
 ### `mcw_core.api.system.memory`
 
-Source re-export: `src.core.system.memory`
+System memory.  
+Implementation tương thích hiện tại: `src/core/system/memory.py`
 
 #### `SystemMemory`
 
-Public constants:
-
-- `BYTES_PER_MB = 1024 * 1024`
-
-Methods:
+| Method | Return |
+|---|---|
+| `total_physical_memory_mb(cls)` | `int` |
 
 #### `MemoryAllocationPolicy`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `physical_limit_mb(cls, total_memory_mb: int \| None=None)` | `int` |
+| `normalize(cls, min_memory_mb: object, max_memory_mb: object, total_memory_mb: int \| None=None)` | `tuple[int, int]` |
+| `is_valid(cls, min_memory_mb: object, max_memory_mb: object, total_memory_mb: int \| None=None)` | `bool` |
+| `snap_mb(cls, memory_mb: object, upper_bound_mb: int)` | `int` |
+| `format_mb(memory_mb: int)` | `str` |
 
-- `MIN_MEMORY_MB = 256`
-- `DEFAULT_MIN_MEMORY_MB = 1024`
-- `DEFAULT_MAX_MEMORY_MB = 2048`
-- `SLIDER_STEP_MB = 256`
-- `FALLBACK_PHYSICAL_LIMIT_MB = 4096`
-
-Methods:
 
 ### `mcw_core.api.theme.theme_animation`
 
-Source re-export: `src.core.theme.theme_animation`
+Theme definition/palette/authoring.  
+Implementation tương thích hiện tại: `src/core/theme/theme_animation.py`
 
 #### `ThemeAnimationDefinition`
 
-Fields / public attributes:
-
-- `key: str`
-- `path: str`
-- `frame_width: int`
-- `frame_height: int`
-- `frame_count: int`
-- `columns: int`
-- `frame_duration_ms: int`
-- `loop: bool = True`
-- `render_mode: str = 'tile_x'`
-- `filtering: str = 'nearest'`
-- `fallback_asset: str | None = None`
-
-Methods:
-
-```python
-rows() -> int
-```
-*(property)*
+| Method | Return |
+|---|---|
+| `rows(self)` | `int` |
 
 #### `ResolvedThemeAnimation`
 
-Fields / public attributes:
+| Method | Return |
+|---|---|
+| `key(self)` | `str` |
 
-- `definition: ThemeAnimationDefinition`
-- `path: Path`
-- `theme_id: str`
-
-Methods:
-
-```python
-key() -> str
-```
-*(property)*
 
 ### `mcw_core.api.theme.theme_authoring`
 
-Source re-export: `src.core.theme.theme_authoring`
+Theme definition/palette/authoring.  
+Implementation tương thích hiện tại: `src/core/theme/theme_authoring.py`
 
 #### `ThemeAuthoringError`
-
-Bases: `RuntimeError`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `ThemeAuthoringService`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `validate(self, theme_id: str)` | `ThemeValidationReport` |
+| `validate_directory(self, root: Path)` | `ThemeValidationReport` |
+| `duplicate(self, theme_id: str, new_id: str, new_name: str \| None=None)` | `ThemeDefinition` |
+| `export(self, theme_id: str, destination: Path)` | `Path` |
+| `import_archive(self, archive_path: Path, overwrite: bool=False)` | `ThemeDefinition` |
 
-- `THEME_ID_PATTERN = THEME_ID_PATTERN`
-- `MAX_ARCHIVE_FILES = MAX_THEME_ARCHIVE_FILES`
-- `MAX_ARCHIVE_BYTES = MAX_THEME_ARCHIVE_BYTES`
-- `ALLOWED_EXTENSIONS = frozenset({'.json', '.png', '.ttf', '.otf', '.qss', '.md', '.txt', '.license'})`
-- `ALLOWED_EXTENSIONLESS_NAMES = frozenset({'license', 'copying', 'notice'})`
-- `EXCLUDED_NAMES = frozenset({'__pycache__', '.git', '.svn', '.hg'})`
-
-Methods:
 
 ### `mcw_core.api.theme.theme_font`
 
-Source re-export: `src.core.theme.theme_font`
+Theme definition/palette/authoring.  
+Implementation tương thích hiện tại: `src/core/theme/theme_font.py`
 
 #### `ThemeFontDefinition`
-
-Fields / public attributes:
-
-- `paths: tuple[str, ...]`
-- `family: str | None = None`
-- `point_size: float = 10.5`
-- `weight: int = 400`
-- `italic: bool = False`
-- `letter_spacing: float = 0.0`
-- `fallback_families: tuple[str, ...] = ()`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `ResolvedThemeFont`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
-Fields / public attributes:
-
-- `definition: ThemeFontDefinition`
-- `paths: tuple[Path, ...]`
-- `theme_id: str`
 
 ### `mcw_core.api.theme.theme_manager`
 
-Source re-export: `src.core.theme.theme_manager`
+Theme definition/palette/authoring.  
+Implementation tương thích hiện tại: `src/core/theme/theme_manager.py`
 
 #### `ThemeError`
-
-Bases: `RuntimeError`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `ThemeManifestError`
-
-Bases: `ThemeError`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `ThemeAssetError`
-
-Bases: `ThemeError`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `ThemeDefinition`
-
-Fields / public attributes:
-
-- `theme_id: str`
-- `name: str`
-- `author: str`
-- `root: Path | None`
-- `schema_version: int = 1`
-- `assets: dict[str, str] = field(default_factory=dict)`
-- `text_assets: dict[str, str] = field(default_factory=dict)`
-- `animations: dict[str, ThemeAnimationDefinition] = field(default_factory=dict)`
-- `font: ThemeFontDefinition | None = None`
-- `motion: ThemeMotionDefinition = field(default_factory=ThemeMotionDefinition)`
-- `palette: ThemePaletteDefinition = field(default_factory=ThemePaletteDefinition)`
-- `accent_assets: frozenset[str] = frozenset()`
-- `stylesheet: str | None = None`
-- `capabilities: frozenset[str] = frozenset()`
-- `issues: tuple[str, ...] = ()`
-- `builtin_fallback: bool = False`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `ThemeManager`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `current(self)` | `ThemeDefinition` |
+| `reload(self)` | `tuple[ThemeDefinition, ...]` |
+| `available_themes(self)` | `tuple[ThemeDefinition, ...]` |
+| `select(self, theme_id: str)` | `ThemeDefinition` |
+| `resolve_asset(self, key: str, theme: ThemeDefinition \| None=None, fallback_to_default: bool=False)` | `Path \| None` |
+| `resolve_text_asset(self, role: str, theme: ThemeDefinition \| None=None, fallback_to_default: bool=False)` | `Path \| None` |
+| `resolve_animation(self, key: str, theme: ThemeDefinition \| None=None, fallback_to_default: bool=True)` | `ResolvedThemeAnimation \| None` |
+| `resolve_animation_fallback(self, key: str, theme: ThemeDefinition \| None=None, fallback_to_default: bool=True)` | `Path \| None` |
+| `resolve_font(self, theme: ThemeDefinition \| None=None, fallback_to_default: bool=True)` | `ResolvedThemeFont \| None` |
+| `resolve_palette(self, theme: ThemeDefinition \| None=None)` | `ThemePaletteDefinition` |
+| `is_accent_asset(self, key: str, theme: ThemeDefinition \| None=None)` | `bool` |
+| `resolve_stylesheet(self, theme: ThemeDefinition \| None=None)` | `str` |
+| `asset_status(self, theme: ThemeDefinition \| None=None)` | `dict[str, bool]` |
+| `animation_status(self, theme: ThemeDefinition \| None=None)` | `dict[str, bool]` |
+| `font_status(self, theme: ThemeDefinition \| None=None)` | `bool` |
 
-- `DEFAULT_THEME_ID = 'mcw-default'`
-- `FALLBACK_THEME_ID = 'builtin-css'`
-- `MANIFEST_NAME = 'theme.json'`
-- `LATEST_SCHEMA_VERSION = THEME_SCHEMA_VERSION`
-- `MAX_MANIFEST_BYTES = MAX_MANIFEST_BYTES`
-- `MAX_STYLESHEET_BYTES = MAX_STYLESHEET_BYTES`
-- `SUPPORTED_SCHEMA_VERSIONS = SUPPORTED_THEME_SCHEMA_VERSIONS`
-- `MAX_ANIMATION_FRAMES = MAX_ANIMATION_FRAMES`
-- `MIN_FRAME_DURATION_MS = MIN_FRAME_DURATION_MS`
-- `MAX_FRAME_DURATION_MS = MAX_FRAME_DURATION_MS`
-- `ANIMATION_KEY_PATTERN = ANIMATION_KEY_PATTERN`
-- `ANIMATION_RENDER_MODES = ANIMATION_RENDER_MODES`
-- `ANIMATION_FILTERING_MODES = ANIMATION_FILTERING_MODES`
-- `FONT_EXTENSIONS = FONT_EXTENSIONS`
-- `FONT_WEIGHTS = FONT_WEIGHTS`
-- `MAX_FONT_FILES = MAX_FONT_FILES`
-- `MAX_FONT_FILE_BYTES = MAX_FONT_FILE_BYTES`
-- `MAX_FONT_TOTAL_BYTES = MAX_FONT_TOTAL_BYTES`
-- `MOTION_EASINGS = MOTION_EASINGS`
-- `PAGE_TRANSITIONS = PAGE_TRANSITIONS`
-- `DIALOG_TRANSITIONS = DIALOG_TRANSITIONS`
-- `LAUNCH_TRANSITIONS = LAUNCH_TRANSITIONS`
-- `TOAST_TRANSITIONS = TOAST_TRANSITIONS`
-- `SCHEMA_V6_FIELDS = frozenset({'$schema', 'schema_version', 'id', 'name', 'author', 'description', 'assets', 'text_assets', 'animations', 'font', 'motion', 'palette', 'accent_assets', 'stylesheet', 'capabilities'})`
-
-Methods:
-
-```python
-current() -> ThemeDefinition
-```
-*(property)*
 
 ### `mcw_core.api.theme.theme_motion`
 
-Source re-export: `src.core.theme.theme_motion`
+Theme definition/palette/authoring.  
+Implementation tương thích hiện tại: `src/core/theme/theme_motion.py`
 
 #### `MotionTransitionDefinition`
-
-Fields / public attributes:
-
-- `transition_type: str = 'fade'`
-- `duration_ms: int = 160`
-- `easing: str = 'out_cubic'`
-- `distance_px: int = 20`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `ButtonMotionDefinition`
-
-Fields / public attributes:
-
-- `hover_duration_ms: int = 100`
-- `press_duration_ms: int = 70`
-- `easing: str = 'out_quad'`
-- `hover_strength: float = 0.08`
-- `press_strength: float = 0.18`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `SidebarMotionDefinition`
-
-Fields / public attributes:
-
-- `duration_ms: int = 220`
-- `easing: str = 'out_cubic'`
-- `collapsed_width: int = 72`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `ToastMotionDefinition`
-
-Fields / public attributes:
-
-- `transition_type: str = 'slide_fade'`
-- `duration_ms: int = 180`
-- `visible_duration_ms: int = 3000`
-- `easing: str = 'out_cubic'`
-- `distance_px: int = 24`
-- `max_visible: int = 3`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `MotionPerformanceDefinition`
-
-Fields / public attributes:
-
-- `full_fps: int = 60`
-- `reduced_fps: int = 30`
-- `pause_when_hidden: bool = True`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `ThemeMotionDefinition`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
-Fields / public attributes:
-
-- `page: MotionTransitionDefinition = field(default_factory=lambda: MotionTransitionDefinition('fade_slide', 170, 'out_cubic', 18))`
-- `dialog: MotionTransitionDefinition = field(default_factory=lambda: MotionTransitionDefinition('fade', 160, 'out_cubic', 12))`
-- `launch_control: MotionTransitionDefinition = field(default_factory=lambda: MotionTransitionDefinition('fade', 140, 'out_cubic', 8))`
-- `button: ButtonMotionDefinition = field(default_factory=ButtonMotionDefinition)`
-- `sidebar: SidebarMotionDefinition = field(default_factory=SidebarMotionDefinition)`
-- `toast: ToastMotionDefinition = field(default_factory=ToastMotionDefinition)`
-- `performance: MotionPerformanceDefinition = field(default_factory=MotionPerformanceDefinition)`
 
 ### `mcw_core.api.theme.theme_palette`
 
-Source re-export: `src.core.theme.theme_palette`
+Theme definition/palette/authoring.  
+Implementation tương thích hiện tại: `src/core/theme/theme_palette.py`
 
 #### `ThemePaletteDefinition`
 
-Fields / public attributes:
+| Method | Return |
+|---|---|
+| `to_dict(self)` | `dict[str, str]` |
 
-- `primary: str = '#63984a'`
-- `primary_hover: str = '#7db45e'`
-- `primary_pressed: str = '#4d7938'`
-- `primary_text: str = '#ffffff'`
-- `focus: str = '#8ed35b'`
-- `selection: str = '#4f6d3c'`
-- `selection_text: str = '#ffffff'`
-- `link: str = '#8ed35b'`
-- `success: str = '#8ed35b'`
-- `warning: str = '#d6a93c'`
-- `error: str = '#c47a7a'`
-- `text_primary: str = '#f4f4f4'`
-- `text_muted: str = '#b8b8b8'`
-- `text_disabled: str = '#777777'`
-- `text_inverse: str = '#111111'`
-
-Methods:
-
-#### `normalize_hex_color`
-
-```python
-normalize_hex_color(value: object, label: str = 'color') -> str
-```
-
-#### `derive_custom_accent`
-
-```python
-derive_custom_accent(theme_palette: ThemePaletteDefinition, accent: str) -> ThemePaletteDefinition
-```
-
-#### `derive_custom_text`
-
-```python
-derive_custom_text(theme_palette: ThemePaletteDefinition, text_color: str) -> ThemePaletteDefinition
-```
-
-#### `contrast_ratio`
-
-```python
-contrast_ratio(foreground: str, background: str) -> float
-```
-
-#### `is_readable_text`
-
-```python
-is_readable_text(foreground: str, background: str, minimum_ratio: float = 3.0) -> bool
-```
-
-### `mcw_core.api.update.automatic_update_installer`
-
-Source re-export: `src.core.update.automatic_update_installer`
-
-#### `AutomaticUpdateInstaller`
-
-Route installation to the packaged updater for the current platform.
-
-Methods:
-
-### `mcw_core.api.update.linux_update_installer`
-
-Source re-export: `src.core.update.linux_update_installer`
-
-#### `LinuxUpdateInstaller`
-
-Start a detached copy of the packaged launcher to apply a Linux update.
-
-Public constants:
-
-- `STARTUP_GRACE_SECONDS = 1.0`
-
-Methods:
+- `normalize_hex_color(value: object, label: str='color') -> str`
+- `derive_custom_accent(theme_palette: ThemePaletteDefinition, accent: str) -> ThemePaletteDefinition`
 
 ### `mcw_core.api.update.update_applier`
 
-Source re-export: `src.core.update.update_applier`
+Update discovery/download/apply.  
+Implementation tương thích hiện tại: `src/core/update/update_applier.py`
 
 #### `UpdateApplyRequest`
 
-Fields / public attributes:
-
-- `parent_pid: int`
-- `source_directory: Path`
-- `destination_directory: Path`
-- `executable_name: str`
-- `updater_directory: Path`
-- `staging_directory: Path`
-- `persistent_log_path: Path`
-- `target_version: str`
-
-Methods:
+| Method | Return |
+|---|---|
+| `load(cls, path: Path)` | `'UpdateApplyRequest'` |
+| `validate(self)` | `None` |
 
 #### `UpdateApplier`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `run(self)` | `int` |
 
-- `COPY_RETRIES = 30`
-- `COPY_RETRY_DELAY_SECONDS = 0.25`
-
-Methods:
-
-#### `run_update_applier`
-
-```python
-run_update_applier(request_path: Path) -> int
-```
+- `run_update_applier(request_path: Path) -> int`
 
 ### `mcw_core.api.update.update_cleanup`
 
-Source re-export: `src.core.update.update_cleanup`
+Update discovery/download/apply.  
+Implementation tương thích hiện tại: `src/core/update/update_cleanup.py`
 
 #### `UpdateCleanupRequest`
 
-Fields / public attributes:
-
-- `updater_directory: Path`
-- `updater_pid: int`
-
-Methods:
+| Method | Return |
+|---|---|
+| `validate(self)` | `None` |
 
 #### `UpdateCleanupWorker`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `start(self)` | `threading.Thread` |
+| `run(self)` | `None` |
 
-- `DELETE_RETRIES = 40`
-- `DELETE_RETRY_DELAY_SECONDS = 0.25`
-
-Methods:
-
-#### `consume_update_cleanup_arguments`
-
-```python
-consume_update_cleanup_arguments(arguments: list[str]) -> tuple[list[str], UpdateCleanupRequest | None]
-```
+- `consume_update_cleanup_arguments(arguments: list[str]) -> tuple[list[str], UpdateCleanupRequest | None]`
 
 ### `mcw_core.api.update.update_manager`
 
-Source re-export: `src.core.update.update_manager`
+Update discovery/download/apply.  
+Implementation tương thích hiện tại: `src/core/update/update_manager.py`
 
 #### `UpdateManager`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `check_for_update(self, force_refresh: bool=False)` | `UpdateInfo \| None` |
+| `prepare_update(self, info: UpdateInfo, reporter: ProgressReporter \| None=None)` | `PreparedUpdate` |
 
-- `MAX_ARCHIVE_BYTES = 2 * 1024 * 1024 * 1024`
-- `MAX_EXTRACTED_BYTES = 4 * 1024 * 1024 * 1024`
-- `MAX_ARCHIVE_ENTRIES = 20000`
-- `PACKAGE_MANIFEST_NAME = 'mcw-update.json'`
-- `PACKAGE_MANIFEST_SCHEMA_VERSION = 1`
-
-Methods:
 
 ### `mcw_core.api.update.windows_update_installer`
 
-Source re-export: `src.core.update.windows_update_installer`
+Update discovery/download/apply.  
+Implementation tương thích hiện tại: `src/core/update/windows_update_installer.py`
+
+#### `AutomaticUpdateUnsupportedError`
+- Exception/data class; xem field trong source hoặc typed exception handler.
 
 #### `WindowsUpdateInstaller`
 
-Public constants:
+| Method | Return |
+|---|---|
+| `is_supported()` | `bool` |
+| `launch(cls, prepared: PreparedUpdate, install_directory: Path \| None=None, executable_path: Path \| None=None, parent_pid: int \| None=None, persistent_log_path: Path \| None=None)` | `Path` |
 
-- `STARTUP_GRACE_SECONDS = 1.0`
 
-Methods:
+## Tóm tắt model trả về
+
+| Model | Main fields |
+|---|---|
+| `LaunchResult` | java_path, minecraft_java_major_version, minecraft_version, warnings |
+| `ProgressEvent` | stage, message, current, total, unit, bytes_per_second, state, detail |
+| `Instance` | instance_id, name, version_id, instance_dir, mod_loader, icon, launch history |
+| `JavaDiagnostic` | major_version, version_string, vendor, architecture, java_home, executable, source, valid |
+| `ModInfo` | file metadata, loader, dependencies, licenses, provider provenance |
+| `ProviderModpackPreview` | provider, package_format, name, Minecraft/loader, settings, native member |
+| `ModpackExportResult` | output_path, mode, referenced_files, embedded_files, manual_files, native_package_included |
+| `RepairReport / RepairPlan / RepairExecutionResult` | scan results, chosen plan, execution/rollback result |
+| `GameExitResult` | exit_code, duration, crashed, log/crash report paths |

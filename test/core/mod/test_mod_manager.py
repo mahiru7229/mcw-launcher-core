@@ -952,3 +952,21 @@ def test_legacy_mcmod_info_salvages_identity_when_json_is_malformed(tmp_path):
     assert mod.version == "1.6.8"
     assert mod.metadata_format == "mcmod.info (tolerant)"
     assert mod.error == ""
+
+
+def test_fabric_provides_aliases_are_exposed_as_capabilities(tmp_path):
+    path = tmp_path / "cloth-config.jar"
+    metadata = {
+        "schemaVersion": 1,
+        "id": "cloth-config",
+        "name": "Cloth Config API",
+        "version": "15.0.140+fabric",
+        "provides": ["cloth-config2", "cloth-config"],
+    }
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("fabric.mod.json", json.dumps(metadata))
+
+    mod = ModManager.read_mod(path, preferred_loader="fabric")
+
+    assert mod.mod_id == "cloth-config"
+    assert mod.provided_mods == (("cloth-config2", "15.0.140+fabric"),)

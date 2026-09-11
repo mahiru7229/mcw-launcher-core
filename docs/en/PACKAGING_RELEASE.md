@@ -1,10 +1,10 @@
-# Packaging MCW Core v1.5.0
+# Packaging MCW Core v1.5.1
 
-This source archive is the standalone `mcw-core 1.5.0` distribution.
+This source archive is the standalone `mcw-core 1.5.1` distribution.
 
 The Python package includes `mcw_core`, `src.core`, `src.models` and the bundled MCW LAN Agent. It excludes `src.gui`, PySide6, user accounts, private configuration, caches, instances, logs and managed runtimes.
 
-The optional `mcw-curseforge-gateway-main.zip` is distributed beside the Python package as source material. It is not installed by the wheel and contains no deployment secret or default endpoint.
+The CurseForge gateway source archive is distributed separately and is intentionally not included in this Core source archive or wheel. MCW Core contains the gateway client/configuration integration but no deployment secret or default endpoint.
 
 Before publishing:
 

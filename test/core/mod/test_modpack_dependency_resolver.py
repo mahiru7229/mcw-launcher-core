@@ -8,18 +8,21 @@ import pytest
 
 from src.core.curseforge.curseforge_client import CurseForgeClient
 from src.core.curseforge.curseforge_pack_registry import CurseForgePackRegistry
+from src.core.fs.paths import Paths
 from src.core.mod.mod_compatibility_manager import ModCompatibilityManager
 from src.core.mod.mod_manager import ModManager
+from src.core.mod.mod_provider_alias_registry import ModProviderAliasRegistry
 from src.core.mod.mod_provenance_registry import ModProvenanceRegistry
 from src.core.mod.modpack_dependency_resolver import ModpackDependencyResolver
 from src.core.modrinth.modrinth_client import ModrinthClient
+from src.core.modrinth.modrinth_downloader import ModrinthDownloader
 from src.core.modrinth.modrinth_pack_registry import ModrinthPackRegistry
 from src.core.modrinth.modrinth_registry import ModrinthRegistry
 from src.models.curseforge.file import CurseForgeDependency, CurseForgeFile
 from src.models.mod.dependency_resolution import DependencyResolutionResult, RequiredModDependenciesMissing
 from src.models.mod.mod_info import ModInfo
 from src.models.mod.mod_issue import ModHealthReport, ModIssue
-from src.models.modrinth.project import ModrinthProject
+from src.models.modrinth.project import ModrinthProject, ModrinthSearchResult
 from src.models.modrinth.version import ModrinthDependency, ModrinthFile, ModrinthVersion
 
 
@@ -736,6 +739,172 @@ def test_standalone_foreign_loader_mod_remains_strict_on_forge(tmp_path):
 
     assert any(issue.code == "loader-mismatch" and issue.severity == "error" for issue in report.issues)
     assert any(issue.code == "dependency-missing" and issue.severity == "error" for issue in report.issues)
+
+
+def test_discovers_undeclared_modrinth_dependency_by_verified_jar_mod_id(tmp_path, monkeypatch):
+    managed_instance = instance(tmp_path, loader="fabric")
+    managed_instance.mod_loader = ("fabric", "0.16.14")
+    managed_instance.instance_dir.mkdir(parents=True)
+    parents = [
+        ModInfo(
+            path=managed_instance.instance_dir / "mods" / f"yungs-{index}.jar",
+            file_name=f"yungs-{index}.jar",
+            enabled=True,
+            mod_id=f"yungs_mod_{index}",
+            name=f"YUNG Mod {index}",
+            version="1.0.0",
+            loader="fabric",
+            dependencies={"cloth-config2": ">=15.0.140"},
+            managed_by_modpack=True,
+            source="modrinth",
+            source_pack_provider="modrinth",
+        )
+        for index in range(13)
+    ]
+    project = ModrinthProject(
+        project_id="9s6osm5g",
+        slug="cloth-config",
+        title="Cloth Config API",
+        description="",
+        project_type="mod",
+        client_side="required",
+    )
+    version = ModrinthVersion(
+        version_id="HpMb5wGb",
+        project_id=project.project_id,
+        name="15.0.140 for Fabric",
+        version_number="15.0.140+fabric",
+        version_type="release",
+        game_versions=("1.21", "1.21.1"),
+        loaders=("fabric",),
+        files=(ModrinthFile("https://cdn.modrinth.com/cloth.jar", "cloth-config.jar", "a" * 40, "b" * 128, 10, True),),
+    )
+    direct_registry = {"mods": {}}
+    saved = {}
+    alias_path = tmp_path / "cache" / "mod-provider-aliases.json"
+    searches: list[str] = []
+
+    monkeypatch.setattr(Paths, "mod_provider_alias_cache", lambda: alias_path)
+    monkeypatch.setattr(ModManager, "list_mods", lambda _instance: parents)
+    monkeypatch.setattr(ModrinthPackRegistry, "load", lambda _instance: {"managedFiles": [{"path": "mods/yungs-0.jar"}]})
+    monkeypatch.setattr(CurseForgePackRegistry, "load", lambda _instance: {})
+    monkeypatch.setattr(ModrinthRegistry, "load", lambda _instance: direct_registry)
+    monkeypatch.setattr(ModrinthRegistry, "save", lambda _instance, payload: saved.update(payload))
+
+    def search(_project_type, query="", **_kwargs):
+        searches.append(query)
+        return ModrinthSearchResult((project,), 1, 0, 6)
+
+    def download(_file, destination, **_kwargs):
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(destination, "w") as archive:
+            archive.writestr("fabric.mod.json", '{"schemaVersion":1,"id":"cloth-config","version":"15.0.140+fabric","name":"Cloth Config API","provides":["cloth-config2"]}')
+        return destination
+
+    monkeypatch.setattr(ModrinthClient, "search_projects", search)
+    monkeypatch.setattr(ModrinthClient, "list_project_versions", lambda *_args, **_kwargs: [version])
+    monkeypatch.setattr(ModrinthDownloader, "download_file", download)
+
+    result = ModpackDependencyResolver._discover_missing_modrinth_dependencies(managed_instance, None)
+
+    assert result.added_files == ("Cloth Config API",)
+    assert searches == ["cloth-config2"]
+    entry = saved["mods"][project.project_id]
+    assert entry["expectedModId"] == "cloth-config2"
+    assert entry["pendingDownload"] is True
+    assert entry["selectionReason"] == "required_dependency"
+    assert entry["requiredBy"] == [f"YUNG Mod {index}" for index in range(13)]
+    assert ModProviderAliasRegistry.get("cloth-config2")["projectId"] == project.project_id
+
+
+def test_discovery_rejects_search_result_that_does_not_provide_requested_mod_id(tmp_path, monkeypatch):
+    managed_instance = instance(tmp_path, loader="fabric")
+    managed_instance.mod_loader = ("fabric", "0.16.14")
+    managed_instance.instance_dir.mkdir(parents=True)
+    parent = ModInfo(
+        path=managed_instance.instance_dir / "mods" / "parent.jar",
+        file_name="parent.jar",
+        enabled=True,
+        mod_id="parent",
+        name="Parent",
+        version="1.0.0",
+        loader="fabric",
+        dependencies={"cloth-config2": ">=15.0.140"},
+        managed_by_modpack=True,
+        source="modrinth",
+        source_pack_provider="modrinth",
+    )
+    project = ModrinthProject("wrong-project", "cloth-config", "Lookalike", "", "mod")
+    version = ModrinthVersion(
+        "wrong-version", "wrong-project", "Wrong", "99.0.0", "release", ("1.21.1",), ("fabric",),
+        (ModrinthFile("https://cdn.modrinth.com/wrong.jar", "wrong.jar", "a" * 40, "b" * 128, 10, True),),
+    )
+    alias_path = tmp_path / "cache" / "mod-provider-aliases.json"
+    monkeypatch.setattr(Paths, "mod_provider_alias_cache", lambda: alias_path)
+    monkeypatch.setattr(ModManager, "list_mods", lambda _instance: [parent])
+    monkeypatch.setattr(ModrinthPackRegistry, "load", lambda _instance: {"managedFiles": [{"path": "mods/parent.jar"}]})
+    monkeypatch.setattr(CurseForgePackRegistry, "load", lambda _instance: {})
+    monkeypatch.setattr(ModrinthRegistry, "load", lambda _instance: {"mods": {}})
+    monkeypatch.setattr(ModrinthRegistry, "save", lambda *_args: pytest.fail("unverified project must not be persisted"))
+    monkeypatch.setattr(ModrinthClient, "search_projects", lambda *_args, **_kwargs: ModrinthSearchResult((project,), 1, 0, 6))
+    monkeypatch.setattr(ModrinthClient, "list_project_versions", lambda *_args, **_kwargs: [version])
+
+    def download(_file, destination, **_kwargs):
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(destination, "w") as archive:
+            archive.writestr("fabric.mod.json", '{"schemaVersion":1,"id":"not-cloth","version":"99.0.0","name":"Wrong"}')
+        return destination
+
+    monkeypatch.setattr(ModrinthDownloader, "download_file", download)
+
+    result = ModpackDependencyResolver._discover_missing_modrinth_dependencies(managed_instance, None)
+
+    assert result.added_files == ()
+    assert ModProviderAliasRegistry.get("cloth-config2") is None
+
+
+def test_verified_alias_skips_modrinth_search_on_later_resolution(tmp_path, monkeypatch):
+    managed_instance = instance(tmp_path, loader="fabric")
+    managed_instance.mod_loader = ("fabric", "0.16.14")
+    project = ModrinthProject("9s6osm5g", "cloth-config", "Cloth Config API", "", "mod")
+    version = ModrinthVersion(
+        "HpMb5wGb", "9s6osm5g", "Cloth", "15.0.140+fabric", "release", ("1.21.1",), ("fabric",),
+        (ModrinthFile("https://cdn.modrinth.com/cloth.jar", "cloth.jar", "a" * 40, "b" * 128, 10, True),),
+    )
+    alias_path = tmp_path / "cache" / "mod-provider-aliases.json"
+    monkeypatch.setattr(Paths, "mod_provider_alias_cache", lambda: alias_path)
+    ModProviderAliasRegistry.remember_modrinth("cloth-config2", project.project_id, project.slug, version.version_id)
+    monkeypatch.setattr(ModrinthClient, "get_project", lambda project_id: project if project_id == project.project_id else pytest.fail("wrong alias"))
+    monkeypatch.setattr(ModrinthClient, "list_project_versions", lambda *_args, **_kwargs: [version])
+    monkeypatch.setattr(ModrinthClient, "search_projects", lambda *_args, **_kwargs: pytest.fail("verified alias must skip search"))
+
+    def download(_file, destination, **_kwargs):
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(destination, "w") as archive:
+            archive.writestr("fabric.mod.json", '{"schemaVersion":1,"id":"cloth-config","version":"15.0.140+fabric","provides":["cloth-config2"]}')
+        return destination
+
+    monkeypatch.setattr(ModrinthDownloader, "download_file", download)
+
+    selected = ModpackDependencyResolver._find_verified_modrinth_candidate(
+        managed_instance, "cloth-config2", (">=15.0.140",), "fabric", None
+    )
+
+    assert selected == (version, project)
+
+
+def test_required_dependency_exception_groups_repeated_missing_mod_id():
+    issues = tuple(
+        ModIssue("error", "dependency-missing", f"Mod {index} requires missing dependency 'cloth-config2'.", (f"mod_{index}", "cloth-config2"))
+        for index in range(13)
+    )
+
+    error = RequiredModDependenciesMissing("Pack", issues)
+
+    assert error.issues == issues
+    assert "1 blocking dependency group(s) remain" in str(error)
+    assert "13 mod requirement(s) were grouped" in str(error)
+    assert str(error).count("cloth-config2") == 1
 
 
 def test_skyfactory5_pack_pinned_yacl_does_not_resolve_fabric_api_on_forge(tmp_path, monkeypatch):

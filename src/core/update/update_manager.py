@@ -28,7 +28,7 @@ class UpdateManager:
     MAX_EXTRACTED_BYTES = 4 * 1024 * 1024 * 1024
     MAX_ARCHIVE_ENTRIES = 20_000
     PACKAGE_MANIFEST_NAME = "mcw-update.json"
-    PACKAGE_MANIFEST_SCHEMA_VERSION = 1
+    PACKAGE_MANIFEST_SCHEMA_VERSION = 2
 
     def __init__(
         self,
@@ -53,6 +53,19 @@ class UpdateManager:
         self._download_archive(info, archive_path, reporter)
 
         staging_directory = Paths.update_staging_root() / f"{self._safe_name(info.tag_name)}-{uuid.uuid4().hex}"
+        if info.install_strategy == "bridge":
+            staging_directory.mkdir(parents=True, exist_ok=False)
+            helper_path = staging_directory / info.asset.name
+            shutil.copy2(archive_path, helper_path)
+            if self.platform_id == "linux-x64":
+                helper_path.chmod(helper_path.stat().st_mode | 0o700)
+            return PreparedUpdate(
+                info=info,
+                archive_path=helper_path,
+                staging_directory=staging_directory,
+                content_directory=staging_directory,
+            )
+
         extraction_directory = staging_directory / "extracted"
         try:
             if reporter is not None:
@@ -76,9 +89,9 @@ class UpdateManager:
         try:
             payload = json.loads(manifest_path.read_text(encoding="utf-8"))
         except (OSError, UnicodeError, json.JSONDecodeError) as error:
-            raise RuntimeError(f"Invalid {cls.PACKAGE_MANIFEST_NAME}: {error}") from error
+            raise RuntimeError(f"Invalid {self.PACKAGE_MANIFEST_NAME}: {error}") from error
         if not isinstance(payload, dict):
-            raise RuntimeError(f"{cls.PACKAGE_MANIFEST_NAME} must contain a JSON object.")
+            raise RuntimeError(f"{self.PACKAGE_MANIFEST_NAME} must contain a JSON object.")
         if int(payload.get("schema_version", 0) or 0) != self.PACKAGE_MANIFEST_SCHEMA_VERSION:
             raise RuntimeError(f"Unsupported update package schema: {payload.get('schema_version')}")
         package_platform = str(payload.get("platform") or "").strip().casefold()
@@ -126,6 +139,41 @@ class UpdateManager:
             raise RuntimeError(f"The update package manifest must list {self.PACKAGE_MANIFEST_NAME} as a managed file.")
         if executable_name not in normalized_files:
             raise RuntimeError("The update package manifest must list its launcher executable as a managed file.")
+
+        updater_name = str(payload.get("updater") or "").replace("\\", "/").strip()
+        updater_relative = self._safe_archive_path(updater_name)
+        if updater_relative is None:
+            raise RuntimeError("The update package manifest does not declare a valid bundled updater.")
+        expected_updater = "updater/MCW Updater.exe" if self.platform_id == "windows-x64" else "updater/mcw-updater"
+        if updater_relative.as_posix() != expected_updater:
+            raise RuntimeError(
+                f"The update package declares an unexpected updater: expected {expected_updater}, found {updater_relative.as_posix()}."
+            )
+        updater_path = content_directory.joinpath(*updater_relative.parts)
+        if not updater_path.is_file():
+            raise RuntimeError(f"The update package does not contain the declared updater: {expected_updater}")
+        if expected_updater not in normalized_files:
+            raise RuntimeError("The update package manifest must list its bundled updater as a managed file.")
+
+        cleanup_paths = payload.get("cleanup_paths", [])
+        if not isinstance(cleanup_paths, list):
+            raise RuntimeError("The update package cleanup_paths value must be a list.")
+        cleanup_keys: set[str] = set()
+        for raw_cleanup in cleanup_paths:
+            cleanup = self._safe_archive_path(str(raw_cleanup or ""))
+            if cleanup is None:
+                raise RuntimeError("The update package contains an invalid cleanup path.")
+            key = cleanup.as_posix().casefold()
+            if key in cleanup_keys:
+                raise RuntimeError(f"The update package contains a duplicate cleanup path: {cleanup.as_posix()}")
+            cleanup_keys.add(key)
+            if key in normalized_file_keys or any(path_key.startswith(key + "/") for path_key in normalized_file_keys):
+                raise RuntimeError(f"The update package cannot both manage and clean the same path: {cleanup.as_posix()}")
+
+        # Validate the package allow-list before platform-specific filesystem
+        # metadata. This keeps security errors deterministic across hosts.
+        # In particular, Windows cannot faithfully represent POSIX executable
+        # bits for a Linux package assembled in a unit test.
         actual_files = {
             path.relative_to(content_directory).as_posix()
             for path in content_directory.rglob("*")
@@ -136,7 +184,10 @@ class UpdateManager:
             raise RuntimeError(
                 f"The update package contains an undeclared file: {undeclared_files[0]}"
             )
+
         if self.platform_id == "linux-x64":
+            if updater_path.stat().st_mode & 0o111 == 0:
+                raise RuntimeError("The Linux updater in the update package is not executable.")
             executable_mode = (content_directory / executable_name).stat().st_mode
             if executable_mode & 0o111 == 0:
                 raise RuntimeError("The Linux launcher in the update package is not executable.")

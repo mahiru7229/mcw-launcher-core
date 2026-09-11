@@ -104,3 +104,35 @@ def test_linux_client_selects_only_linux_x64_package(tmp_path: Path) -> None:
 
     assert update is not None
     assert update.asset.name.endswith("-linux-x64.zip")
+
+
+def test_release_marker_switches_update_to_verified_windows_bridge(tmp_path: Path) -> None:
+    client = GitHubReleaseClient("example/repo", "1.5.1-beta.4", "beta", tmp_path / "cache.json")
+    update = client._select_update([
+        release("v1.5.1-beta.6", True, [
+            asset("MCW-Launcher-v1.5.1-beta.6-windows-x64.zip"),
+            asset("MCW-USE-BRIDGE", size=1),
+            asset("MCW-Update-Bridge-v1.5.0-windows-x64.exe"),
+            asset("MCW-Update-Bridge-v1.5.0-windows-x64.exe.sha256"),
+        ]),
+    ])
+
+    assert update is not None
+    assert update.install_strategy == "bridge"
+    assert update.asset.name == "MCW-Update-Bridge-v1.5.0-windows-x64.exe"
+    assert update.asset.sha256_url and update.asset.sha256_url.endswith(".exe.sha256")
+
+
+def test_release_bridge_asset_does_not_override_without_marker(tmp_path: Path) -> None:
+    client = GitHubReleaseClient("example/repo", "1.5.1-beta.4", "beta", tmp_path / "cache.json")
+    update = client._select_update([
+        release("v1.5.1-beta.6", True, [
+            asset("MCW-Launcher-v1.5.1-beta.6-windows-x64.zip"),
+            asset("MCW-Update-Bridge-v1.5.0-windows-x64.exe"),
+            asset("MCW-Update-Bridge-v1.5.0-windows-x64.exe.sha256"),
+        ]),
+    ])
+
+    assert update is not None
+    assert update.install_strategy == "updater"
+    assert update.asset.name.endswith("windows-x64.zip")

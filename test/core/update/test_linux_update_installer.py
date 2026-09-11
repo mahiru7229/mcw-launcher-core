@@ -31,21 +31,33 @@ def make_prepared(tmp_path: Path) -> tuple[PreparedUpdate, Path, Path]:
     incoming = source / executable.name
     incoming.write_bytes(b"new-linux")
     incoming.chmod(0o755)
+    bundled = source / "updater" / "mcw-updater"
+    bundled.parent.mkdir()
+    bundled.write_bytes(b"new-updater")
+    bundled.chmod(0o755)
+    (source / "mcw-update.json").write_text(json.dumps({
+        "schema_version": 2,
+        "version": "1.5.1-beta.6",
+        "platform": "linux-x64",
+        "executable": "mcw-launcher",
+        "updater": "updater/mcw-updater",
+        "files": ["mcw-launcher", "updater/mcw-updater", "mcw-update.json"],
+    }), encoding="utf-8")
     info = UpdateInfo(
-        current_version="1.5.0-beta.1",
-        version="1.5.0-beta.2",
-        tag_name="v1.5.0-beta.2",
-        title="Beta 2",
+        current_version="1.5.1-beta.4",
+        version="1.5.1-beta.6",
+        tag_name="v1.5.1-beta.6",
+        title="Beta 5",
         release_notes="notes",
         release_url="https://example.invalid/release",
-        published_at="2026-08-28T00:00:00Z",
+        published_at="2026-09-10T00:00:00Z",
         prerelease=True,
         asset=ReleaseAsset(name="linux.zip", download_url="https://example.invalid/linux.zip", size=1),
     )
     return PreparedUpdate(info, tmp_path / "linux.zip", tmp_path / "staging", source), destination, executable
 
 
-def test_linux_installer_copies_helper_and_writes_request(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_linux_installer_copies_incoming_bundled_updater_and_writes_schema2_request(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     prepared, destination, executable = make_prepared(tmp_path)
     updater_root = tmp_path / "temp"
     updater_root.mkdir()
@@ -53,6 +65,7 @@ def test_linux_installer_copies_helper_and_writes_request(tmp_path: Path, monkey
     monkeypatch.setattr("src.core.update.linux_update_installer.tempfile.gettempdir", lambda: str(updater_root))
     monkeypatch.setattr(LinuxUpdateInstaller, "_start_updater_process", staticmethod(lambda updater_executable, request_path, target: FakeProcess()))
     monkeypatch.setattr(LinuxUpdateInstaller, "STARTUP_GRACE_SECONDS", 0)
+    monkeypatch.setattr(LinuxUpdateInstaller, "_wait_for_ready", classmethod(lambda cls, process, ready_path, timeout_seconds: True))
 
     request_path = LinuxUpdateInstaller.launch(
         prepared,
@@ -63,11 +76,21 @@ def test_linux_installer_copies_helper_and_writes_request(tmp_path: Path, monkey
     )
 
     request = json.loads(request_path.read_text(encoding="utf-8"))
-    helper = request_path.parent / "mcw-launcher-updater"
+    helper = request_path.parent / "mcw-updater"
+    assert request["schema_version"] == 2
     assert request["parent_pid"] == 456
-    assert request["target_version"] == "1.5.0-beta.2"
-    assert helper.read_bytes() == b"old-linux"
+    assert request["target_version"] == "1.5.1-beta.6"
+    assert helper.read_bytes() == b"new-updater"
     assert helper.stat().st_mode & 0o777 == 0o700
+
+
+def test_linux_installer_refuses_missing_bundled_updater(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    prepared, destination, executable = make_prepared(tmp_path)
+    (prepared.content_directory / "updater" / "mcw-updater").unlink()
+    monkeypatch.setattr(LinuxUpdateInstaller, "is_supported", staticmethod(lambda: True))
+
+    with pytest.raises(RuntimeError, match="missing or invalid"):
+        LinuxUpdateInstaller.launch(prepared, install_directory=destination, executable_path=executable)
 
 
 def test_linux_installer_keeps_launcher_open_when_helper_exits_early(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

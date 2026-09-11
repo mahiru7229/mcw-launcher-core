@@ -17,11 +17,11 @@
     "cache",
     "instances",
     "logs",
-    "runtimes"
-  ],
-  "bundled_resources": [
-    "mcw_core/resources/mcw-lan-agent.jar",
+    "runtimes",
     "mcw-curseforge-gateway-main.zip"
   ],
-  "gateway_contains_secrets": false
+  "bundled_resources": [
+    "mcw_core/resources/mcw-lan-agent.jar"
+  ],
+  "gateway_source_archive_bundled": false
 }

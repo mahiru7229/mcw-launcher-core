@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from io import BytesIO
 from pathlib import Path
+from types import SimpleNamespace
 import json
 import zipfile
 
@@ -125,6 +126,28 @@ def test_forge_style_version_with_letter_component_matches_maven_range():
     assert ModCompatibilityManager._matches_requirement("0.7.0", "[0.6.8.a,0.7)") is False
 
 
+def test_candidate_provides_secondary_top_level_mod_id(tmp_path, monkeypatch):
+    candidate = tmp_path / "multi-mod.jar"
+    candidate.write_bytes(b"candidate")
+    monkeypatch.setattr(
+        ModManager,
+        "read_mod",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            mod_id="primary_mod",
+            version="1.0.0",
+            provided_mods=(("required_api", "2.4.0"),),
+        ),
+    )
+    monkeypatch.setattr(ModCapabilityIndex, "_scan_owner", lambda _path: ())
+
+    capabilities = ModCapabilityIndex.provides(candidate, "required_api", "fabric")
+
+    assert len(capabilities) == 1
+    assert capabilities[0].source == "top_level"
+    assert capabilities[0].mod_id == "required_api"
+    assert capabilities[0].version == "2.4.0"
+
+
 def test_atm9_artifacts_embedded_expandability_satisfies_dependency_without_standalone_jar(tmp_path):
     instance = forge_instance(tmp_path, version="1.20.1")
     instance.mod_loader = ("forge", "47.4.0")
@@ -171,3 +194,59 @@ def test_embedded_dependency_version_is_still_validated(tmp_path):
     report = ModCompatibilityManager.scan(instance)
 
     assert any(issue.code == "dependency-version" and "expandability" in issue.mod_ids for issue in report.issues)
+
+
+def test_build_indexes_top_level_fabric_provides_alias(tmp_path):
+    instance = forge_instance(tmp_path, version="1.21.1")
+    instance.mod_loader = ("fabric", "0.16.14")
+    mods = Path(instance.instance_dir) / "mods"
+    mods.mkdir(parents=True, exist_ok=True)
+    path = mods / "cloth-config.jar"
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr(
+            "fabric.mod.json",
+            json.dumps({
+                "schemaVersion": 1,
+                "id": "cloth-config",
+                "version": "15.0.140+fabric",
+                "provides": ["cloth-config2"],
+            }),
+        )
+
+    listed = ModManager.list_mods(instance)
+    capabilities = ModCapabilityIndex.build(instance, listed)
+
+    assert capabilities["cloth-config2"][0].source == "top_level"
+    assert capabilities["cloth-config2"][0].version == "15.0.140+fabric"
+
+
+def test_nested_fabric_provides_alias_is_indexed(tmp_path):
+    instance = forge_instance(tmp_path, version="1.21.1")
+    instance.mod_loader = ("fabric", "0.16.14")
+    mods = Path(instance.instance_dir) / "mods"
+    mods.mkdir(parents=True, exist_ok=True)
+    nested_buffer = BytesIO()
+    with zipfile.ZipFile(nested_buffer, "w", compression=zipfile.ZIP_DEFLATED) as nested:
+        nested.writestr(
+            "fabric.mod.json",
+            json.dumps({
+                "schemaVersion": 1,
+                "id": "cloth-config",
+                "version": "15.0.140+fabric",
+                "provides": ["cloth-config2"],
+            }),
+        )
+    owner = mods / "bundle.jar"
+    with zipfile.ZipFile(owner, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("fabric.mod.json", json.dumps({
+            "schemaVersion": 1,
+            "id": "bundle",
+            "version": "1.0.0",
+            "jars": [{"file": "META-INF/jars/cloth.jar"}],
+        }))
+        archive.writestr("META-INF/jars/cloth.jar", nested_buffer.getvalue())
+
+    capabilities = ModCapabilityIndex.build(instance)
+
+    assert capabilities["cloth-config2"][0].source == "embedded"
+    assert capabilities["cloth-config2"][0].version == "15.0.140+fabric"

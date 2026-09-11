@@ -1,6 +1,6 @@
 # Hướng dẫn MCW Core (tham chiếu API legacy)
 
-> Tài liệu này bắt nguồn từ MCW Core 1.0.1 và được giữ làm tham chiếu migration tổng quát. Với v1.5.0, hãy đối chiếu signature với public surface `mcw_core` và source hiện tại trong gói này.
+> Tài liệu này bắt nguồn từ MCW Core 1.0.1 và được giữ làm tham chiếu migration tổng quát. Với v1.5.1, hãy đối chiếu signature với public surface `mcw_core` và source hiện tại trong gói này.
 
 ## 1. Mục tiêu của tài liệu
 
@@ -24,7 +24,7 @@ Tài liệu này giải thích cách sử dụng MCW Core để xây một launc
 
 ## 2. Cài đặt
 
-### Cài source Core v1.5.0 độc lập
+### Cài source Core v1.5.1 độc lập
 
 ```powershell
 py -3.12 -m venv .venv

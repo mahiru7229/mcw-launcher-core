@@ -4,6 +4,7 @@ from pathlib import Path
 
 from src.core.system.platform_info import PlatformInfo
 from src.core.update.linux_update_installer import LinuxUpdateInstaller
+from src.core.update.emergency_bridge_installer import EmergencyBridgeInstaller
 from src.core.update.update_errors import AutomaticUpdateUnsupportedError
 from src.core.update.windows_update_installer import WindowsUpdateInstaller
 from src.models.update.update_info import PreparedUpdate
@@ -35,6 +36,15 @@ class AutomaticUpdateInstaller:
         parent_pid: int | None = None,
         persistent_log_path: Path | None = None,
     ) -> Path:
+        if prepared.info.install_strategy == "bridge":
+            return EmergencyBridgeInstaller.launch(
+                prepared,
+                install_directory=install_directory,
+                executable_path=executable_path,
+                parent_pid=parent_pid,
+                persistent_log_path=persistent_log_path,
+            )
+
         installer = cls._installer()
         if installer is None:
             profile = PlatformInfo.current()

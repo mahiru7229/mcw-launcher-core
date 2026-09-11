@@ -55,6 +55,21 @@ class ModCapabilityIndex:
                     owner_file=mod.file_name,
                 ),
             )
+            # Fabric ``provides`` aliases are declared by the top-level JAR.
+            # Do not promote generic ``provided_mods`` from Forge JarJar here:
+            # those are embedded capabilities and are indexed below by the
+            # bounded nested-JAR scanner with source="embedded".
+            if "fabric.mod.json" in str(mod.metadata_format or "").casefold():
+                for provided_id, provided_version in mod.provided_mods:
+                    ModCapabilityIndex._append(
+                        output,
+                        ModCapability(
+                            mod_id=provided_id,
+                            version=provided_version or mod.version,
+                            source="top_level",
+                            owner_file=mod.file_name,
+                        ),
+                    )
             path = Path(mod.path)
             if not path.is_file():
                 continue
@@ -88,6 +103,11 @@ class ModCapabilityIndex:
         top_level = ModManager.read_mod(candidate, preferred_loader=preferred_loader)
         if ModCapabilityIndex._normalize_id(top_level.mod_id) == wanted:
             capabilities.append(ModCapability(top_level.mod_id, top_level.version, "top_level", candidate.name))
+        capabilities.extend(
+            ModCapability(mod_id, version or top_level.version, "top_level", candidate.name)
+            for mod_id, version in getattr(top_level, "provided_mods", ())
+            if ModCapabilityIndex._normalize_id(mod_id) == wanted
+        )
         capabilities.extend(
             capability
             for capability in ModCapabilityIndex._scan_owner(candidate)
@@ -185,6 +205,10 @@ class ModCapabilityIndex:
                 if mod_id:
                     version = ModManager._resolve_mod_version(data.get("version"), manifest, data, "", PurePosixPath(nested_path).name)
                     output.append(ModCapability(mod_id, version, "embedded", owner_file, nested_path))
+                    output.extend(
+                        ModCapability(alias, alias_version or version, "embedded", owner_file, nested_path)
+                        for alias, alias_version in ModManager._fabric_provided_mods(data, mod_id, version)
+                    )
 
         if "quilt.mod.json" in names:
             try:

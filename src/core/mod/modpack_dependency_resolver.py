@@ -6,19 +6,24 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from time import sleep
 from typing import Callable, TypeVar
+import re
 
 from src.core.curseforge.curseforge_client import CurseForgeClient
 from src.core.curseforge.curseforge_pack_registry import CurseForgePackRegistry
+from src.core.fs.paths import Paths
 from src.core.mod.mod_capability_index import ModCapabilityIndex
 from src.core.mod.mod_compatibility_manager import ModCompatibilityManager
 from src.core.mod.mod_manager import ModManager
+from src.core.mod.mod_provider_alias_registry import ModProviderAliasRegistry
 from src.core.mod.mod_provenance_registry import ModProvenanceRegistry
 from src.core.modloader.mod_loader_manager import ModLoaderManager
 from src.core.modrinth.modrinth_client import ModrinthClient
+from src.core.modrinth.modrinth_downloader import ModrinthDownloader
 from src.core.modrinth.modrinth_mod_installer import ModrinthModInstaller
 from src.core.modrinth.modrinth_pack_registry import ModrinthPackRegistry
 from src.core.modrinth.modrinth_registry import ModrinthRegistry
-from src.core.network.download_pause import download_pause_controller
+from src.core.network.artifact_download_service import is_local_artifact_storage_error
+from src.core.network.download_pause import download_pause_controller, is_download_paused
 from src.core.network.retry_policy import DownloadRetryPolicy
 from src.core.progress.progress_reporter import ProgressReporter
 from src.models.curseforge.file import CurseForgeDependency, CurseForgeFile
@@ -43,7 +48,9 @@ class ModpackDependencyResolver:
     MAX_DEPTH = 20
     MAX_DEPENDENCIES = 256
     MAX_ATTEMPTS = 3
-    MAX_COMPLETION_PASSES = 8
+    MAX_COMPLETION_PASSES = 2
+    MAX_DISCOVERY_PROJECTS = 6
+    MAX_DISCOVERY_VERSIONS_PER_PROJECT = 3
     BLOCKING_CODES = {"dependency-missing", "dependency-disabled", "dependency-version"}
 
     @staticmethod
@@ -88,6 +95,17 @@ class ModpackDependencyResolver:
         added.extend(result.added_files)
         warnings.extend(result.warnings)
         unresolved.extend(result.unresolved)
+
+        # A broken pack can omit a provider relation even though its JAR
+        # metadata names the required mod ID.  Search is only used after all
+        # authoritative provider graphs have been exhausted, and a candidate
+        # is accepted only when its downloaded, hash-verified JAR supplies that
+        # exact ID with a compatible version.
+        if not added:
+            result = ModpackDependencyResolver._discover_missing_modrinth_dependencies(instance, reporter)
+            added.extend(result.added_files)
+            warnings.extend(result.warnings)
+            unresolved.extend(result.unresolved)
 
         if added:
             ModProvenanceRegistry.synchronize(instance)
@@ -671,6 +689,231 @@ class ModpackDependencyResolver:
         if changed:
             ModrinthRegistry.save(instance, registry)
         return DependencyResolutionResult(tuple(added), tuple(warnings), ())
+
+    @staticmethod
+    def _discover_missing_modrinth_dependencies(instance: Instance, reporter: ProgressReporter | None) -> DependencyResolutionResult:
+        """Recover undeclared managed-pack dependencies by verified JAR identity.
+
+        This deliberately does not trust a provider slug/title match.  Search
+        only proposes candidates; ModCapabilityIndex reads each downloaded JAR
+        and the declared version constraints must pass before a registry entry
+        is committed to the instance.
+        """
+
+        if not getattr(instance, "mod_loader", None) or not ModpackDependencyResolver._is_managed_modpack(instance):
+            return DependencyResolutionResult()
+        try:
+            mods = ModManager.list_mods(instance)
+        except (AttributeError, FileNotFoundError, OSError):
+            return DependencyResolutionResult()
+        report = ModCompatibilityManager.scan(instance, mods=mods)
+        missing = [issue for issue in report.issues if issue.code == "dependency-missing" and len(issue.mod_ids) >= 2]
+        if not missing:
+            return DependencyResolutionResult()
+
+        grouped: dict[str, list] = {}
+        for issue in missing:
+            dependency_id = str(issue.mod_ids[1]).strip().casefold()
+            if dependency_id:
+                grouped.setdefault(dependency_id, []).append(issue)
+
+        registry = ModrinthRegistry.load(instance)
+        registry_mods = registry.setdefault("mods", {})
+        selected_projects = {str(project_id).strip() for project_id in registry_mods if str(project_id).strip()}
+        pack_registry = ModrinthPackRegistry.load(instance)
+        selected_projects.update(
+            str(entry.get("projectId") or "").strip()
+            for entry in pack_registry.get("managedFiles", [])
+            if isinstance(entry, dict) and str(entry.get("projectId") or "").strip()
+        )
+        installed_identities = ModpackDependencyResolver._installed_mod_identities(instance)
+        loader_name = str(ModLoaderManager.normalize(instance.mod_loader)[0]).strip().casefold()
+        added: list[str] = []
+        warnings: list[str] = []
+        changed = False
+
+        total = max(1, len(grouped))
+        ModpackDependencyResolver._report(reporter, "Discovering undeclared modpack dependencies...", 0, total)
+        for completed, (dependency_id, issues) in enumerate(grouped.items(), start=1):
+            download_pause_controller.raise_if_requested()
+            parent_ids = {str(issue.mod_ids[0]).strip().casefold() for issue in issues}
+            parents = [
+                mod for mod in mods
+                if mod.enabled and str(mod.mod_id or "").strip().casefold() in parent_ids
+            ]
+            requirements = tuple(
+                requirement
+                for parent in parents
+                for raw_id, requirement in parent.dependencies.items()
+                if str(raw_id).strip().casefold() == dependency_id
+            )
+            try:
+                verified = ModpackDependencyResolver._find_verified_modrinth_candidate(
+                    instance,
+                    dependency_id,
+                    requirements,
+                    loader_name,
+                    reporter,
+                )
+            except Exception as error:
+                if is_download_paused(error) or is_local_artifact_storage_error(error):
+                    raise
+                warnings.append(f"Could not discover provider metadata for missing mod ID '{dependency_id}': {error}")
+                verified = None
+            if verified is None:
+                ModpackDependencyResolver._report(reporter, "Discovering undeclared modpack dependencies...", completed, total)
+                continue
+
+            version, project = verified
+            parent_labels = list(dict.fromkeys((parent.name or parent.file_name or parent.mod_id) for parent in parents))
+            parent_label = parent_labels[0] if parent_labels else dependency_id
+            providers = {
+                str(parent.source_pack_provider or parent.source or "").strip().casefold()
+                for parent in parents
+                if str(parent.source_pack_provider or parent.source or "").strip()
+            }
+            pack_provider = next(iter(providers)) if len(providers) == 1 else "mixed"
+            tree_result, tree_changed = ModpackDependencyResolver._append_modrinth_registry_tree(
+                instance=instance,
+                registry_mods=registry_mods,
+                selected_projects=selected_projects,
+                installed_identities=installed_identities,
+                root_version=version,
+                root_project=project,
+                parent_label=parent_label,
+                expected_mod_id=dependency_id,
+                pack_provider=pack_provider,
+            )
+            entry = registry_mods.get(version.project_id)
+            if isinstance(entry, dict):
+                for label in parent_labels[1:]:
+                    tree_changed |= ModpackDependencyResolver._mark_registry_dependency(
+                        entry, label, pack_provider, dependency_id
+                    )
+            added.extend(tree_result.added_files)
+            warnings.extend(tree_result.warnings)
+            changed |= tree_changed
+            ModProviderAliasRegistry.remember_modrinth(
+                dependency_id,
+                version.project_id,
+                getattr(project, "slug", ""),
+                version.version_id,
+            )
+            ModpackDependencyResolver._report(reporter, "Discovering undeclared modpack dependencies...", completed, total)
+
+        if changed:
+            ModrinthRegistry.save(instance, registry)
+        return DependencyResolutionResult(tuple(added), tuple(warnings), ())
+
+    @staticmethod
+    def _find_verified_modrinth_candidate(instance: Instance, dependency_id: str, requirements: tuple[object, ...], loader_name: str, reporter: ProgressReporter | None):
+        seen_projects: set[str] = set()
+
+        def verify_project(project):
+            project_id = str(getattr(project, "project_id", "") or "").strip()
+            if not project_id or project_id in seen_projects:
+                return None
+            if str(getattr(project, "project_type", "") or "").strip().casefold() != "mod":
+                return None
+            if str(getattr(project, "client_side", "") or "").strip().casefold() == "unsupported":
+                return None
+            seen_projects.add(project_id)
+            download_pause_controller.raise_if_requested()
+            try:
+                versions = ModpackDependencyResolver._retry(
+                    lambda: ModrinthClient.list_project_versions(
+                        project_id,
+                        loader=loader_name,
+                        game_version=instance.version_id,
+                        version_types=("release", "beta", "alpha"),
+                    )
+                )
+            except Exception:
+                return None
+            inspected = 0
+            for version in versions:
+                if inspected >= ModpackDependencyResolver.MAX_DISCOVERY_VERSIONS_PER_PROJECT:
+                    break
+                if instance.version_id not in set(version.game_versions):
+                    continue
+                inspected += 1
+                try:
+                    ModrinthModInstaller._validate_version(version, instance.version_id, loader_name)
+                    file = version.primary_file(".jar")
+                    cache_path = Paths.modrinth_file_cache(version.project_id, version.version_id, file.filename)
+                    project_url = f"https://modrinth.com/mod/{project.slug or project.project_id}"
+                    ModrinthDownloader.download_file(
+                        file,
+                        cache_path,
+                        reporter=reporter,
+                        progress_stage=ProgressStage.DOWNLOADING_MODS,
+                        progress_message=f"Verifying dependency {project.title}...",
+                        purpose="dependency-verification",
+                        page_url=f"{project_url}/version/{version.version_id}",
+                        project_url=project_url,
+                        project_id=version.project_id,
+                        version_id=version.version_id,
+                    )
+                    capabilities = ModCapabilityIndex.provides(cache_path, dependency_id, loader_name)
+                except Exception as error:
+                    if is_download_paused(error) or is_local_artifact_storage_error(error):
+                        raise
+                    continue
+                if any(
+                    capability.source == "top_level"
+                    and ModpackDependencyResolver._capability_satisfies(capability.version, requirements)
+                    for capability in capabilities
+                ):
+                    return version, project
+            return None
+
+        alias = ModProviderAliasRegistry.get(dependency_id)
+        if alias is not None:
+            try:
+                project = ModpackDependencyResolver._retry(lambda: ModrinthClient.get_project(alias["projectId"]))
+            except Exception:
+                project = None
+            if project is not None:
+                verified = verify_project(project)
+                if verified is not None:
+                    return verified
+
+        for query in ModpackDependencyResolver._dependency_search_queries(dependency_id):
+            if len(seen_projects) >= ModpackDependencyResolver.MAX_DISCOVERY_PROJECTS:
+                break
+            result = ModpackDependencyResolver._retry(
+                lambda query=query: ModrinthClient.search_projects(
+                    "mod",
+                    query=query,
+                    game_version=instance.version_id,
+                    loader=loader_name,
+                    index="relevance",
+                    limit=ModpackDependencyResolver.MAX_DISCOVERY_PROJECTS,
+                )
+            )
+            for project in result.projects:
+                verified = verify_project(project)
+                if verified is not None:
+                    return verified
+                if len(seen_projects) >= ModpackDependencyResolver.MAX_DISCOVERY_PROJECTS:
+                    break
+        return None
+
+    @staticmethod
+    def _capability_satisfies(version: str, requirements: tuple[object, ...]) -> bool:
+        if not requirements:
+            return True
+        return all(ModCompatibilityManager._matches_requirement(version, requirement) is True for requirement in requirements)
+
+    @staticmethod
+    def _dependency_search_queries(dependency_id: str) -> tuple[str, ...]:
+        raw = str(dependency_id or "").strip().casefold()
+        if not raw:
+            return ()
+        spaced = re.sub(r"[-_.]+", " ", raw)
+        spaced = re.sub(r"(?<=[a-z])(?=\d+$)", " ", spaced)
+        without_generation = re.sub(r"\s+\d+$", "", spaced).strip()
+        return tuple(dict.fromkeys(value for value in (raw, spaced.strip(), without_generation) if value))
 
     @staticmethod
     def _append_modrinth_registry_tree(instance: Instance, registry_mods: dict, selected_projects: set[str], installed_identities: set[str], root_version: ModrinthVersion, root_project, parent_label: str, expected_mod_id: str, pack_provider: str) -> tuple[DependencyResolutionResult, bool]:

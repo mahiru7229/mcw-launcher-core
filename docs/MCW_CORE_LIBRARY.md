@@ -1,6 +1,6 @@
 # MCW Core Library
 
-Standalone Stable source runtime for MCW Launcher **v1.5.0**. This package is the headless Core distribution and does not include the PySide6 launcher GUI.
+Standalone Stable source runtime for MCW Launcher **v1.5.1**. This package is the headless Core distribution and does not include the PySide6 launcher GUI.
 
 MCW Core is the GUI-independent runtime used by MCW Launcher. It can be imported from a Python program without installing PySide6.
 
