@@ -181,7 +181,11 @@ class InstanceService:
         version = VersionManager.load(version_id)
         resolved = self.loaders.resolve(version.id, request.loader_name, request.loader_version)
         ModLoaderManager.prepare(version, *resolved, reporter=ProgressReporter(request.on_progress))
-        return InstanceManager.create(name=name, version=version, mod_loader=resolved)
+        settings = None
+        if request.jvm_arguments:
+            settings = InstanceManager.default_instance_settings()
+            settings.setdefault("java", {})["arguments"] = list(request.jvm_arguments)
+        return InstanceManager.create(name=name, version=version, mod_loader=resolved, settings=settings)
 
     def create_with_optifine(self, request: InstanceCreateRequest, source_path: Path, mode: str | OptiFineInstallMode = OptiFineInstallMode.AUTO, on_optifine_progress: ProgressCallback | None = None) -> Instance:
         created: Instance | None = None

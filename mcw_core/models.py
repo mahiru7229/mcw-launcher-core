@@ -31,6 +31,9 @@ class LaunchRequest:
     on_manual_content_required: Callable[[Exception], None] | None = None
     on_compatibility_confirmation: Callable[[Exception], bool] | None = None
     allow_compatibility_issues_once: bool = False
+    quick_play_singleplayer: str = ""
+    quick_play_multiplayer: str = ""
+    on_window_ready: Callable[[int], None] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,3 +91,4 @@ class InstanceCreateRequest:
     loader_name: str = "vanilla"
     loader_version: str = "auto"
     on_progress: ProgressCallback | None = None
+    jvm_arguments: tuple[str, ...] = ()

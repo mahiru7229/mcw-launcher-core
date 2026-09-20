@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.6.0 - 2026-09-20
+
+- Promoted to stable release aligned with MCW Launcher v1.6.0.
+- CurseForge mod loader normalization: strips game-version prefixes, fixes duplicated Maven URL 404s, extended loader aliases.
+- Flexible `modLoaders` parsing in CurseForge manifest (list-of-dicts, list-of-strings, single-object).
+- ATLauncher Forge version normalization and auto-healing of existing instances with redundant prefixes.
+- ATLauncher: server-only file actions skipped; standard Forge launch wrappers recognized.
+- FTB run-lock protection: timeout extended to 600 s with periodic heartbeat; lock auto-recreated if evicted while game runs.
+- Update services: automatic cleanup of legacy onedir `_internal/` during upgrades to one-file builds.
+- New public API modules: `mclogs_client`, `integrations.discord`, `java.jvm_presets`, `minecraft.screenshot_manager`, `minecraft.world_manager`.
+
 ## 1.5.1 - 2026-09-11
 
 - Added Fabric `provides` alias support, including nested JAR capability indexing.
