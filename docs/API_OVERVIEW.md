@@ -17,6 +17,7 @@
 - `mcw_core.api.modrinth`
 - `mcw_core.api.curseforge`
 - `mcw_core.api.ftb`
+- `mcw_core.api.atlauncher`
 - `mcw_core.api.package`
 - `mcw_core.api.content`
 - `mcw_core.api.backup`
@@ -25,3 +26,9 @@
 - `mcw_core.api.language`
 - `mcw_core.api.theme`
 - `mcw_core.api.hardware`
+- `mcw_core.api.integrations` *(v1.6.0 — Discord RPC)*
+- `mcw_core.api.network`
+- `mcw_core.api.security`
+- `mcw_core.api.storage`
+- `mcw_core.api.system`
+- `mcw_core.api.update`

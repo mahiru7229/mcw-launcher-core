@@ -1,6 +1,6 @@
 # MCW Core Library
 
-Standalone Stable source runtime for MCW Launcher **v1.5.1**. This package is the headless Core distribution and does not include the PySide6 launcher GUI.
+Standalone Stable source runtime for MCW Launcher **v1.6.0**. This package is the headless Core distribution and does not include the PySide6 launcher GUI.
 
 MCW Core is the GUI-independent runtime used by MCW Launcher. It can be imported from a Python program without installing PySide6.
 
@@ -42,6 +42,54 @@ The supported import surface is exposed from `mcw_core`:
 - progress event models
 
 Consumers should not import implementation modules from `src.core`.
+
+### LaunchRequest — v1.6.0 additions
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `quick_play_singleplayer` | `str` | `""` | World name to open directly (Java Edition Quick Play). |
+| `quick_play_multiplayer` | `str` | `""` | `host:port` to connect to directly on launch. |
+| `on_window_ready` | `Callable[[int], None] \| None` | `None` | Callback receiving the native window handle once the game window is visible. |
+
+```python
+result = core.launch(
+    LaunchRequest(
+        instance="Survival",
+        offline_username="Player",
+        quick_play_singleplayer="My World",
+        on_window_ready=lambda hwnd: print("Game window HWND:", hwnd),
+    )
+)
+```
+
+### InstanceCreateRequest — v1.6.0 additions
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `jvm_arguments` | `tuple[str, ...]` | `()` | Extra JVM flags applied to the new instance's `settings.json`. |
+
+```python
+from mcw_core import InstanceCreateRequest, get_default_core
+
+instance = get_default_core().instances.create(
+    InstanceCreateRequest(
+        name="OptiFine Pack",
+        version_id="1.20.1",
+        loader_name="forge",
+        jvm_arguments=("-XX:+UseG1GC", "-XX:MaxGCPauseMillis=200"),
+    )
+)
+```
+
+### New public API modules — v1.6.0
+
+| Module | Description |
+|---|---|
+| `mcw_core.api.integrations.discord` | Discord Rich Presence bridge. |
+| `mcw_core.api.diagnostics.mclogs_client` | MCLogs.app log upload client. |
+| `mcw_core.api.java.jvm_presets` | Built-in JVM argument preset helpers. |
+| `mcw_core.api.minecraft.screenshot_manager` | Screenshot folder and file management. |
+| `mcw_core.api.minecraft.world_manager` | World save enumeration and management. |
 
 ## Process-wide paths
 
