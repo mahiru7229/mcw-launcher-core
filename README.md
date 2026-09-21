@@ -88,7 +88,7 @@ Supported consumers import from `mcw_core` or `mcw_core.api.*`. Modules under `s
 
 MCW Core keeps CurseForge credentials outside desktop clients and supports configured HTTPS gateway endpoints. The gateway source is distributed separately and is not included in this Core source archive or wheel. Core bundles no gateway URL, client token or CurseForge API key.
 
-Deploy the gateway separately, configure its `CURSEFORGE_API_KEY`, then configure the resulting HTTPS endpoint through `MCW_CURSEFORGE_GATEWAY_URL` or the Core configuration API.
+Deploy the gateway separately using [mahiru7229/mcw-curseforge-gateway](https://github.com/mahiru7229/mcw-curseforge-gateway), configure its `CURSEFORGE_API_KEY`, then configure the resulting HTTPS endpoint through `MCW_CURSEFORGE_GATEWAY_URL` or the Core configuration API.
 
 ## Source layout
 

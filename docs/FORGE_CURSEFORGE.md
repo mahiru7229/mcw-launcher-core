@@ -16,15 +16,9 @@ CurseForge API
 
 The CurseForge API key remains on the gateway server. Mod files are not proxied through the gateway: it returns metadata or download URLs and MCW Launcher's downloader fetches the file directly, reports progress, retries, and verifies SHA-1.
 
-## Default and custom endpoints
+## Endpoints and custom gateways
 
-Fresh installations use:
-
-```text
-https://mcw-curseforge-gateway.vercel.app/api/curseforge
-```
-
-Custom HTTPS endpoints can still be configured in **Launcher Settings → CurseForge gateways**. Environment or locally protected configuration takes priority over the public default.
+Fresh installations do not bundle a public default gateway. Users or deployments can deploy their own gateway using [mahiru7229/mcw-curseforge-gateway](https://github.com/mahiru7229/mcw-curseforge-gateway) and configure custom HTTPS endpoints in **Launcher Settings → CurseForge gateways**. Environment or locally protected configuration takes priority.
 
 The launcher stores local overrides in:
 
