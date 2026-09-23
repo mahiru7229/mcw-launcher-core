@@ -39,18 +39,30 @@ class ForgeMetadataClient:
         return versions[0].forge_version
 
     @staticmethod
+    def _clean_version(game_version: str, forge_version: str) -> str:
+        clean = str(forge_version).strip()
+        if clean.casefold().startswith("forge-"):
+            clean = clean[6:].strip()
+        prefix = f"{str(game_version).strip()}-"
+        if prefix != "-" and clean.startswith(prefix):
+            clean = clean[len(prefix):].strip()
+        return clean
+
+    @staticmethod
     def installer_url(game_version: str, forge_version: str) -> str:
-        coordinate = f"{game_version}-{forge_version}"
+        clean = ForgeMetadataClient._clean_version(game_version, forge_version)
+        coordinate = f"{game_version}-{clean}"
         return f"{ForgeMetadataClient.MAVEN_ROOT}/{coordinate}/forge-{coordinate}-installer.jar"
 
     @staticmethod
     def installer_sha1(game_version: str, forge_version: str) -> str:
-        url = ForgeMetadataClient.installer_url(game_version, forge_version) + ".sha1"
+        clean = ForgeMetadataClient._clean_version(game_version, forge_version)
+        url = ForgeMetadataClient.installer_url(game_version, clean) + ".sha1"
         try:
             response = HttpDownloader.get_client().get(url, timeout=20.0)
             response.raise_for_status()
         except httpx.HTTPError as error:
-            raise RuntimeError(f"Could not load the Forge installer checksum for {game_version}-{forge_version}.") from error
+            raise RuntimeError(f"Could not load the Forge installer checksum for {game_version}-{clean}.") from error
         value = str(response.text).strip().split()[0].lower() if str(response.text).strip() else ""
         if not re.fullmatch(r"[0-9a-f]{40}", value):
             raise RuntimeError("Forge returned an invalid installer checksum.")

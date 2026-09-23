@@ -4,11 +4,20 @@ from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
+from uuid import uuid4
 import hashlib
 import json
 import shutil
 
 from src.core.fs.paths import Paths
+from src.core.fs.windows_path import (
+    is_file,
+    make_directory,
+    open_file,
+    replace_path,
+    stat_path,
+    unlink_file,
+)
 from src.core.minecraft.library_manager import DownloadLibraryManager
 from src.core.minecraft.library_rule_manager import LibraryRuleManager
 from src.core.minecraft.version_manager import VersionManager
@@ -88,9 +97,9 @@ class NeoForgeVersionManager:
         if not loader:
             raise RuntimeError("Select a Minecraft NeoForge version.")
         cache_path = Paths.neoforge_version_json(base_version.id, loader)
-        previous = cache_path.read_bytes() if cache_path.is_file() else None
+        previous = open_file(cache_path, "rb").read() if is_file(cache_path) else None
         repair_log = Paths.neoforge_root() / "logs" / f"neoforge-repair-{base_version.id}-{loader}.log"
-        repair_log.parent.mkdir(parents=True, exist_ok=True)
+        make_directory(repair_log.parent)
         if reporter is not None:
             reporter.status(stage=ProgressStage.INSTALLING_MOD_LOADER, message=f"Repairing Minecraft NeoForge {loader}...")
         try:
@@ -99,23 +108,22 @@ class NeoForgeVersionManager:
             issues = NeoForgeVersionManager.validate_installation(version, base_version.id, loader, verify_files=True)
             if issues:
                 raise RuntimeError("NeoForge repair validation failed:\n" + "\n".join(f"- {issue}" for issue in issues))
-            repair_log.write_text(
-                f"NeoForge repair completed successfully.\nMinecraft: {base_version.id}\nNeoForge: {loader}\nProfile: {version.id}\n",
-                encoding="utf-8",
-            )
+            with open_file(repair_log, "w", encoding="utf-8") as handle:
+                handle.write(
+                    f"NeoForge repair completed successfully.\nMinecraft: {base_version.id}\nNeoForge: {loader}\nProfile: {version.id}\n"
+                )
             if reporter is not None:
                 reporter.status(stage=ProgressStage.INSTALLING_MOD_LOADER, message=f"NeoForge {loader} repair completed.")
             return version
         except Exception as error:
             if previous is None:
-                cache_path.unlink(missing_ok=True)
+                unlink_file(cache_path, missing_ok=True)
             else:
                 NeoForgeVersionManager._write_bytes(cache_path, previous)
-            repair_log.write_text(
-                f"NeoForge repair failed and the previous cached profile was restored.\nMinecraft: {base_version.id}\nNeoForge: {loader}\nError: {error}\n",
-                encoding="utf-8",
-                errors="replace",
-            )
+            with open_file(repair_log, "w", encoding="utf-8", errors="replace") as handle:
+                handle.write(
+                    f"NeoForge repair failed and the previous cached profile was restored.\nMinecraft: {base_version.id}\nNeoForge: {loader}\nError: {error}\n"
+                )
             raise
 
     @staticmethod
@@ -163,16 +171,16 @@ class NeoForgeVersionManager:
     @staticmethod
     def _run_installer(base_version: Version, neoforge_version: str, installer: Path, staging: Path, reporter: ProgressReporter | None, preferred_java_path: str | Path | None = None) -> None:
         log_path = Paths.neoforge_root() / "logs" / f"neoforge-{base_version.id}-{neoforge_version}.log"
-        log_path.parent.mkdir(parents=True, exist_ok=True)
+        make_directory(log_path.parent)
 
         if LegacyForgeInstaller.supports(installer):
             result = LegacyForgeInstaller.install(installer, staging, reporter)
-            log_path.write_text(
-                "Legacy NeoForge installer imported without opening the installer GUI.\n"
-                f"Profile: {result.profile_id}\n"
-                f"Embedded library: {result.embedded_library}\n",
-                encoding="utf-8",
-            )
+            with open_file(log_path, "w", encoding="utf-8") as handle:
+                handle.write(
+                    "Legacy NeoForge installer imported without opening the installer GUI.\n"
+                    f"Profile: {result.profile_id}\n"
+                    f"Embedded library: {result.embedded_library}\n"
+                )
             return
 
         java_major = JavaMajorPolicy.required_for_minecraft(
@@ -189,17 +197,16 @@ class NeoForgeVersionManager:
             preferred_java_path=preferred_java_path,
         )
         output = result.output
-        log_path.write_text(
-            f"MCW NeoForge installer diagnostics\n"
-            f"Minecraft: {base_version.id}\n"
-            f"NeoForge: {neoforge_version}\n"
-            f"Java: {result.java_path}\n"
-            f"Attempts: {result.attempts}\n"
-            f"Return code: {result.returncode}\n\n"
-            f"{output}",
-            encoding="utf-8",
-            errors="replace",
-        )
+        with open_file(log_path, "w", encoding="utf-8", errors="replace") as handle:
+            handle.write(
+                f"MCW NeoForge installer diagnostics\n"
+                f"Minecraft: {base_version.id}\n"
+                f"NeoForge: {neoforge_version}\n"
+                f"Java: {result.java_path}\n"
+                f"Attempts: {result.attempts}\n"
+                f"Return code: {result.returncode}\n\n"
+                f"{output}"
+            )
         if result.returncode != 0:
             if NeoForgeVersionManager._is_unsupported_install_client(output):
                 raise RuntimeError(
@@ -278,11 +285,11 @@ class NeoForgeVersionManager:
             path = NeoForgeVersionManager._maven_path(coordinate)
             local = Paths.libraries() / path
             repository = NeoForgeVersionManager._library_repository(item, coordinate)
-            sha1 = NeoForgeVersionManager._sha1(local) if local.is_file() else NeoForgeVersionManager._legacy_library_sha1(item)
+            sha1 = NeoForgeVersionManager._sha1(local) if is_file(local) else NeoForgeVersionManager._legacy_library_sha1(item)
             if not sha1:
                 output.append(item)
                 continue
-            size = local.stat().st_size if local.is_file() else max(0, int(item.get("size") or 0))
+            size = stat_path(local).st_size if is_file(local) else max(0, int(item.get("size") or 0))
             item["downloads"] = {"artifact": {"path": path.as_posix(), "url": repository + path.as_posix(), "sha1": sha1, "size": size}}
             output.append(item)
         normalized["libraries"] = output
@@ -366,7 +373,8 @@ class NeoForgeVersionManager:
     @staticmethod
     def _load_cached(path: Path, game_version: str, neoforge_version: str) -> dict | None:
         try:
-            data = json.loads(path.read_text(encoding="utf-8"))
+            with open_file(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
         except (FileNotFoundError, OSError, json.JSONDecodeError):
             return None
         forge = data.get("neoforge") if isinstance(data.get("neoforge"), dict) else {}
@@ -403,11 +411,11 @@ class NeoForgeVersionManager:
                 if not relative:
                     continue
                 path = Paths.libraries() / Path(relative)
-                if not path.is_file():
+                if not is_file(path):
                     issues.append(f"Missing required library: {relative}")
                     continue
                 expected_size = int(artifact.get("size") or 0)
-                if expected_size > 0 and path.stat().st_size != expected_size:
+                if expected_size > 0 and stat_path(path).st_size != expected_size:
                     issues.append(f"Required library has the wrong size: {relative}")
                     continue
                 expected_sha1 = str(artifact.get("sha1") or "").strip().lower()
@@ -458,7 +466,7 @@ class NeoForgeVersionManager:
     @staticmethod
     def _sha1(path: Path) -> str:
         digest = hashlib.sha1(usedforsecurity=False)
-        with path.open("rb") as file:
+        with open_file(path, "rb") as file:
             while chunk := file.read(1024 * 1024):
                 digest.update(chunk)
         return digest.hexdigest()
@@ -469,13 +477,14 @@ class NeoForgeVersionManager:
 
     @staticmethod
     def _write_bytes(path: Path, data: bytes) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        temp = path.with_suffix(path.suffix + ".tmp")
+        make_directory(path.parent)
+        temp = path.with_name(f".tmp_{uuid4().hex[:8]}_{path.name[:16]}")
         try:
-            temp.write_bytes(data)
-            temp.replace(path)
+            with open_file(temp, "wb") as f:
+                f.write(data)
+            replace_path(temp, path)
         finally:
-            temp.unlink(missing_ok=True)
+            unlink_file(temp)
 
     @staticmethod
     def _lock_for(key: str) -> Lock:

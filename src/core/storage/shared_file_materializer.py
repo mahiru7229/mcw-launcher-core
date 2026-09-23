@@ -7,6 +7,19 @@ import os
 import shutil
 
 
+from src.core.fs.windows_path import (
+    copy_file,
+    is_file,
+    link_file,
+    make_directory,
+    open_file,
+    replace_path,
+    same_file,
+    stat_path,
+    unlink_file,
+)
+
+
 class SharedFileMaterializer:
     """Reuse immutable files across cache/staging locations when possible."""
 
@@ -16,18 +29,18 @@ class SharedFileMaterializer:
     def link_or_copy(cls, source: Path, destination: Path) -> bool:
         source_path = Path(source)
         destination_path = Path(destination)
-        if not source_path.is_file():
+        if not is_file(source_path):
             raise FileNotFoundError(source_path)
-        destination_path.parent.mkdir(parents=True, exist_ok=True)
-        if destination_path.exists():
+        make_directory(destination_path.parent)
+        if is_file(destination_path):
             if cls.same_content(source_path, destination_path):
                 return cls.same_file(source_path, destination_path)
-            destination_path.unlink()
+            unlink_file(destination_path, missing_ok=True)
         try:
-            os.link(source_path, destination_path)
+            link_file(source_path, destination_path)
             return cls.same_file(source_path, destination_path)
         except OSError:
-            shutil.copy2(source_path, destination_path)
+            copy_file(source_path, destination_path)
             return False
 
     @classmethod
@@ -40,35 +53,39 @@ class SharedFileMaterializer:
 
         source_path = Path(source)
         destination_path = Path(destination)
-        if not source_path.is_file():
+        if not is_file(source_path):
             raise FileNotFoundError(source_path)
-        source_size = source_path.stat().st_size
-        destination_path.parent.mkdir(parents=True, exist_ok=True)
-        if destination_path.is_file() and cls.same_content(source_path, destination_path):
-            source_path.unlink(missing_ok=True)
+        source_size = stat_path(source_path).st_size
+        make_directory(destination_path.parent)
+        if is_file(destination_path) and cls.same_content(source_path, destination_path):
+            unlink_file(source_path, missing_ok=True)
             return
 
-        temporary = destination_path.with_name(f".{destination_path.name}.{uuid4().hex}.publishing")
-        temporary.unlink(missing_ok=True)
+        temporary = destination_path.with_name(f".tmp_{uuid4().hex[:8]}.pub")
+        unlink_file(temporary, missing_ok=True)
         moved = False
         try:
             try:
-                os.replace(source_path, temporary)
+                replace_path(source_path, temporary)
                 moved = True
             except OSError:
-                shutil.copy2(source_path, temporary)
-            if not temporary.is_file() or temporary.stat().st_size != source_size:
+                copy_file(source_path, temporary)
+            if not is_file(temporary) or stat_path(temporary).st_size != source_size:
                 raise RuntimeError(f"Shared artifact publish was incomplete: {source_path.name}")
-            os.replace(temporary, destination_path)
+            try:
+                replace_path(temporary, destination_path)
+            except OSError:
+                copy_file(temporary, destination_path)
+                unlink_file(temporary, missing_ok=True)
             if not moved:
-                source_path.unlink(missing_ok=True)
+                unlink_file(source_path, missing_ok=True)
         finally:
-            temporary.unlink(missing_ok=True)
+            unlink_file(temporary, missing_ok=True)
 
     @classmethod
     def same_content(cls, first: Path, second: Path) -> bool:
         try:
-            if first.stat().st_size != second.stat().st_size:
+            if stat_path(first).st_size != stat_path(second).st_size:
                 return False
         except OSError:
             return False
@@ -78,15 +95,12 @@ class SharedFileMaterializer:
 
     @staticmethod
     def same_file(first: Path, second: Path) -> bool:
-        try:
-            return os.path.samefile(first, second)
-        except (FileNotFoundError, OSError):
-            return False
+        return same_file(first, second)
 
     @classmethod
     def _sha256(cls, path: Path) -> str:
         digest = hashlib.sha256()
-        with Path(path).open("rb") as handle:
+        with open_file(path, "rb") as handle:
             for chunk in iter(lambda: handle.read(cls.HASH_CHUNK_SIZE), b""):
                 digest.update(chunk)
         return digest.hexdigest()

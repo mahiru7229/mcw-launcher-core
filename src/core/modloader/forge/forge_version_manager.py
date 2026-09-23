@@ -4,11 +4,20 @@ from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
+from uuid import uuid4
 import hashlib
 import json
 import shutil
 
 from src.core.fs.paths import Paths
+from src.core.fs.windows_path import (
+    is_file,
+    make_directory,
+    open_file,
+    replace_path,
+    stat_path,
+    unlink_file,
+)
 from src.core.minecraft.library_manager import DownloadLibraryManager
 from src.core.minecraft.library_rule_manager import LibraryRuleManager
 from src.core.minecraft.version_manager import VersionManager
@@ -52,7 +61,7 @@ class ForgeVersionManager:
 
     @staticmethod
     def install(base_version: Version, forge_version: str, reporter: ProgressReporter | None = None, force_refresh: bool = False, preferred_java_path: str | Path | None = None) -> Version:
-        loader = str(forge_version).strip()
+        loader = ForgeMetadataClient._clean_version(base_version.id, forge_version)
         if not loader:
             raise RuntimeError("Select a Minecraft Forge version.")
         cache_path = Paths.forge_version_json(base_version.id, loader)
@@ -103,13 +112,13 @@ class ForgeVersionManager:
 
     @staticmethod
     def repair(base_version: Version, forge_version: str, reporter: ProgressReporter | None = None, preferred_java_path: str | Path | None = None) -> Version:
-        loader = str(forge_version).strip()
+        loader = ForgeMetadataClient._clean_version(base_version.id, forge_version)
         if not loader:
             raise RuntimeError("Select a Minecraft Forge version.")
         cache_path = Paths.forge_version_json(base_version.id, loader)
-        previous = cache_path.read_bytes() if cache_path.is_file() else None
+        previous = open_file(cache_path, "rb").read() if is_file(cache_path) else None
         repair_log = Paths.forge_root() / "logs" / f"forge-repair-{base_version.id}-{loader}.log"
-        repair_log.parent.mkdir(parents=True, exist_ok=True)
+        make_directory(repair_log.parent)
         if reporter is not None:
             reporter.status(stage=ProgressStage.INSTALLING_MOD_LOADER, message=f"Repairing Minecraft Forge {loader}...")
         try:
@@ -118,23 +127,22 @@ class ForgeVersionManager:
             issues = ForgeVersionManager.validate_installation(version, base_version.id, loader, verify_files=True)
             if issues:
                 raise RuntimeError("Forge repair validation failed:\n" + "\n".join(f"- {issue}" for issue in issues))
-            repair_log.write_text(
-                f"Forge repair completed successfully.\nMinecraft: {base_version.id}\nForge: {loader}\nProfile: {version.id}\n",
-                encoding="utf-8",
-            )
+            with open_file(repair_log, "w", encoding="utf-8") as file:
+                file.write(
+                    f"Forge repair completed successfully.\nMinecraft: {base_version.id}\nForge: {loader}\nProfile: {version.id}\n"
+                )
             if reporter is not None:
                 reporter.status(stage=ProgressStage.INSTALLING_MOD_LOADER, message=f"Forge {loader} repair completed.")
             return version
         except Exception as error:
             if previous is None:
-                cache_path.unlink(missing_ok=True)
+                unlink_file(cache_path)
             else:
                 ForgeVersionManager._write_bytes(cache_path, previous)
-            repair_log.write_text(
-                f"Forge repair failed and the previous cached profile was restored.\nMinecraft: {base_version.id}\nForge: {loader}\nError: {error}\n",
-                encoding="utf-8",
-                errors="replace",
-            )
+            with open_file(repair_log, "w", encoding="utf-8", errors="replace") as file:
+                file.write(
+                    f"Forge repair failed and the previous cached profile was restored.\nMinecraft: {base_version.id}\nForge: {loader}\nError: {error}\n"
+                )
             raise
 
     @staticmethod
@@ -148,17 +156,17 @@ class ForgeVersionManager:
     def _prepare_staging(base_version: Version, staging: Path) -> None:
         """Create the minimal launcher layout expected by Forge's client installer."""
         profile_path = staging / "launcher_profiles.json"
-        if not profile_path.exists():
+        if not is_file(profile_path):
             ForgeVersionManager._write_json(profile_path, {"profiles": {}, "selectedProfile": None, "clientToken": "mcw-launcher"})
 
         version_dir = staging / "versions" / base_version.id
-        version_dir.mkdir(parents=True, exist_ok=True)
+        make_directory(version_dir)
         ForgeVersionManager._write_json(version_dir / f"{base_version.id}.json", deepcopy(base_version.raw_json))
 
         client = Paths.client(base_version)
-        if client.is_file():
+        if is_file(client):
             target = version_dir / f"{base_version.id}.jar"
-            if not target.is_file() or not SharedFileMaterializer.same_content(client, target):
+            if not is_file(target) or not SharedFileMaterializer.same_content(client, target):
                 SharedFileMaterializer.link_or_copy(client, target)
 
         for library in (base_version.raw_json or {}).get("libraries", []):
@@ -175,23 +183,23 @@ class ForgeVersionManager:
             if not source.is_file():
                 continue
             target = staging / "libraries" / Path(relative)
-            if target.is_file() and SharedFileMaterializer.same_content(source, target):
+            if is_file(target) and SharedFileMaterializer.same_content(source, target):
                 continue
             SharedFileMaterializer.link_or_copy(source, target)
 
     @staticmethod
     def _run_installer(base_version: Version, forge_version: str, installer: Path, staging: Path, reporter: ProgressReporter | None, preferred_java_path: str | Path | None = None) -> None:
         log_path = Paths.forge_root() / "logs" / f"forge-{base_version.id}-{forge_version}.log"
-        log_path.parent.mkdir(parents=True, exist_ok=True)
+        make_directory(log_path.parent)
 
         if LegacyForgeInstaller.supports(installer):
             result = LegacyForgeInstaller.install(installer, staging, reporter)
-            log_path.write_text(
-                "Legacy Forge installer imported without opening the installer GUI.\n"
-                f"Profile: {result.profile_id}\n"
-                f"Embedded library: {result.embedded_library}\n",
-                encoding="utf-8",
-            )
+            with open_file(log_path, "w", encoding="utf-8") as file:
+                file.write(
+                    "Legacy Forge installer imported without opening the installer GUI.\n"
+                    f"Profile: {result.profile_id}\n"
+                    f"Embedded library: {result.embedded_library}\n"
+                )
             return
 
         java_major = JavaMajorPolicy.required_for_minecraft(
@@ -208,17 +216,16 @@ class ForgeVersionManager:
             preferred_java_path=preferred_java_path,
         )
         output = result.output
-        log_path.write_text(
-            f"MCW Forge installer diagnostics\n"
-            f"Minecraft: {base_version.id}\n"
-            f"Forge: {forge_version}\n"
-            f"Java: {result.java_path}\n"
-            f"Attempts: {result.attempts}\n"
-            f"Return code: {result.returncode}\n\n"
-            f"{output}",
-            encoding="utf-8",
-            errors="replace",
-        )
+        with open_file(log_path, "w", encoding="utf-8", errors="replace") as file:
+            file.write(
+                f"MCW Forge installer diagnostics\n"
+                f"Minecraft: {base_version.id}\n"
+                f"Forge: {forge_version}\n"
+                f"Java: {result.java_path}\n"
+                f"Attempts: {result.attempts}\n"
+                f"Return code: {result.returncode}\n\n"
+                f"{output}"
+            )
         if result.returncode != 0:
             if ForgeVersionManager._is_unsupported_install_client(output):
                 raise RuntimeError(
@@ -333,8 +340,8 @@ class ForgeVersionManager:
             path = ForgeVersionManager._maven_path(coordinate)
             local = Paths.libraries() / path
             url = repository + path.as_posix()
-            sha1 = ForgeVersionManager._sha1(local) if local.is_file() else ForgeVersionManager._legacy_library_sha1(item)
-            size = local.stat().st_size if local.is_file() else max(0, int(item.get("size") or 0))
+            sha1 = ForgeVersionManager._sha1(local) if is_file(local) else ForgeVersionManager._legacy_library_sha1(item)
+            size = stat_path(local).st_size if is_file(local) else max(0, int(item.get("size") or 0))
             if not sha1:
                 try:
                     _, sha1, size = HttpDownloader.download_and_hash(
@@ -536,7 +543,8 @@ class ForgeVersionManager:
     @staticmethod
     def _load_structurally_valid_cache(path: Path, game_version: str, forge_version: str) -> dict | None:
         try:
-            data = json.loads(path.read_text(encoding="utf-8"))
+            with open_file(path, "r", encoding="utf-8") as file:
+                data = json.load(file)
         except (FileNotFoundError, OSError, json.JSONDecodeError):
             return None
         forge = data.get("forge") if isinstance(data.get("forge"), dict) else {}
@@ -609,16 +617,17 @@ class ForgeVersionManager:
                 if not relative:
                     continue
                 path = Paths.libraries() / Path(relative)
-                if not path.is_file():
+                if not is_file(path):
                     issues.append(f"Missing required library: {relative}")
                     continue
                 expected_size = int(artifact.get("size") or 0)
-                if expected_size > 0 and path.stat().st_size != expected_size:
+                if expected_size > 0 and stat_path(path).st_size != expected_size:
                     issues.append(f"Required library has the wrong size: {relative}")
                     continue
                 expected_sha1 = str(artifact.get("sha1") or "").strip().lower()
                 if expected_sha1 and ForgeVersionManager._sha1(path) != expected_sha1:
                     issues.append(f"Required library failed SHA-1 verification: {relative}")
+                    continue
         return issues
 
     @staticmethod
@@ -644,7 +653,7 @@ class ForgeVersionManager:
     @staticmethod
     def _sha1(path: Path) -> str:
         digest = hashlib.sha1(usedforsecurity=False)
-        with path.open("rb") as file:
+        with open_file(path, "rb") as file:
             while chunk := file.read(1024 * 1024):
                 digest.update(chunk)
         return digest.hexdigest()
@@ -655,13 +664,14 @@ class ForgeVersionManager:
 
     @staticmethod
     def _write_bytes(path: Path, data: bytes) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        temp = path.with_suffix(path.suffix + ".tmp")
+        make_directory(path.parent)
+        temp = path.with_name(f".tmp_{uuid4().hex[:8]}_{path.name[:16]}")
         try:
-            temp.write_bytes(data)
-            temp.replace(path)
+            with open_file(temp, "wb") as file:
+                file.write(data)
+            replace_path(temp, path)
         finally:
-            temp.unlink(missing_ok=True)
+            unlink_file(temp)
 
     @staticmethod
     def _lock_for(key: str) -> Lock:

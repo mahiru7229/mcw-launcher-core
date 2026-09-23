@@ -25,8 +25,9 @@ def make_directory(path: Path | str) -> None:
     os.makedirs(native_filesystem_path(path), exist_ok=True)
 
 
-def open_file(path: Path | str, mode: str):
-    return open(native_filesystem_path(path), mode)
+def open_file(path: Path | str, mode: str, **kwargs):
+    return open(native_filesystem_path(path), mode, **kwargs)
+
 
 
 def copy_tree(source: Path | str, destination: Path | str) -> None:
@@ -59,3 +60,32 @@ def unlink_file(path: Path | str, missing_ok: bool = True) -> None:
 
 def remove_tree(path: Path | str, ignore_errors: bool = False) -> None:
     shutil.rmtree(native_filesystem_path(path), ignore_errors=ignore_errors)
+
+
+def copy_file(source: Path | str, destination: Path | str) -> None:
+    native_src = native_filesystem_path(source)
+    native_dst = native_filesystem_path(destination)
+    make_directory(Path(destination).parent)
+    try:
+        shutil.copy2(native_src, native_dst)
+    except OSError:
+        with open_file(native_src, "rb") as reader, open_file(native_dst, "wb") as writer:
+            shutil.copyfileobj(reader, writer, length=1024 * 1024)
+        try:
+            shutil.copystat(native_src, native_dst)
+        except OSError:
+            pass
+
+
+def link_file(source: Path | str, destination: Path | str) -> None:
+    native_src = native_filesystem_path(source)
+    native_dst = native_filesystem_path(destination)
+    make_directory(Path(destination).parent)
+    os.link(native_src, native_dst)
+
+
+def same_file(first: Path | str, second: Path | str) -> bool:
+    try:
+        return os.path.samefile(native_filesystem_path(first), native_filesystem_path(second))
+    except (FileNotFoundError, OSError):
+        return False
