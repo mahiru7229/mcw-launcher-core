@@ -1,12 +1,19 @@
-# MCW Core 1.6.0
+# MCW Core 1.6.1
 
-MCW Core is the headless runtime shipped with MCW Launcher `v1.6.0`. This source distribution contains the complete public API, implementation, data models, tests, documentation, examples and LAN Agent resource. The separate CurseForge gateway source archive is intentionally not bundled with MCW Core.
+MCW Core is the headless runtime shipped with MCW Launcher `v1.6.1`. This source distribution contains the complete public API, implementation, data models, tests, documentation, examples and LAN Agent resource. The separate CurseForge gateway source archive is intentionally not bundled with MCW Core.
 
 PySide6 and the launcher GUI are intentionally not part of the Core distribution.
 
+## What changed in 1.6.1
+
+- **Modloader metadata network retries**: Added `HttpDownloader.get_with_retry` with at least 5 attempts and exponential backoff for Forge, NeoForge, Fabric, and Quilt metadata clients to survive transient network timeouts or connection drops.
+- **Extended Windows path support (`\\?\`)**: Extended `src/core/fs/windows_path.py` with `to_extended_windows_path()` and `native_filesystem_path()`, adding support in `copy_file()`, `link_file()`, `same_file()`, `open_file()`, and `is_file()` to handle paths exceeding 260 characters (`MAX_PATH`).
+- **Long-path protection in Java & Loader managers**: `JavaProvisioner`, `NeoForgeVersionManager`, and `ForgeVersionManager` safely handle deep nested library extractions, chunked streaming copy fallbacks, and runtime markers (fixes Issue #32).
+- **Staging publishing optimization**: Shortened temporary publishing artifact filenames in `SharedFileMaterializer` (`.tmp_<hex>.pub`), saving up to 90 path characters.
+
 ## What changed in 1.6.0
 
-- **Quick Play support**: `LaunchRequest` now accepts `quick_play_singleplayer` and `quick_play_multiplayer` to launch directly into a world or server, and `on_window_ready` to receive the game window handle.
+- **Quick Play support**: `LaunchRequest` accepts `quick_play_singleplayer` and `quick_play_multiplayer` to launch directly into a world or server, and `on_window_ready` to receive the game window handle.
 - **JVM arguments via API**: `InstanceCreateRequest` accepts `jvm_arguments: tuple[str, ...]` to set custom JVM flags when creating an instance programmatically.
 - **Discord RPC integration**: new `mcw_core.api.integrations.discord` module exposes the Discord Rich Presence bridge.
 - **New public API modules**: `mcw_core.api.diagnostics.mclogs_client`, `mcw_core.api.java.jvm_presets`, `mcw_core.api.minecraft.screenshot_manager`, `mcw_core.api.minecraft.world_manager`.
@@ -15,7 +22,15 @@ PySide6 and the launcher GUI are intentionally not part of the Core distribution
 - **FTB run-lock protection**: preparing-lock timeout extended to 600 s with periodic heartbeat; lock file auto-recreated if evicted while Minecraft is running.
 - **Onefile upgrade cleanup**: `UpdateApplier` automatically removes the legacy `_internal/` directory when upgrading from an onedir build to a one-file build.
 
-## Install for development
+## Installation
+
+### From prebuilt Wheel (`.whl`)
+
+```bash
+pip install mcw_core-1.6.1-py3-none-any.whl
+```
+
+### Install for development
 
 ```bash
 python -m venv .venv
@@ -100,4 +115,4 @@ Deploy the gateway separately using [mahiru7229/mcw-curseforge-gateway](https://
 - `examples/`: integration examples.
 - `runtime/` and `mcw_core/resources/`: MCW LAN Agent.
 
-See [RELEASE.md](RELEASE.md) and [docs/MCW_CORE_LIBRARY.md](docs/MCW_CORE_LIBRARY.md) for the release contract. Release history is in [docs/MCW_CORE_RELEASE-v1.6.0.md](docs/MCW_CORE_RELEASE-v1.6.0.md).
+See [RELEASE.md](RELEASE.md) and [docs/MCW_CORE_LIBRARY.md](docs/MCW_CORE_LIBRARY.md) for the release contract. Release history is in [docs/MCW_CORE_RELEASE-v1.6.1.md](docs/MCW_CORE_RELEASE-v1.6.1.md) and [docs/MCW_CORE_RELEASE-v1.6.0.md](docs/MCW_CORE_RELEASE-v1.6.0.md).
