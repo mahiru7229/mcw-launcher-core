@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.6.1 - 2026-09-23
+
+- Modloader metadata retries: Added `HttpDownloader.get_with_retry` with at least 5 attempts and exponential backoff for Forge, NeoForge, Fabric, and Quilt metadata clients to survive transient network issues.
+- Extended Windows path support: `copy_file`, `link_file`, `same_file` in `windows_path.py` with `\\?\` prefix to handle paths exceeding 260 characters (`MAX_PATH`).
+- Added chunked streaming fallback in `copy_file` when low-level Win32 copy APIs fail.
+- Shortened temporary publishing artifact filenames in `SharedFileMaterializer` (`.tmp_<hex>.pub`).
+- Protected `NeoForgeVersionManager` and `ForgeVersionManager` against long paths during library extraction and caching (fixes #32).
+
 ## 1.6.1-beta.1 - 2026-09-23
 
 - Extended Windows path support: `copy_file`, `link_file`, `same_file` in `windows_path.py` with `\\?\` prefix to handle paths exceeding 260 characters (`MAX_PATH`).

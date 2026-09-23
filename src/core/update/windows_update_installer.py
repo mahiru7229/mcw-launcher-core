@@ -15,6 +15,56 @@ from src.core.update.update_errors import AutomaticUpdateUnsupportedError
 from src.models.update.update_info import PreparedUpdate
 
 
+class _ShellUpdaterProcess:
+    """Wrapper when process is launched via Windows ShellExecuteExW."""
+
+    def __init__(self, handle: int | None = None) -> None:
+        self._handle = handle
+
+    def poll(self) -> int | None:
+        if not self._handle:
+            return None
+        import ctypes
+        from ctypes import wintypes
+
+        code = wintypes.DWORD()
+        if ctypes.windll.kernel32.GetExitCodeProcess(self._handle, ctypes.byref(code)):
+            if code.value == 259:  # STILL_ACTIVE
+                return None
+            return int(code.value)
+        return None
+
+    def terminate(self) -> None:
+        if self._handle:
+            import ctypes
+
+            try:
+                ctypes.windll.kernel32.TerminateProcess(self._handle, 1)
+            except Exception:
+                pass
+
+    def wait(self, timeout: float = 0) -> int | None:
+        if not self._handle:
+            return None
+        import ctypes
+
+        timeout_ms = int(timeout * 1000) if timeout > 0 else 0xFFFFFFFF
+        ctypes.windll.kernel32.WaitForSingleObject(self._handle, timeout_ms)
+        return self.poll()
+
+    def kill(self) -> None:
+        self.terminate()
+
+    def __del__(self) -> None:
+        if getattr(self, "_handle", None):
+            try:
+                import ctypes
+
+                ctypes.windll.kernel32.CloseHandle(self._handle)
+            except Exception:
+                pass
+
+
 class WindowsUpdateInstaller:
     """Launch the updater binary bundled inside the incoming Windows package."""
 
@@ -64,6 +114,12 @@ class WindowsUpdateInstaller:
             # Critical v2 contract: execute updater code from the incoming release,
             # never a renamed/copy of the currently running launcher.
             shutil.copy2(incoming_updater, updater_executable)
+            if os.name == "nt":
+                try:
+                    import ctypes
+                    ctypes.windll.kernel32.DeleteFileW(f"{updater_executable}:Zone.Identifier")
+                except Exception:
+                    pass
             request = {
                 "schema_version": 2,
                 "parent_pid": int(parent_pid if parent_pid is not None else os.getpid()),
@@ -147,7 +203,7 @@ class WindowsUpdateInstaller:
         updater_executable: Path,
         request_path: Path,
         destination: Path,
-    ) -> subprocess.Popen:
+    ) -> subprocess.Popen | _ShellUpdaterProcess:
         command = [str(updater_executable), "--apply-update", str(request_path)]
         base_flags = (
             getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
@@ -166,12 +222,74 @@ class WindowsUpdateInstaller:
         if breakaway_flag:
             try:
                 return subprocess.Popen(command, creationflags=base_flags | breakaway_flag, **kwargs)
-            except OSError:
-                pass
-        return subprocess.Popen(command, creationflags=base_flags, **kwargs)
+            except OSError as error:
+                if getattr(error, "winerror", None) == 4551:
+                    shell_proc = cls._start_windows_updater_shell(updater_executable, request_path, destination)
+                    if shell_proc is not None:
+                        return shell_proc
+                    raise
+        try:
+            return subprocess.Popen(command, creationflags=base_flags, **kwargs)
+        except OSError as error:
+            if getattr(error, "winerror", None) == 4551:
+                shell_proc = cls._start_windows_updater_shell(updater_executable, request_path, destination)
+                if shell_proc is not None:
+                    return shell_proc
+            raise
 
     @classmethod
-    def _wait_for_ready(cls, process: subprocess.Popen, ready_path: Path, timeout_seconds: float) -> bool:
+    def _start_windows_updater_shell(
+        cls,
+        updater_executable: Path,
+        request_path: Path,
+        destination: Path,
+    ) -> _ShellUpdaterProcess | None:
+        if os.name != "nt":
+            return None
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            class SHELLEXECUTEINFOW(ctypes.Structure):
+                _fields_ = [
+                    ("cbSize", wintypes.DWORD),
+                    ("fMask", wintypes.ULONG),
+                    ("hwnd", wintypes.HWND),
+                    ("lpVerb", wintypes.LPCWSTR),
+                    ("lpFile", wintypes.LPCWSTR),
+                    ("lpParameters", wintypes.LPCWSTR),
+                    ("lpDirectory", wintypes.LPCWSTR),
+                    ("nShow", ctypes.c_int),
+                    ("hInstApp", wintypes.HINSTANCE),
+                    ("lpIDList", wintypes.LPVOID),
+                    ("lpClass", wintypes.LPCWSTR),
+                    ("hkeyClass", wintypes.HKEY),
+                    ("dwHotKey", wintypes.DWORD),
+                    ("hIconOrMonitor", wintypes.HANDLE),
+                    ("hProcess", wintypes.HANDLE),
+                ]
+
+            SEE_MASK_NOCLOSEPROCESS = 0x00000040
+            SW_SHOWNORMAL = 1
+            info = SHELLEXECUTEINFOW()
+            info.cbSize = ctypes.sizeof(SHELLEXECUTEINFOW)
+            info.fMask = SEE_MASK_NOCLOSEPROCESS
+            info.lpVerb = "open"
+            info.lpFile = str(updater_executable)
+            info.lpParameters = f'--apply-update "{request_path}"'
+            info.lpDirectory = str(destination)
+            info.nShow = SW_SHOWNORMAL
+
+            shell32 = ctypes.windll.shell32
+            ctypes.set_last_error(0)
+            if shell32.ShellExecuteExW(ctypes.byref(info)):
+                return _ShellUpdaterProcess(info.hProcess)
+            return None
+        except Exception:
+            return None
+
+    @classmethod
+    def _wait_for_ready(cls, process: subprocess.Popen | _ShellUpdaterProcess, ready_path: Path, timeout_seconds: float) -> bool:
         deadline = time.monotonic() + max(0.0, timeout_seconds)
         while time.monotonic() <= deadline:
             if ready_path.is_file():
@@ -182,7 +300,7 @@ class WindowsUpdateInstaller:
         return ready_path.is_file()
 
     @staticmethod
-    def _stop_process(process: subprocess.Popen) -> None:
+    def _stop_process(process: subprocess.Popen | _ShellUpdaterProcess) -> None:
         try:
             if process.poll() is None:
                 process.terminate()

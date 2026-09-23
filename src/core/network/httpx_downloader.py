@@ -66,6 +66,46 @@ class HttpDownloader:
             cls._client = None
 
     @classmethod
+    def get_with_retry(
+        cls,
+        url: str,
+        *,
+        max_attempts: int = 5,
+        timeout: float = 20.0,
+        headers: dict[str, str] | None = None,
+        backoff_base: float = 0.5,
+    ) -> httpx.Response:
+        if max_attempts < 1:
+            raise ValueError("max_attempts must be at least 1")
+        last_error: Exception | None = None
+        for attempt in range(1, max_attempts + 1):
+            try:
+                client = cls.get_client()
+                if headers is not None:
+                    response = client.get(url, headers=headers, timeout=timeout)
+                else:
+                    response = client.get(url, timeout=timeout)
+                response.raise_for_status()
+                return response
+            except (httpx.TimeoutException, httpx.NetworkError, httpx.RemoteProtocolError, httpx.HTTPStatusError) as error:
+                last_error = error
+                if isinstance(error, httpx.HTTPStatusError) and error.response.status_code not in cls.RETRYABLE_STATUS_CODES:
+                    raise
+                if attempt < max_attempts:
+                    delay = backoff_base * (2 ** (attempt - 1))
+                    time.sleep(min(delay, 5.0))
+            except Exception as error:
+                last_error = error
+                if attempt < max_attempts:
+                    delay = backoff_base * (2 ** (attempt - 1))
+                    time.sleep(min(delay, 5.0))
+                else:
+                    raise
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError(f"Request failed after {max_attempts} attempts: {url}")
+
+    @classmethod
     def _get_path_lock(cls, path: Path):
         return download_manager.get_path_lock(path)
 

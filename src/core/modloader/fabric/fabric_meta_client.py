@@ -205,12 +205,10 @@ class FabricMetaClient:
 
     @staticmethod
     def _get_json(path: str) -> object:
-        client = HttpDownloader.get_client()
         try:
-            response = client.get(FabricMetaClient.BASE_URL + path, timeout=20.0)
-            response.raise_for_status()
+            response = HttpDownloader.get_with_retry(FabricMetaClient.BASE_URL + path, max_attempts=5, timeout=20.0)
             return response.json()
-        except (httpx.HTTPError, ValueError) as error:
+        except (httpx.HTTPError, ValueError, RuntimeError) as error:
             raise RuntimeError("Unable to contact Fabric Meta and no cached metadata is available.") from error
 
     @staticmethod

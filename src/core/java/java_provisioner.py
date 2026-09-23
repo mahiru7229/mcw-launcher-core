@@ -6,7 +6,7 @@ import json
 import shutil
 
 from src.core.fs.paths import Paths
-from src.core.fs.windows_path import move_path, remove_tree
+from src.core.fs.windows_path import is_file, move_path, open_file, remove_tree
 from src.core.java.adoptium_client import AdoptiumClient
 from src.core.java.java_archive_downloader import JavaArchiveDownloader
 from src.core.java.java_archive_extractor import JavaArchiveExtractor
@@ -127,7 +127,7 @@ class JavaProvisioner:
             new_runtime_installed = True
             JavaProvisioner._write_marker(target_dir, release)
             executable = target_dir / "bin" / PlatformInfo.current().java_executable
-            if not executable.is_file():
+            if not is_file(executable):
                 raise RuntimeError(
                     f"Java {release.major} installation finished without {executable.name}."
                 )
@@ -149,4 +149,5 @@ class JavaProvisioner:
     @staticmethod
     def _write_marker(target_dir: Path, release: JavaRelease) -> None:
         marker = {"major": release.major, "release_name": release.release_name, "sha256": release.sha256, "source": "Eclipse Temurin / Adoptium"}
-        (target_dir / ".mcw-runtime.json").write_text(json.dumps(marker, indent=4), encoding="utf-8")
+        with open_file(target_dir / ".mcw-runtime.json", "w", encoding="utf-8") as writer:
+            json.dump(marker, writer, indent=4)

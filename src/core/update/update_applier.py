@@ -89,6 +89,7 @@ class UpdateApplier:
             self._copy_update_files()
             self._remove_stale_files()
             self._remove_cleanup_paths()
+            self._cleanup_legacy_onedir()
             self._verify_updated_executable()
             self._start_launcher()
             self._log(f"Update to {self.request.target_version} completed")
@@ -150,25 +151,53 @@ class UpdateApplier:
                     backup.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(file_path, backup)
 
+        # Mirror backup to destination_directory / "updater" / "backup" so it survives
+        # as a permanent offline recovery path even after temp updater files are cleaned up.
+        persistent_backup = self.request.destination_directory / "updater" / "backup"
+        try:
+            persistent_backup.mkdir(parents=True, exist_ok=True)
+            for backup_file in self.backup_directory.rglob("*"):
+                if not backup_file.is_file():
+                    continue
+                dest = persistent_backup / backup_file.relative_to(self.backup_directory)
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(backup_file, dest)
+        except Exception as err:
+            self._log(f"Notice: Could not write persistent recovery backup: {err}")
+
+    @staticmethod
+    def _unblock_path(path: Path) -> None:
+        if os.name != "nt":
+            return
+        try:
+            kernel32 = ctypes.windll.kernel32
+            kernel32.DeleteFileW(f"{path}:Zone.Identifier")
+        except Exception:
+            pass
+
     def _copy_update_files(self) -> None:
         self._log(f"Copying update from {self.request.source_directory} to {self.request.destination_directory}")
         source_files = self._iter_source_files()
         source_executable = self.request.source_directory / self.request.executable_name
         destination_executable = self.request.destination_directory / self.request.executable_name
 
+        self._unblock_path(source_executable)
         # Replace the launcher executable before mutating the rest of the installation.
         # A PyInstaller/AV file lock can linger briefly after the launcher process exits;
         # failing here first avoids leaving a mixed-version installation behind.
         self._log("Replacing launcher executable before the remaining update files")
         self._copy_with_retry(source_executable, destination_executable)
+        self._unblock_path(destination_executable)
 
         for source_path in source_files:
             if source_path == source_executable:
                 continue
+            self._unblock_path(source_path)
             relative_path = source_path.relative_to(self.request.source_directory)
             destination_path = self.request.destination_directory / relative_path
             destination_path.parent.mkdir(parents=True, exist_ok=True)
             self._copy_with_retry(source_path, destination_path)
+            self._unblock_path(destination_path)
 
     def _remove_stale_files(self) -> None:
         for relative_path in self.stale_files:
@@ -177,7 +206,13 @@ class UpdateApplier:
                 target.unlink(missing_ok=True)
             except OSError as error:
                 raise RuntimeError(f"Could not remove obsolete launcher file {target}: {error}") from error
-
+            parent = target.parent
+            while parent != self.request.destination_directory and parent.is_dir():
+                try:
+                    parent.rmdir()
+                    parent = parent.parent
+                except OSError:
+                    break
 
     def _remove_cleanup_paths(self) -> None:
         for relative_path in self.cleanup_paths:
@@ -192,6 +227,15 @@ class UpdateApplier:
                     shutil.rmtree(target)
             except OSError as error:
                 raise RuntimeError(f"Could not clean obsolete launcher path {target}: {error}") from error
+
+    def _cleanup_legacy_onedir(self) -> None:
+        """Ensure obsolete PyInstaller onedir artifacts (_internal) are scrubbed when updating to onefile."""
+        if (self.request.source_directory / "_internal").exists():
+            return
+        internal_dir = self.request.destination_directory / "_internal"
+        if internal_dir.is_dir():
+            self._log("Cleaning obsolete onedir _internal directory")
+            shutil.rmtree(internal_dir, ignore_errors=True)
 
     @staticmethod
     def _cleanup_paths(root: Path) -> list[Path]:
@@ -256,6 +300,13 @@ class UpdateApplier:
                 path.unlink(missing_ok=True)
             except OSError:
                 pass
+            parent = path.parent
+            while parent != self.request.destination_directory and parent.is_dir():
+                try:
+                    parent.rmdir()
+                    parent = parent.parent
+                except OSError:
+                    break
 
         if not self.backup_directory.is_dir():
             return
@@ -294,10 +345,68 @@ class UpdateApplier:
         else:
             kwargs["start_new_session"] = True
         self._log("Starting restored launcher after rollback" if restored else "Starting updated launcher")
-        subprocess.Popen(
-            [str(executable), "--cleanup-update", str(self.request.updater_directory), str(os.getpid())],
-            **kwargs,
-        )
+        self._unblock_path(executable)
+        args = [str(executable), "--cleanup-update", str(self.request.updater_directory), str(os.getpid())]
+        try:
+            subprocess.Popen(args, **kwargs)
+        except OSError as error:
+            if PlatformInfo.current().os_name == "windows" and getattr(error, "winerror", None) == 4551:
+                self._log(
+                    "Process creation was blocked by Windows Application Control (WinError 4551); "
+                    "attempting shell execution fallback"
+                )
+                if self._start_windows_launcher_shell(executable):
+                    return
+            raise
+
+    def _start_windows_launcher_shell(self, executable: Path) -> bool:
+        if os.name != "nt":
+            return False
+        try:
+            from ctypes import wintypes
+
+            class SHELLEXECUTEINFOW(ctypes.Structure):
+                _fields_ = [
+                    ("cbSize", wintypes.DWORD),
+                    ("fMask", wintypes.ULONG),
+                    ("hwnd", wintypes.HWND),
+                    ("lpVerb", wintypes.LPCWSTR),
+                    ("lpFile", wintypes.LPCWSTR),
+                    ("lpParameters", wintypes.LPCWSTR),
+                    ("lpDirectory", wintypes.LPCWSTR),
+                    ("nShow", ctypes.c_int),
+                    ("hInstApp", wintypes.HINSTANCE),
+                    ("lpIDList", wintypes.LPVOID),
+                    ("lpClass", wintypes.LPCWSTR),
+                    ("hkeyClass", wintypes.HKEY),
+                    ("dwHotKey", wintypes.DWORD),
+                    ("hIconOrMonitor", wintypes.HANDLE),
+                    ("hProcess", wintypes.HANDLE),
+                ]
+
+            SEE_MASK_NOCLOSEPROCESS = 0x00000040
+            SW_SHOWNORMAL = 1
+            info = SHELLEXECUTEINFOW()
+            info.cbSize = ctypes.sizeof(SHELLEXECUTEINFOW)
+            info.fMask = SEE_MASK_NOCLOSEPROCESS
+            info.lpFile = str(executable)
+            info.lpParameters = f'--cleanup-update "{self.request.updater_directory}" {os.getpid()}'
+            info.lpDirectory = str(self.request.destination_directory)
+            info.nShow = SW_SHOWNORMAL
+
+            shell32 = ctypes.windll.shell32
+            ctypes.set_last_error(0)
+            if shell32.ShellExecuteExW(ctypes.byref(info)):
+                if info.hProcess:
+                    ctypes.windll.kernel32.CloseHandle(info.hProcess)
+                self._log("Updated launcher successfully started via Windows Shell fallback")
+                return True
+            err = ctypes.get_last_error()
+            self._log(f"Shell execution fallback failed: {self._format_windows_error(err)}")
+            return False
+        except Exception as shell_error:
+            self._log(f"Shell execution fallback encountered an error: {shell_error}")
+            return False
 
     def _copy_with_retry(self, source: Path, destination: Path) -> None:
         if self._is_launcher_executable(destination) and PlatformInfo.current().os_name == "windows":
@@ -722,10 +831,18 @@ class UpdateApplier:
                 "\n\nRollback also failed, so MCW Launcher was not restarted. "
                 "Keep the updater log and reinstall/reapply the current release before launching again."
             )
+        sac_hint = ""
+        if "4551" in message:
+            sac_hint = (
+                "\n\nNotice: Windows Smart App Control (SAC) blocked this new release because it has not yet "
+                "accumulated sufficient cloud reputation. To resolve this, you can add the launcher directory "
+                "to Windows Security Exclusions, or run the launcher directly."
+            )
         text = (
             "MCW Launcher could not finish the update.\n\n"
             f"{message}"
-            f"{recovery_note}\n\n"
+            f"{recovery_note}"
+            f"{sac_hint}\n\n"
             f"Log: {self.request.persistent_log_path}"
         )
         try:

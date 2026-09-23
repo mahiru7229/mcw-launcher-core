@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path, PurePosixPath
 import shutil
 import stat
@@ -310,6 +311,12 @@ class UpdateManager:
                 archived_mode = (entry.external_attr >> 16) & 0o777
                 if archived_mode:
                     output_path.chmod(archived_mode)
+                if os.name == "nt":
+                    try:
+                        import ctypes
+                        ctypes.windll.kernel32.DeleteFileW(f"{output_path}:Zone.Identifier")
+                    except Exception:
+                        pass
 
     @staticmethod
     def _safe_archive_path(filename: str) -> PurePosixPath | None:

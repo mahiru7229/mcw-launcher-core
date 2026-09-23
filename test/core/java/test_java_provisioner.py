@@ -107,11 +107,13 @@ def test_install_release_extracts_in_short_jvm_workspace(monkeypatch: pytest.Mon
 
     executable = JavaProvisioner._install_release(release, archive)
 
+    from src.core.fs.windows_path import is_file
+
     assert captured["staging"].parent.parent == short_root / "jvm"
     assert captured["staging"].name == "extract"
     assert len(str(captured["staging"])) < len(str(runtime_root / ".java-8.installing-" / ("x" * 32)))
     assert executable == target / "bin" / executable_name
-    assert executable.is_file()
+    assert is_file(executable)
     assert not captured["staging"].parent.exists()
 
 

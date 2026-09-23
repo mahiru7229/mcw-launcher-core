@@ -59,9 +59,8 @@ class ForgeMetadataClient:
         clean = ForgeMetadataClient._clean_version(game_version, forge_version)
         url = ForgeMetadataClient.installer_url(game_version, clean) + ".sha1"
         try:
-            response = HttpDownloader.get_client().get(url, timeout=20.0)
-            response.raise_for_status()
-        except httpx.HTTPError as error:
+            response = HttpDownloader.get_with_retry(url, max_attempts=5, timeout=20.0)
+        except (httpx.HTTPError, RuntimeError) as error:
             raise RuntimeError(f"Could not load the Forge installer checksum for {game_version}-{clean}.") from error
         value = str(response.text).strip().split()[0].lower() if str(response.text).strip() else ""
         if not re.fullmatch(r"[0-9a-f]{40}", value):
@@ -77,8 +76,7 @@ class ForgeMetadataClient:
                 if cached is not None:
                     return cached
             try:
-                response = HttpDownloader.get_client().get(ForgeMetadataClient.METADATA_URL, timeout=30.0)
-                response.raise_for_status()
+                response = HttpDownloader.get_with_retry(ForgeMetadataClient.METADATA_URL, max_attempts=5, timeout=30.0)
                 versions = ForgeMetadataClient._parse_metadata(response.content)
             except (httpx.HTTPError, ElementTree.ParseError, RuntimeError) as error:
                 cached = ForgeMetadataClient._load_cache(cache_path, ignore_expiry=True)

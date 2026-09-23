@@ -1008,3 +1008,82 @@ def test_download_stream_applies_shared_bandwidth_limit(monkeypatch: pytest.Monk
     HttpDownloader._download_stream(download_info=make_download_info(content=b"abcde"), path=tmp_path / "file.jar", timeout=20.0)
 
     assert throttled == [2, 3]
+
+
+def test_get_with_retry_success_first_attempt(monkeypatch: pytest.MonkeyPatch):
+    req = httpx.Request("GET", "https://example.com/test")
+    expected_resp = httpx.Response(200, request=req, text="ok")
+
+    class SimpleClient:
+        def get(self, url, headers=None, timeout=None):
+            return expected_resp
+
+    monkeypatch.setattr(HttpDownloader, "get_client", lambda: SimpleClient())
+    resp = HttpDownloader.get_with_retry("https://example.com/test", max_attempts=5)
+    assert resp.status_code == 200
+    assert resp.text == "ok"
+
+
+def test_get_with_retry_retries_transient_error_and_succeeds(monkeypatch: pytest.MonkeyPatch):
+    req = httpx.Request("GET", "https://example.com/test")
+    success_resp = httpx.Response(200, request=req, text="success")
+    calls = []
+    sleeps = []
+
+    class RetryClient:
+        def get(self, url, headers=None, timeout=None):
+            calls.append(url)
+            if len(calls) < 3:
+                raise httpx.ConnectTimeout("timeout", request=req)
+            return success_resp
+
+    monkeypatch.setattr(HttpDownloader, "get_client", lambda: RetryClient())
+    monkeypatch.setattr("src.core.network.httpx_downloader.time.sleep", lambda s: sleeps.append(s))
+
+    resp = HttpDownloader.get_with_retry("https://example.com/test", max_attempts=5)
+    assert resp.text == "success"
+    assert len(calls) == 3
+    assert len(sleeps) == 2
+
+
+def test_get_with_retry_does_not_retry_404(monkeypatch: pytest.MonkeyPatch):
+    req = httpx.Request("GET", "https://example.com/test")
+    not_found_resp = httpx.Response(404, request=req)
+    calls = []
+
+    class NotFoundClient:
+        def get(self, url, headers=None, timeout=None):
+            calls.append(url)
+            return not_found_resp
+
+    monkeypatch.setattr(HttpDownloader, "get_client", lambda: NotFoundClient())
+
+    with pytest.raises(httpx.HTTPStatusError):
+        HttpDownloader.get_with_retry("https://example.com/test", max_attempts=5)
+    assert len(calls) == 1
+
+
+def test_get_with_retry_retries_retryable_status_code(monkeypatch: pytest.MonkeyPatch):
+    req = httpx.Request("GET", "https://example.com/test")
+    server_error_resp = httpx.Response(503, request=req)
+    calls = []
+    sleeps = []
+
+    class ServerErrorClient:
+        def get(self, url, headers=None, timeout=None):
+            calls.append(url)
+            return server_error_resp
+
+    monkeypatch.setattr(HttpDownloader, "get_client", lambda: ServerErrorClient())
+    monkeypatch.setattr("src.core.network.httpx_downloader.time.sleep", lambda s: sleeps.append(s))
+
+    with pytest.raises(httpx.HTTPStatusError):
+        HttpDownloader.get_with_retry("https://example.com/test", max_attempts=5)
+    assert len(calls) == 5
+    assert len(sleeps) == 4
+
+
+def test_get_with_retry_rejects_zero_attempts():
+    with pytest.raises(ValueError, match="max_attempts must be at least 1"):
+        HttpDownloader.get_with_retry("https://example.com/test", max_attempts=0)
+
