@@ -324,6 +324,12 @@ class Paths:
         return directory
 
     @staticmethod
+    def hotfix_root() -> Path:
+        directory = Paths.PROJECT_ROOT / "hotfixes"
+        directory.mkdir(parents=True, exist_ok=True)
+        return directory
+
+    @staticmethod
     def account_database_path():
         return Paths.ACCOUNTS_ROOT / "accounts.db"
 

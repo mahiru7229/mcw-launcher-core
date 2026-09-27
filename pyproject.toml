@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcw-core"
-version = "1.6.1"
+version = "1.8.0"
 description = "Headless Minecraft runtime, instance, loader, modpack, repair, update, and launch core used by MCW Launcher"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -27,6 +27,7 @@ dev = [
 
 [project.scripts]
 mcw-core-launch = "mcw_core.cli:main"
+mcw-core-rpc = "mcw_core.rpc.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

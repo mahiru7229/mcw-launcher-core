@@ -10,6 +10,7 @@ from typing import Callable, Mapping
 
 from src.core.fs.paths import Paths
 from src.core.java.java_runtime import JavaRuntime
+from src.core.runtime.game_window_activator import GameWindowActivator
 from src.core.runtime.process_supervisor import ProcessSupervisor
 from src.models.instance.instance import Instance
 from src.models.runtime.game_exit_result import GameExitResult
@@ -27,7 +28,17 @@ class GameRuntimeManager:
     _active_processes_lock = threading.RLock()
 
     @classmethod
-    def watch(cls, process: object, instance: Instance, minecraft_version: str, started_at: datetime, on_exit: GameExitCallback | None = None, session_id: str | None = None, crash_report_snapshot: Mapping[str, tuple[int, int]] | None = None) -> bool:
+    def watch(
+        cls,
+        process: object,
+        instance: Instance,
+        minecraft_version: str,
+        started_at: datetime,
+        on_exit: GameExitCallback | None = None,
+        session_id: str | None = None,
+        crash_report_snapshot: Mapping[str, tuple[int, int]] | None = None,
+        on_window_ready: Callable[[int], None] | None = None,
+    ) -> bool:
         poll = getattr(process, "poll", None)
         if not callable(poll):
             return False
@@ -42,6 +53,10 @@ class GameRuntimeManager:
             cls._unregister_watcher(instance, watcher)
             cls._unregister_process(instance, process)
             raise
+        try:
+            GameWindowActivator.watch_and_activate(process, on_window_found=on_window_ready)
+        except Exception:
+            pass
         return True
 
     @classmethod

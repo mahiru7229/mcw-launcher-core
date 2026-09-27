@@ -180,7 +180,7 @@ class ForgeVersionManager:
                 except RuntimeError:
                     continue
             source = Paths.libraries() / Path(relative)
-            if not source.is_file():
+            if not is_file(source):
                 continue
             target = staging / "libraries" / Path(relative)
             if is_file(target) and SharedFileMaterializer.same_content(source, target):
@@ -627,7 +627,6 @@ class ForgeVersionManager:
                 expected_sha1 = str(artifact.get("sha1") or "").strip().lower()
                 if expected_sha1 and ForgeVersionManager._sha1(path) != expected_sha1:
                     issues.append(f"Required library failed SHA-1 verification: {relative}")
-                    continue
         return issues
 
     @staticmethod

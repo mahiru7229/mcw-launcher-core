@@ -186,6 +186,12 @@ class ModrinthModInstaller:
         if version_id:
             return ModrinthClient.get_version(version_id)
         if project_id:
+            try:
+                project = ModrinthClient.get_project(project_id)
+                if not ModrinthClient._project_may_support_loader(project, loader_name):
+                    return None
+            except Exception:
+                pass
             return ModrinthClient.select_version(project_id, game_version=game_version, loader=loader_name, version_types=allowed_version_types)
         return None
 

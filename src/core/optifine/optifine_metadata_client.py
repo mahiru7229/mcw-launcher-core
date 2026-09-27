@@ -25,8 +25,12 @@ class OptiFineMetadataClient:
         versions = cached
         if force_refresh or not fresh:
             try:
-                response = HttpDownloader.get_client().get(cls.DOWNLOADS_URL, headers={"User-Agent": cls.USER_AGENT, "Accept": "text/html"}, timeout=25.0)
-                response.raise_for_status()
+                response = HttpDownloader.get_with_retry(
+                    cls.DOWNLOADS_URL,
+                    max_attempts=5,
+                    headers={"User-Agent": cls.USER_AGENT, "Accept": "text/html"},
+                    timeout=25.0,
+                )
                 parsed = OptiFineMetadataParser.parse(response.text)
                 if not parsed:
                     raise RuntimeError("The official OptiFine download page did not contain a recognizable version list.")

@@ -78,7 +78,7 @@ class GitHubReleaseClient:
 
     def _select_update(self, releases: list[dict[str, Any]]) -> UpdateInfo | None:
         current = LauncherVersion.parse(self.current_version)
-        candidates: list[tuple[LauncherVersion, dict[str, Any], ReleaseAsset, str]] = []
+        candidates: list[tuple[LauncherVersion, dict[str, Any], ReleaseAsset, str, bool]] = []
 
         for release in releases:
             if release.get("draft") is True:
@@ -92,12 +92,16 @@ class GitHubReleaseClient:
                 version = LauncherVersion.parse(tag_name)
             except ValueError:
                 continue
-            if self.channel == "beta" and version.prerelease in {"alpha", "pre"}:
-                continue
-            if version <= current:
+            if self.channel == "beta" and version.prerelease in {"alpha", "pre"} and current.prerelease not in {"alpha", "pre"}:
                 continue
 
             raw_assets = release.get("assets")
+            is_emergency = self._release_is_emergency_hotfix(raw_assets)
+            if not is_emergency and version <= current:
+                continue
+            if is_emergency and str(version) == str(current):
+                continue
+
             asset = self._select_asset(raw_assets)
             if asset is None:
                 continue
@@ -110,12 +114,14 @@ class GitHubReleaseClient:
                     )
                 asset = bridge_asset
                 strategy = "bridge"
-            candidates.append((version, release, asset, strategy))
+            candidates.append((version, release, asset, strategy, is_emergency))
 
         if not candidates:
             return None
 
-        version, release, asset, strategy = max(candidates, key=lambda item: item[0].comparison_key())
+        emergency_candidates = [c for c in candidates if c[4]]
+        selection_pool = emergency_candidates if emergency_candidates else candidates
+        version, release, asset, strategy, is_emergency = max(selection_pool, key=lambda item: item[0].comparison_key())
         return UpdateInfo(
             current_version=self.current_version,
             version=str(version),
@@ -127,8 +133,18 @@ class GitHubReleaseClient:
             prerelease=bool(release.get("prerelease")),
             asset=asset,
             install_strategy=strategy,
+            emergency=is_emergency,
         )
 
+    @staticmethod
+    def _release_is_emergency_hotfix(raw_assets: object) -> bool:
+        if not isinstance(raw_assets, list):
+            return False
+        return any(
+            isinstance(item, dict)
+            and str(item.get("name") or "").strip().casefold() in {"mcw-emergency-hotfix", "mcw-emergency-rollback"}
+            for item in raw_assets
+        )
 
     @staticmethod
     def _release_uses_bridge(raw_assets: object) -> bool:

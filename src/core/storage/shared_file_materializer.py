@@ -104,3 +104,4 @@ class SharedFileMaterializer:
             for chunk in iter(lambda: handle.read(cls.HASH_CHUNK_SIZE), b""):
                 digest.update(chunk)
         return digest.hexdigest()
+

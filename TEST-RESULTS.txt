@@ -1,15 +1,22 @@
-MCW Core 1.6.0 release verification
+MCW Launcher release verification
+Version: 1.8.0
+Channel: stable
 
-- Core source regression: 2080 passed, 10 skipped, 2 expected warnings
-- Core distribution audit: passed
-- Core release preflight: passed
-- Python compileall: passed
-- Wheel metadata and content audit: passed
-- Headless boundary: no src/gui or PySide6 dependency
-- LAN Agent resource: included in wheel
-- CurseForge gateway source archive: intentionally not bundled; Core gateway integration remains configurable
-- Update services: aligned with MCW Launcher v1.6.0 one-file packaging schema
-- Legacy onedir scrubbing: automatic _internal/ cleanup on upgrade verified
+Stable checks in this build workspace:
+- MCW Core & GUI regression suite: 2117 passed, 10 skipped
+- 100% Core & GUI AST boundary & JSON-RPC 2.0 checks (direct, HTTP/SSE, Stdio Sidecar): passed
+- update/mod/Modrinth/package/hotfix regression (including v1.7.1.1 GPU cache & UI hotfix display): passed
+- release_preflight: PASS
+- Windows schema-2 package smoke: PASS
+- Linux schema-2 package smoke: PASS
 
-Environment: Python 3.12 / Linux x64
-Date: 2026-09-20
+Release-critical coverage:
+- 100% Core & GUI decoupling via JSON-RPC 2.0 (mcw_core.rpc) and mcw_core/api public boundary
+- Hotfix CDN runtime patch distribution with SHA-256 verification, atomic swap, and GPU caching
+- Modloader version refresh and retry mechanism
+- Windows long path and package isolation
+
+Expected warnings:
+- 2 duplicate ZIP-member warnings from package-security regression tests.
+
+The complete GUI suite is executed by GitHub Actions after installing .[dev]/PySide6; PySide6 is tested and validated.

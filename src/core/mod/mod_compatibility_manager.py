@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from collections import defaultdict
+import json
+from pathlib import Path
 import re
 
+from src.core.fs.paths import Paths
 from src.core.mod.mod_capability_index import ModCapabilityIndex
 from src.core.mod.mod_manager import ModManager
 from src.core.modloader.mod_loader_manager import ModLoaderManager
@@ -12,7 +15,7 @@ from src.models.mod.mod_issue import ModHealthReport, ModIssue
 
 
 class ModCompatibilityManager:
-    SYSTEM_DEPENDENCY_IDS = {"minecraft", "java", "forge", "neoforge", "javafml", "fml", "fabric", "fabricloader", "quilt", "quilt_loader", "quiltloader"}
+    SYSTEM_DEPENDENCY_IDS = {"minecraft", "java", "forge", "neoforge", "javafml", "fml", "fabric", "fabricloader", "quilt", "quilt_loader", "quiltloader", "mixinextras"}
 
     @staticmethod
     def scan(instance: Instance, mods: list[ModInfo] | None = None) -> ModHealthReport:
@@ -51,26 +54,41 @@ class ModCompatibilityManager:
         if loader_name == ModLoaderManager.FABRIC:
             installed_versions["fabric"] = loader_version
             installed_versions["fabricloader"] = loader_version
+            # Fabric Loader 0.15.0+ embeds MixinExtras (0.15.0 embeds 0.3.2, 0.15.11+ embeds 0.3.5, 0.16+ embeds 0.4.1)
+            v16 = ModCompatibilityManager._version_key("0.16.0")
+            v15 = ModCompatibilityManager._version_key("0.15.0")
+            current_v = ModCompatibilityManager._version_key(loader_version)
+            if current_v is not None and v16 is not None and current_v >= v16:
+                installed_versions["mixinextras"] = "0.4.1"
+            elif current_v is not None and v15 is not None and current_v >= v15:
+                installed_versions["mixinextras"] = "0.3.5"
+            else:
+                installed_versions["mixinextras"] = "0.4.1"
         elif loader_name == ModLoaderManager.QUILT:
             installed_versions["quilt"] = loader_version
             installed_versions["quilt_loader"] = loader_version
             installed_versions["quiltloader"] = loader_version
-            # Quilt Loader exposes Fabric Loader compatibility for Fabric mods.
+            # Quilt Loader exposes Fabric Loader compatibility for Fabric mods and embeds MixinExtras.
             installed_versions["fabricloader"] = loader_version
+            installed_versions["mixinextras"] = "0.4.1"
         elif loader_name == ModLoaderManager.FORGE:
             installed_versions["forge"] = loader_version
             installed_versions["javafml"] = loader_version
             installed_versions["fml"] = loader_version
+            installed_versions["mixinextras"] = "0.4.1"
         elif loader_name == ModLoaderManager.NEOFORGE:
             installed_versions["neoforge"] = loader_version
-            # NeoForge-compatible Forge-family mods can retain a legacy
-            # mandatory dependency on the virtual ``forge`` runtime. The
-            # loader-mismatch check still blocks genuinely Forge-only mods,
-            # while provider-approved dual-loader mods such as e4mc can pass
-            # their own metadata preflight on a NeoForge instance.
             installed_versions["forge"] = loader_version
             installed_versions["javafml"] = loader_version
             installed_versions["fml"] = loader_version
+            installed_versions["mixinextras"] = "0.4.1"
+
+        # Dynamically discover loader-bundled runtime libraries from cached manifests
+        loader_libraries = ModCompatibilityManager._extract_loader_libraries(instance, loader_name, loader_version)
+        for lib_id, lib_version in loader_libraries.items():
+            installed_versions.setdefault(lib_id, lib_version)
+
+        effective_system_ids = ModCompatibilityManager.SYSTEM_DEPENDENCY_IDS | set(loader_libraries.keys())
 
         missing_dependency_ids = {
             str(dependency_id).strip().casefold()
@@ -93,7 +111,15 @@ class ModCompatibilityManager:
 
         for mod in enabled:
             if ModCompatibilityManager._dependency_metadata_in_scope(mod, loader_name):
-                ModCompatibilityManager._append_dependency_issues(mod, enabled_by_id, disabled_by_id, installed_versions, issues, managed_by_modpack=mod.managed_by_modpack)
+                ModCompatibilityManager._append_dependency_issues(
+                    mod,
+                    enabled_by_id,
+                    disabled_by_id,
+                    installed_versions,
+                    issues,
+                    managed_by_modpack=mod.managed_by_modpack,
+                    system_dependency_ids=effective_system_ids,
+                )
                 ModCompatibilityManager._append_conflict_issues(mod, enabled_by_id, installed_versions, issues)
 
         issues.sort(key=lambda item: ({"error": 0, "warning": 1, "info": 2}.get(item.severity, 3), item.message.casefold()))
@@ -149,7 +175,20 @@ class ModCompatibilityManager:
             issues.append(ModIssue(severity="error", code="duplicate-mod-id", message=f"Duplicate enabled mod ID '{mod_id}': {files}", mod_ids=(mod_id,)))
 
     @staticmethod
-    def _append_dependency_issues(mod: ModInfo, enabled_by_id: dict[str, list[ModInfo]], disabled_by_id: dict[str, list[ModInfo]], installed_versions: dict[str, str], issues: list[ModIssue], managed_by_modpack: bool = False) -> None:
+    def _append_dependency_issues(
+        mod: ModInfo,
+        enabled_by_id: dict[str, list[ModInfo]],
+        disabled_by_id: dict[str, list[ModInfo]],
+        installed_versions: dict[str, str],
+        issues: list[ModIssue],
+        managed_by_modpack: bool = False,
+        system_dependency_ids: set[str] | None = None,
+    ) -> None:
+        effective_system_ids = (
+            system_dependency_ids
+            if system_dependency_ids is not None
+            else ModCompatibilityManager.SYSTEM_DEPENDENCY_IDS
+        )
         for dependency_id, requirement in mod.dependencies.items():
             normalized_id = str(dependency_id).strip().casefold()
             if not normalized_id:
@@ -167,7 +206,7 @@ class ModCompatibilityManager:
                 continue
             matches = ModCompatibilityManager._matches_requirement(installed_versions[normalized_id], requirement)
             if matches is False:
-                if managed_by_modpack and normalized_id in ModCompatibilityManager.SYSTEM_DEPENDENCY_IDS:
+                if managed_by_modpack and normalized_id in effective_system_ids:
                     issues.append(ModIssue(
                         severity="warning",
                         code="pack-pinned-system-requirement",
@@ -374,3 +413,100 @@ class ModCompatibilityManager:
         if isinstance(requirement, list):
             return " or ".join(str(item) for item in requirement)
         return str(requirement)
+
+    @staticmethod
+    def _extract_loader_libraries(instance: Instance, loader_name: str, loader_version: str) -> dict[str, str]:
+        game_version = str(getattr(instance, "version_id", "") or "").strip()
+        candidate_paths: list[Path] = []
+        if loader_name == ModLoaderManager.FABRIC:
+            candidate_paths.extend([
+                Paths.fabric_version_json(game_version, loader_version),
+                Paths.fabric_profile_json(game_version, loader_version),
+                Paths.fabric_install_metadata_json(game_version, loader_version),
+            ])
+        elif loader_name == ModLoaderManager.QUILT:
+            candidate_paths.extend([
+                Paths.quilt_version_json(game_version, loader_version),
+                Paths.quilt_profile_json(game_version, loader_version),
+                Paths.quilt_install_metadata_json(game_version, loader_version),
+            ])
+        elif loader_name == ModLoaderManager.FORGE:
+            candidate_paths.append(Paths.forge_version_json(game_version, loader_version))
+        elif loader_name == ModLoaderManager.NEOFORGE:
+            candidate_paths.append(Paths.neoforge_version_json(game_version, loader_version))
+
+        if game_version:
+            candidate_paths.append(Paths.CACHE_ROOT / "versions" / game_version / f"{game_version}.json")
+
+        libs: dict[str, str] = {}
+        for path in candidate_paths:
+            try:
+                if not path.is_file():
+                    continue
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+
+            raw_libs: list[object] = []
+            if isinstance(data, dict):
+                libraries_entry = data.get("libraries")
+                if isinstance(libraries_entry, list):
+                    raw_libs.extend(libraries_entry)
+                elif isinstance(libraries_entry, dict):
+                    for group_list in libraries_entry.values():
+                        if isinstance(group_list, list):
+                            raw_libs.extend(group_list)
+
+                launcher_meta = data.get("launcherMeta")
+                if isinstance(launcher_meta, dict):
+                    meta_libs = launcher_meta.get("libraries")
+                    if isinstance(meta_libs, dict):
+                        for group_list in meta_libs.values():
+                            if isinstance(group_list, list):
+                                raw_libs.extend(group_list)
+                    elif isinstance(meta_libs, list):
+                        raw_libs.extend(meta_libs)
+
+            for item in raw_libs:
+                name = ""
+                if isinstance(item, dict):
+                    name = str(item.get("name") or "").strip()
+                elif isinstance(item, str):
+                    name = item.strip()
+                if not name:
+                    continue
+
+                parts = name.split(":")
+                if len(parts) < 3:
+                    continue
+                group = parts[0].strip()
+                artifact = parts[1].strip()
+                version = parts[2].strip()
+                if not artifact or not version:
+                    continue
+
+                keys: set[str] = set()
+                artifact_lower = artifact.casefold()
+                keys.add(artifact_lower)
+
+                stripped_loader = re.sub(r"-(?:fabric|forge|neoforge|quilt)$", "", artifact_lower)
+                keys.add(stripped_loader)
+                keys.add(artifact_lower.replace("-", "").replace("_", ""))
+                keys.add(stripped_loader.replace("-", "").replace("_", ""))
+
+                if stripped_loader.endswith("-mixin") or stripped_loader.endswith("_mixin"):
+                    prefix = stripped_loader.rsplit("-", 1)[0].rsplit("_", 1)[0]
+                    keys.add(prefix)
+                    keys.add(prefix.replace("-", "").replace("_", ""))
+                    keys.add("mixin")
+
+                group_tail = group.split(".")[-1].casefold()
+                if group_tail and len(group_tail) > 3 and not group_tail.isdigit():
+                    keys.add(group_tail)
+                    keys.add(group_tail.replace("-", "").replace("_", ""))
+
+                for key in keys:
+                    if key and key not in libs:
+                        libs[key] = version
+
+        return libs

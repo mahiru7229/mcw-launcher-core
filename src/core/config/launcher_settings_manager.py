@@ -30,6 +30,9 @@ class LauncherSettingsManager:
         "launch": {
             "debug_mode": False,
             "prefer_dedicated_gpu": False,
+            "discord_rpc_enabled": True,
+            "discord_client_id": "",
+            "minimize_on_launch": True,
         },
         "onboarding": {
             "completed": False,
@@ -198,6 +201,9 @@ class LauncherSettingsManager:
         launch = normalized.setdefault("launch", {})
         launch["debug_mode"] = self._as_bool(launch.get("debug_mode"), False)
         launch["prefer_dedicated_gpu"] = self._as_bool(launch.get("prefer_dedicated_gpu"), False)
+        launch["discord_rpc_enabled"] = self._as_bool(launch.get("discord_rpc_enabled"), True)
+        launch["discord_client_id"] = str(launch.get("discord_client_id", "") or "").strip()
+        launch["minimize_on_launch"] = self._as_bool(launch.get("minimize_on_launch"), True)
 
         onboarding = normalized.setdefault("onboarding", {})
         onboarding["completed"] = self._as_bool(onboarding.get("completed"), False)

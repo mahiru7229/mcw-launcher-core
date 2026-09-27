@@ -21,6 +21,7 @@ class InstanceStatusManager:
                 last_exit_code=instance.last_exit_code,
                 last_launch_crashed=instance.last_launch_crashed,
                 last_launch_state=instance.last_launch_state,
+                total_playtime_seconds=instance.total_playtime_seconds,
             )
 
         last_state = str(getattr(instance, "last_launch_state", "") or "").strip().casefold()
@@ -39,6 +40,7 @@ class InstanceStatusManager:
             last_exit_code=instance.last_exit_code,
             last_launch_crashed=instance.last_launch_crashed,
             last_launch_state=instance.last_launch_state,
+            total_playtime_seconds=instance.total_playtime_seconds,
         )
 
     @classmethod

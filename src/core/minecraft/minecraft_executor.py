@@ -201,7 +201,20 @@ class MinecraftExecutor:
         return " | ".join(lines[-max(1, int(line_limit)):])
 
     @staticmethod
-    def run(instance: Instance, authentication: Authentication, account: Account, debug_mode: bool = False, on_progress: ProgressCallback | None = None, on_exit: Callable[[GameExitResult], None] | None = None, allow_compatibility_issues_once: bool = False, on_manual_content_required: Callable[[Exception], None] | None = None, on_compatibility_confirmation: Callable[[CompatibilityConfirmationRequired], bool] | None = None) -> dict:
+    def run(
+        instance: Instance,
+        authentication: Authentication,
+        account: Account,
+        debug_mode: bool = False,
+        on_progress: ProgressCallback | None = None,
+        on_exit: Callable[[GameExitResult], None] | None = None,
+        allow_compatibility_issues_once: bool = False,
+        on_manual_content_required: Callable[[Exception], None] | None = None,
+        on_compatibility_confirmation: Callable[[CompatibilityConfirmationRequired], bool] | None = None,
+        quick_play_singleplayer: str = "",
+        quick_play_multiplayer: str = "",
+        on_window_ready: Callable[[int], None] | None = None,
+    ) -> dict:
         run_lock = InstanceRunLock.acquire(instance)
         process_started = False
         process = None
@@ -228,6 +241,9 @@ class MinecraftExecutor:
             block_curseforge_failure = ManagedContentPolicy.blocks_launch(settings, launcher_settings, "curseforge")
             forge_preflight_policy = ManagedContentPolicy.resolve(settings, launcher_settings, "forge_preflight")
             launch_lock_token = getattr(run_lock, "token", None)
+            touch_lock = getattr(run_lock, "touch", None)
+            if callable(touch_lock):
+                touch_lock()
             PortableContentManager.ensure(instance)
             PortableContentManager.prefetch_referenced(instance, reporter)
             dependency_resolution = ModpackDependencyResolver.resolve(instance, reporter)
@@ -247,6 +263,8 @@ class MinecraftExecutor:
             ftb_warnings = FTBContentManager.ensure(instance, reporter, launch_lock_token=launch_lock_token)
             atlauncher_warnings = ATLauncherContentManager.ensure(instance, reporter, launch_lock_token=launch_lock_token)
             legacy_libloader_warnings = LegacyLibLoaderManager.ensure(instance, reporter)
+            if callable(touch_lock):
+                touch_lock()
 
             # Some legacy/provider metadata only becomes available after the
             # parent JAR is downloaded. Complete the graph to a fixed point so a
@@ -323,8 +341,15 @@ class MinecraftExecutor:
 
             reporter.status(stage=ProgressStage.BUILDING_COMMAND, message="Building launch command...")
             lan_runtime_arguments = LanAgentManager.runtime_arguments(version, lan_auth_mode, instance, reporter)
+            build_kwargs: dict[str, object] = {}
             if lan_runtime_arguments:
-                command = LauncherManager.build(version, context, settings, account, runtime_jvm_arguments=lan_runtime_arguments)
+                build_kwargs["runtime_jvm_arguments"] = lan_runtime_arguments
+            if quick_play_singleplayer:
+                build_kwargs["quick_play_singleplayer"] = quick_play_singleplayer
+            if quick_play_multiplayer:
+                build_kwargs["quick_play_multiplayer"] = quick_play_multiplayer
+            if build_kwargs:
+                command = LauncherManager.build(version, context, settings, account, **build_kwargs)
             else:
                 command = LauncherManager.build(version, context, settings, account)
             LanAgentManager.append_log_path(
@@ -354,7 +379,27 @@ class MinecraftExecutor:
             run_lock.track_process(process)
             ProcessSupervisor.attach(process_session.session_id, process)
             GameRuntimeManager.record_start(instance, started_at, process_session.session_id)
-            watched = GameRuntimeManager.watch(process, instance, version.id, started_at, on_exit, process_session.session_id, crash_report_snapshot)
+            try:
+                watched = GameRuntimeManager.watch(
+                    process,
+                    instance,
+                    version.id,
+                    started_at,
+                    on_exit,
+                    process_session.session_id,
+                    crash_report_snapshot,
+                    on_window_ready=on_window_ready,
+                )
+            except TypeError:
+                watched = GameRuntimeManager.watch(
+                    process,
+                    instance,
+                    version.id,
+                    started_at,
+                    on_exit,
+                    process_session.session_id,
+                    crash_report_snapshot,
+                )
             if watched is False and callable(getattr(process, "poll", None)):
                 raise RuntimeError("Minecraft process could not be registered with the runtime manager.")
             reporter.status(stage=ProgressStage.FINISHED, message=f"Minecraft {version.id} launched successfully.")

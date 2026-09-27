@@ -36,6 +36,29 @@ class ATLauncherClient:
     REQUEST_TIMEOUT_SECONDS = 25.0
     MAX_PAGE_SIZE = 50
     MAX_SEARCH_WINDOW = 250
+    STANDARD_MAIN_CLASSES = frozenset({
+        "net.minecraft.launchwrapper.launch",
+        "cpw.mods.bootstraplauncher.bootstraplauncher",
+        "net.minecraft.client.main.main",
+        "net.fabricmc.loader.impl.launch.knot.knotclient",
+        "net.fabricmc.loader.launch.knot.knotclient",
+        "org.quiltmc.loader.impl.launch.knot.knotclient",
+    })
+    SAFE_EXTRA_ARG_TOKENS = frozenset({
+        "--tweakclass=net.minecraftforge.fml.common.launcher.fmltweaker",
+        "--tweakclass=cpw.mods.fml.common.launcher.fmltweaker",
+        "--tweakclass=com.mumfrey.liteloader.launch.liteloadertweaker",
+        "--tweakclass=net.fabricmc.loader.launch.fabrictweaker",
+        "--tweakclass",
+        "net.minecraftforge.fml.common.launcher.fmltweaker",
+        "cpw.mods.fml.common.launcher.fmltweaker",
+        "com.mumfrey.liteloader.launch.liteloadertweaker",
+        "net.fabricmc.loader.launch.fabrictweaker",
+        "--versiontype",
+        "forge",
+        "liteloader",
+    })
+    SAFE_SYS_PROP_PREFIXES = ("-dfml.", "-dforge.", "-dmc.", "-dminecraft.")
 
     _PACK_FIELDS = """
         id
@@ -429,7 +452,7 @@ class ATLauncherClient:
         minimum_memory = ATLauncherClient._memory_mb(memory.get("minimum") or manifest.get("minimumMemory"))
         recommended_memory = ATLauncherClient._memory_mb(memory.get("recommended") or manifest.get("recommendedMemory"))
         warnings: list[str] = []
-        if any(file.download_type == "browser" for file in files):
+        if any(file.download_type == "browser" for file in files if not file.server_only):
             warnings.append("Some pack files require a browser-assisted download and cannot be installed automatically yet.")
         return ATLauncherVersion(
             pack_id=ATLauncherClient._text(data.get("packId")),
@@ -503,7 +526,7 @@ class ATLauncherClient:
         loader = manifest.get("loader") if isinstance(manifest.get("loader"), dict) else {}
         name = ATLauncherClient.normalize_loader(loader.get("type"))
         metadata = loader.get("metadata") if isinstance(loader.get("metadata"), dict) else {}
-        version = ATLauncherClient._text(metadata.get("loader") or metadata.get("rawVersion") or metadata.get("version") or loader.get("version"))
+        version = ATLauncherClient._text(metadata.get("version") or metadata.get("loader") or metadata.get("rawVersion") or loader.get("version"))
         if not loader:
             mods = manifest.get("mods") if isinstance(manifest.get("mods"), list) else ()
             for item in mods:
@@ -519,6 +542,11 @@ class ATLauncherClient:
             return name, "-1"
         if (metadata.get("recommended") or metadata.get("latest") or loader.get("choose")) and not version:
             version = ModLoaderManager.AUTO
+        if name and version.casefold().startswith(f"{name}-"):
+            version = version[len(name) + 1:].strip()
+        mc_ver = ATLauncherClient._text(metadata.get("minecraft") or manifest.get("minecraft"))
+        if mc_ver and version.startswith(f"{mc_ver}-"):
+            version = version[len(mc_ver) + 1:].strip()
         return name, version or ModLoaderManager.AUTO
 
     @staticmethod
@@ -581,6 +609,20 @@ class ATLauncherClient:
         return tuple(dict.fromkeys(candidates))
 
     @staticmethod
+    def _is_safe_extra_arguments(text: str) -> bool:
+        tokens = text.split()
+        if not tokens:
+            return True
+        for token in tokens:
+            casefold_token = token.casefold()
+            if casefold_token in ATLauncherClient.SAFE_EXTRA_ARG_TOKENS:
+                continue
+            if casefold_token.startswith(ATLauncherClient.SAFE_SYS_PROP_PREFIXES):
+                continue
+            return False
+        return True
+
+    @staticmethod
     def _unsupported_actions(manifest: dict, files: list[ATLauncherFile]) -> list[str]:
         values: list[str] = []
         for key in ("actions", "installActions", "postInstallActions", "delete", "keep"):
@@ -592,12 +634,24 @@ class ATLauncherClient:
         if isinstance(manifest.get("libraries"), list) and manifest["libraries"]:
             values.append("custom-libraries")
         main_class = manifest.get("mainClass")
+        if isinstance(main_class, dict) and main_class:
+            raw_mc = str(main_class.get("mainClass") or main_class.get("class") or main_class.get("client") or "").strip()
+            if not raw_mc or raw_mc.casefold() not in ATLauncherClient.STANDARD_MAIN_CLASSES:
+                values.append("custom-main-class")
+        elif isinstance(main_class, str) and main_class.strip():
+            if main_class.strip().casefold() not in ATLauncherClient.STANDARD_MAIN_CLASSES:
+                values.append("custom-main-class")
         extra_arguments = manifest.get("extraArguments")
-        if (isinstance(main_class, dict) and main_class) or (isinstance(main_class, str) and main_class.strip()):
-            values.append("custom-main-class")
-        if (isinstance(extra_arguments, dict) and extra_arguments) or (isinstance(extra_arguments, str) and extra_arguments.strip()):
-            values.append("custom-extra-arguments")
+        if isinstance(extra_arguments, dict) and extra_arguments:
+            raw_ea = str(extra_arguments.get("arguments") or extra_arguments.get("args") or extra_arguments.get("client") or "").strip()
+            if not raw_ea or not ATLauncherClient._is_safe_extra_arguments(raw_ea):
+                values.append("custom-extra-arguments")
+        elif isinstance(extra_arguments, str) and extra_arguments.strip():
+            if not ATLauncherClient._is_safe_extra_arguments(extra_arguments.strip()):
+                values.append("custom-extra-arguments")
         for file in files:
+            if file.server_only:
+                continue
             if file.extract_to or file.extract_folder:
                 values.append(f"extract:{file.name}")
             if file.decomp_type or file.decomp_file:

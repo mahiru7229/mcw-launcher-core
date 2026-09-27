@@ -39,6 +39,17 @@ class CurseForgePackInstaller:
     RESERVED_ROOT_NAMES = {"instance.json", "settings.json", ".mcw"}
     INSTANCE_NAME_PATTERN = re.compile(r'^[^<>:"/\\|?*\x00-\x1F]{1,80}$')
     SUPPORTED_LOADERS = (ModLoaderManager.FABRIC, ModLoaderManager.QUILT, ModLoaderManager.FORGE, ModLoaderManager.NEOFORGE)
+    LOADER_ALIASES = {
+        "fabric": ModLoaderManager.FABRIC,
+        "fabric-loader": ModLoaderManager.FABRIC,
+        "quilt": ModLoaderManager.QUILT,
+        "quilt-loader": ModLoaderManager.QUILT,
+        "forge": ModLoaderManager.FORGE,
+        "minecraftforge": ModLoaderManager.FORGE,
+        "neoforge": ModLoaderManager.NEOFORGE,
+        "neoforged": ModLoaderManager.NEOFORGE,
+        "neo": ModLoaderManager.NEOFORGE,
+    }
 
     @staticmethod
     def install(project_id: int, file_id: int, instance_name: str, install_optional_files: bool = True, allowed_release_types: tuple[str, ...] | list[str] | set[str] | None = None, reporter: ProgressReporter | None = None, expected_loader: str = "", settings_override: dict | None = None) -> CurseForgeModpackInstallResult:
@@ -290,12 +301,27 @@ class CurseForgePackInstaller:
     def _parse_loader(manifest: dict) -> tuple[str, str, str]:
         minecraft = manifest.get("minecraft", {})
         game_version = str(minecraft.get("version") or "").strip()
-        loaders = minecraft.get("modLoaders") if isinstance(minecraft.get("modLoaders"), list) else []
         if not game_version:
             raise RuntimeError("The CurseForge modpack does not declare a Minecraft version.")
+
+        raw_loaders = minecraft.get("modLoaders")
+        if raw_loaders is None:
+            raw_loaders = minecraft.get("modLoader")
+        if raw_loaders is None:
+            raw_loaders = manifest.get("modLoaders")
+
+        if isinstance(raw_loaders, dict):
+            loader_items = [raw_loaders]
+        elif isinstance(raw_loaders, list):
+            loader_items = [item if isinstance(item, dict) else {"id": str(item)} for item in raw_loaders]
+        elif isinstance(raw_loaders, str) and raw_loaders.strip():
+            loader_items = [{"id": raw_loaders.strip()}]
+        else:
+            loader_items = []
+
         declared = [
-            (item, CurseForgePackInstaller._parse_loader_id(str(item.get("id") or "")))
-            for item in loaders
+            (item, CurseForgePackInstaller._parse_loader_id(str(item.get("id") or ""), game_version))
+            for item in loader_items
             if isinstance(item, dict)
         ]
         primary = [(item, parsed) for item, parsed in declared if bool(item.get("primary", False))]
@@ -318,18 +344,50 @@ class CurseForgePackInstaller:
         return game_version, loader_name, loader_version
 
     @staticmethod
-    def _parse_loader_id(value: str) -> tuple[str, str] | None:
+    def _parse_loader_id(value: str, game_version: str = "") -> tuple[str, str] | None:
         loader_id = str(value).strip()
+        if not loader_id:
+            return None
         normalized = loader_id.casefold()
-        for loader_name in CurseForgePackInstaller.SUPPORTED_LOADERS:
-            prefix = loader_name + "-"
-            if not normalized.startswith(prefix):
-                continue
-            loader_version = loader_id[len(prefix):].strip()
-            if not loader_version:
-                raise RuntimeError(f"The CurseForge modpack declares an invalid {loader_name.title()} Loader version.")
-            return loader_name, loader_version
-        return None
+
+        # Exact match with alias (e.g. "forge", "fabric", "neoforge")
+        if normalized in CurseForgePackInstaller.LOADER_ALIASES:
+            return CurseForgePackInstaller.LOADER_ALIASES[normalized], ModLoaderManager.AUTO
+
+        # Match alias with separator (e.g. "forge-47.3.0", "fabric-loader-0.16.0", "neoforged-20.4.80")
+        sorted_aliases = sorted(CurseForgePackInstaller.LOADER_ALIASES.keys(), key=len, reverse=True)
+        matched_loader: str | None = None
+        raw_version = ""
+
+        for alias in sorted_aliases:
+            for separator in ("-", "/", "_", " "):
+                prefix = alias + separator
+                if normalized.startswith(prefix):
+                    matched_loader = CurseForgePackInstaller.LOADER_ALIASES[alias]
+                    raw_version = loader_id[len(prefix):].strip()
+                    break
+            if matched_loader is not None:
+                break
+
+        if matched_loader is None:
+            return None
+
+        # Strip redundant "loader-" prefix (e.g. "fabric-loader-0.16.0" -> "loader-0.16.0" -> "0.16.0")
+        if raw_version.casefold().startswith("loader-"):
+            raw_version = raw_version[7:].strip()
+
+        # Strip game version prefix if present (e.g. "1.20.1-47.3.0" with game_version "1.20.1" -> "47.3.0")
+        gv = str(game_version).strip()
+        if gv:
+            gv_prefix = f"{gv}-"
+            if raw_version.startswith(gv_prefix):
+                raw_version = raw_version[len(gv_prefix):].strip()
+
+        # Handle empty / automatic versions
+        if not raw_version or raw_version.casefold() in {"auto", "recommended", "latest", "-1", "none"}:
+            return matched_loader, ModLoaderManager.AUTO
+
+        return matched_loader, raw_version
 
     @staticmethod
     def _validate_expected_loader(actual_loader: str, expected_loader: str) -> None:

@@ -12,13 +12,14 @@ class ModpackExportOptions:
 
     PROVIDER_PROFILE = "provider_profile"
     PORTABLE = "portable"
+    MRPACK = "mrpack"
     SMART = "smart"
     FULL = "full"
 
     def normalized(self) -> "ModpackExportOptions":
         mode = str(self.mode or "").strip().casefold()
         portable_mode = str(self.portable_mode or "").strip().casefold()
-        if mode not in {self.PROVIDER_PROFILE, self.PORTABLE}:
+        if mode not in {self.PROVIDER_PROFILE, self.PORTABLE, self.MRPACK}:
             raise ValueError(f"Unsupported modpack export mode: {self.mode}")
         if portable_mode not in {self.SMART, self.FULL}:
             portable_mode = self.SMART

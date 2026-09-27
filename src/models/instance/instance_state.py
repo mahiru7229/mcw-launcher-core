@@ -23,3 +23,4 @@ class InstanceStatus:
     last_exit_code: int | None = None
     last_launch_crashed: bool = False
     last_launch_state: str = "ready"
+    total_playtime_seconds: int = 0

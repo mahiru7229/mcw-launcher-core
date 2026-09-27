@@ -210,10 +210,32 @@ class ModpackDependencyResolver:
                         )
                     )
                 except Exception as error:
+                    if dependency.project_id:
+                        try:
+                            project = ModpackDependencyResolver._retry(lambda: ModrinthClient.get_project(dependency.project_id))
+                            if not ModrinthClient._project_may_support_loader(project, loader_name):
+                                warnings.append(
+                                    f"{parent_label} declares Modrinth dependency '{project.title or dependency.project_id}', "
+                                    f"which is designed for other mod loaders and does not support {loader_name.title()}; skipped."
+                                )
+                                continue
+                        except Exception:
+                            pass
                     label = dependency.file_name or dependency.project_id or dependency.version_id or "unknown dependency"
                     unresolved.append(f"{parent_label} requires Modrinth dependency {label}: {error}")
                     continue
                 if dependency_version is None:
+                    if dependency.project_id:
+                        try:
+                            project = ModpackDependencyResolver._retry(lambda: ModrinthClient.get_project(dependency.project_id))
+                            if not ModrinthClient._project_may_support_loader(project, loader_name):
+                                warnings.append(
+                                    f"{parent_label} declares Modrinth dependency '{project.title or dependency.project_id}', "
+                                    f"which is designed for other mod loaders and does not support {loader_name.title()}; skipped."
+                                )
+                                continue
+                        except Exception:
+                            pass
                     label = dependency.file_name or dependency.project_id or dependency.version_id or "unknown dependency"
                     unresolved.append(f"{parent_label} requires external dependency {label}, which has no provider project/version ID.")
                     continue

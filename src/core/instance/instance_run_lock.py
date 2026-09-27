@@ -43,6 +43,7 @@ class InstanceRunLock:
     LOCK_FILENAME = ".mcw-launcher.lock"
     SCHEMA_VERSION = 1
     MALFORMED_LOCK_GRACE_SECONDS = 5.0
+    PREPARING_LOCK_TIMEOUT_SECONDS = 600.0
     ACQUIRE_ATTEMPTS = 5
 
     @classmethod
@@ -93,10 +94,48 @@ class InstanceRunLock:
 
         self._remove_if_unchanged(self.lock_path, snapshot)
 
+    def touch(self) -> bool:
+        try:
+            snapshot = self._read_snapshot(self.lock_path)
+            if snapshot is not None and snapshot.payload is not None:
+                if snapshot.payload.get("token") == self.token:
+                    os.utime(self.lock_path, None)
+                    return True
+            return False
+        except OSError:
+            return False
+
+    @classmethod
+    def touch_lock(cls, instance: Instance, token: str | None) -> bool:
+        if not isinstance(token, str) or not token:
+            return False
+        lock_path = cls.lock_path_for(instance)
+        try:
+            snapshot = cls._read_snapshot(lock_path)
+            if snapshot is not None and snapshot.payload is not None:
+                if snapshot.payload.get("token") == token:
+                    os.utime(lock_path, None)
+                    return True
+            return False
+        except OSError:
+            return False
+
     @classmethod
     def is_active(cls, instance: Instance) -> bool:
         snapshot = cls._read_snapshot(cls.lock_path_for(instance))
         return snapshot is not None and cls._snapshot_is_active(snapshot)
+
+    @classmethod
+    def is_game_running(cls, instance: Instance) -> bool:
+        snapshot = cls._read_snapshot(cls.lock_path_for(instance))
+        if snapshot is None or snapshot.payload is None:
+            return False
+        if not cls._snapshot_is_active(snapshot):
+            cls._remove_if_unchanged(cls.lock_path_for(instance), snapshot)
+            return False
+        state = snapshot.payload.get("state")
+        minecraft_pid = cls._read_pid(snapshot.payload.get("minecraft_pid"))
+        return state == "running" and minecraft_pid is not None and cls._is_process_alive(minecraft_pid)
 
     @classmethod
     def owns_preparing_lock(cls, instance: Instance, token: str | None) -> bool:
@@ -201,13 +240,20 @@ class InstanceRunLock:
     def _update_owned_lock(self, state: str, minecraft_pid: int | None) -> None:
         snapshot = self._read_snapshot(self.lock_path)
 
-        if snapshot is None or snapshot.payload is None:
-            return
+        if snapshot is not None and snapshot.payload is not None:
+            if snapshot.payload.get("token") != self.token:
+                return
+            payload = dict(snapshot.payload)
+        else:
+            now = self._utc_now()
+            payload = {
+                "schema_version": self.SCHEMA_VERSION,
+                "token": self.token,
+                "instance_name": self.instance_name,
+                "launcher_pid": os.getpid(),
+                "created_at": now,
+            }
 
-        if snapshot.payload.get("token") != self.token:
-            return
-
-        payload = dict(snapshot.payload)
         payload.update({"state": state, "minecraft_pid": minecraft_pid, "updated_at": self._utc_now()})
         self._replace_lock_file(self.lock_path, payload)
 
@@ -333,11 +379,15 @@ class InstanceRunLock:
         minecraft_pid = cls._read_pid(snapshot.payload.get("minecraft_pid"))
         state = snapshot.payload.get("state")
 
-        if state == "running" and minecraft_pid is not None:
-            return cls._is_process_alive(minecraft_pid)
+        if state == "running":
+            if minecraft_pid is not None:
+                return cls._is_process_alive(minecraft_pid)
+            return False
 
-        if launcher_pid is not None:
-            return cls._is_process_alive(launcher_pid)
+        if state == "preparing":
+            if launcher_pid is not None and cls._is_process_alive(launcher_pid):
+                return snapshot.age_seconds < cls.PREPARING_LOCK_TIMEOUT_SECONDS
+            return False
 
         return False
 

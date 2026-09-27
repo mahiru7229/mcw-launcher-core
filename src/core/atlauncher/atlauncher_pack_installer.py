@@ -113,6 +113,11 @@ class ATLauncherPackInstaller:
             raise RuntimeError(f"The ATLauncher pack uses an unsupported mod loader: {version.loader or 'unknown'}.")
         if loader_name == ModLoaderManager.VANILLA:
             loader_version = "-1"
+        else:
+            if loader_version.casefold().startswith(f"{loader_name}-"):
+                loader_version = loader_version[len(loader_name) + 1:].strip()
+            if minecraft_version and loader_version.startswith(f"{minecraft_version}-"):
+                loader_version = loader_version[len(minecraft_version) + 1:].strip()
         return minecraft_version, loader_name, loader_version or ModLoaderManager.AUTO
 
     @staticmethod

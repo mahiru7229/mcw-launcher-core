@@ -16,7 +16,7 @@ class ProviderPackageStore:
 
     @staticmethod
     def root(instance: Instance | Path) -> Path:
-        instance_dir = Path(instance.instance_dir) if isinstance(instance, Instance) else Path(instance)
+        instance_dir = Path(instance.instance_dir) if hasattr(instance, "instance_dir") else Path(instance)
         return instance_dir / ".mcw" / ProviderPackageStore.DIRECTORY
 
     @staticmethod

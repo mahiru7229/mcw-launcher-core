@@ -634,10 +634,17 @@ class CurseForgeClient:
             if isinstance(item, dict) and int(item.get("modId", 0) or 0) > 0
         )
         release_type = {1: "release", 2: "beta", 3: "alpha"}.get(int(data.get("releaseType", 1) or 1), "release")
-        raw_versions = tuple(str(item).strip() for item in data.get("gameVersions", []) if str(item).strip())
+        raw_versions = [str(item).strip() for item in data.get("gameVersions", []) if str(item).strip()]
+        sortable = data.get("sortableGameVersions", [])
+        if isinstance(sortable, list):
+            for item in sortable:
+                if isinstance(item, dict):
+                    name = str(item.get("gameVersionName") or item.get("gameVersion") or "").strip()
+                    if name:
+                        raw_versions.append(name)
         known_loaders = {"forge", "fabric", "quilt", "neoforge"}
         loaders = tuple(dict.fromkeys(value.casefold() for value in raw_versions if value.casefold() in known_loaders))
-        game_versions = tuple(value for value in raw_versions if CurseForgeClient._is_minecraft_version(value))
+        game_versions = tuple(dict.fromkeys(value for value in raw_versions if CurseForgeClient._is_minecraft_version(value)))
         return CurseForgeFile(
             file_id=int(data.get("id", 0) or 0),
             project_id=int(data.get("modId", 0) or 0),

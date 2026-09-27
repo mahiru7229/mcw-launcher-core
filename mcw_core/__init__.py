@@ -19,15 +19,19 @@ from mcw_core.facade import MCWCore, configure_default_core, get_default_core
 from mcw_core.models import InstanceCreateRequest, InstanceRuntimeProfile, LaunchRequest, LaunchResult
 from mcw_core.operations import OperationHandle, OperationState
 from mcw_core.paths import CorePaths
+from mcw_core.rpc import CoreRpcClient, CoreRpcDispatcher, HttpRpcServer, StdioRpcServer
 from mcw_core.services import InstanceService, JavaService, LoaderService, OptiFineService
 
 __all__ = [
     "Account",
     "Authentication",
     "CorePaths",
+    "CoreRpcClient",
+    "CoreRpcDispatcher",
     "CompatibilityConfirmationRequired",
     "DownloadCancelledError",
     "DownloadInterruptedError",
+    "HttpRpcServer",
     "Instance",
     "InstanceState",
     "InstanceStatus",
@@ -53,6 +57,7 @@ __all__ = [
     "ProgressUnit",
     "ProcessSession",
     "ProcessSessionState",
+    "StdioRpcServer",
     "configure_default_core",
     "get_default_core",
     "is_download_cancelled",

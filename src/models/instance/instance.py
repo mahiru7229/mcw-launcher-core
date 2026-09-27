@@ -19,3 +19,4 @@ class Instance:
     favorite: bool = False
     group: str = ""
     tags: tuple[str, ...] = ()
+    total_playtime_seconds: int = 0

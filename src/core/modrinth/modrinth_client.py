@@ -141,9 +141,14 @@ class ModrinthClient:
     @staticmethod
     def _project_may_support_loader(project: ModrinthProject, loader: str) -> bool:
         normalized_loader = str(loader).strip().lower()
-        categories = {str(item).strip().lower() for item in project.categories if str(item).strip()}
+        declared_loaders = {
+            str(item).strip().lower()
+            for item in (getattr(project, "loaders", ()) or ())
+            if str(item).strip()
+        }
+        categories = {str(item).strip().lower() for item in (getattr(project, "categories", ()) or ()) if str(item).strip()}
         known_loaders = {"fabric", "forge", "neoforge", "quilt"}
-        explicit_loaders = categories & known_loaders
+        explicit_loaders = declared_loaders | (categories & known_loaders)
         return bool(set(ModrinthClient.compatible_loaders(normalized_loader)) & explicit_loaders) or not explicit_loaders
 
     @staticmethod

@@ -25,6 +25,10 @@ class CorePaths:
     themes: Path | None = None
     runtimes: Path | None = None
 
+    @property
+    def instances_root(self) -> Path:
+        return self.instances or (self.root / "instances")
+
     @classmethod
     def from_root(cls, root: Path | str) -> "CorePaths":
         return cls(root=Path(root).expanduser().resolve(strict=False))

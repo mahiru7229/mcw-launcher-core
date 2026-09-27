@@ -12,7 +12,15 @@ class LauncherManager:
     CLASSPATH_FLAGS = ("-cp", "-classpath", "--class-path")
 
     @staticmethod
-    def build(version: Version, context: dict, settings: InstanceSettings, account: Account, runtime_jvm_arguments: list[str] | None = None) -> list[str]:
+    def build(
+        version: Version,
+        context: dict,
+        settings: InstanceSettings,
+        account: Account,
+        runtime_jvm_arguments: list[str] | None = None,
+        quick_play_singleplayer: str | None = None,
+        quick_play_multiplayer: str | None = None,
+    ) -> list[str]:
         classpath = ClasspathBuilder.build(
             version,
             Paths.client(version),
@@ -20,6 +28,10 @@ class LauncherManager:
         )
 
         jvm_args, game_args = ArgumentBuilder.build(version, context, settings, account)
+        if quick_play_singleplayer:
+            game_args.extend(["--quickPlaySingleplayer", str(quick_play_singleplayer).strip()])
+        elif quick_play_multiplayer:
+            game_args.extend(["--quickPlayMultiplayer", str(quick_play_multiplayer).strip()])
         game_args = GameArgumentNormalizer.normalize(game_args, context)
         jvm_args = ForgeLaunchCommandManager.prepare(version, jvm_args, client_path=Paths.client(version), library_directory=Paths.libraries())
         if runtime_jvm_arguments:

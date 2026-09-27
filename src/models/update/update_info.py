@@ -25,6 +25,7 @@ class UpdateInfo:
     prerelease: bool
     asset: ReleaseAsset
     install_strategy: str = "updater"
+    emergency: bool = False
 
 
 @dataclass(frozen=True, slots=True)

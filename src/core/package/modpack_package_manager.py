@@ -125,6 +125,8 @@ class ModpackPackageManager:
         normalized = options.normalized()
         if normalized.mode == ModpackExportOptions.PROVIDER_PROFILE:
             return ModpackPackageManager._export_provider_profile(instance, Path(output_path), normalized, on_progress)
+        if normalized.mode == ModpackExportOptions.MRPACK:
+            return ModpackPackageManager._export_mrpack(instance, Path(output_path), normalized, on_progress)
         return ModpackPackageManager._export_portable(instance, Path(output_path), normalized, on_progress)
 
     @staticmethod
@@ -525,6 +527,141 @@ class ModpackPackageManager:
             raise
         reporter.succeeded(ProgressStage.EXPORTING_INSTANCE, f"Portable MCWPack exported to {output.name}.")
         return ModpackExportResult(output_path=output, mode=options.mode, referenced_files=referenced, embedded_files=len(embedded), manual_files=manual)
+
+    @staticmethod
+    def _export_mrpack(instance: Instance, output_path: Path, options: ModpackExportOptions, on_progress: ProgressCallback | None) -> ModpackExportResult:
+        output = Path(output_path)
+        if output.suffix.casefold() != ".mrpack":
+            output = output.with_suffix(".mrpack")
+        output.parent.mkdir(parents=True, exist_ok=True)
+        temporary = output.with_name(f".{output.name}.part")
+        reporter = ProgressReporter(on_progress)
+        reporter.status(ProgressStage.EXPORTING_INSTANCE, f"Scanning Modrinth modpack content for '{instance.name}'...")
+
+        loader_name, loader_version = instance.mod_loader
+        loader_name_clean = str(loader_name or "").strip().casefold()
+        loader_key = {
+            "fabric": "fabric-loader",
+            "quilt": "quilt-loader",
+            "forge": "forge",
+            "neoforge": "neoforge",
+        }.get(loader_name_clean)
+
+        dependencies: dict[str, str] = {
+            "minecraft": instance.version_id,
+        }
+        if loader_key and loader_version and str(loader_version).strip() not in {"", "-1"}:
+            dependencies[loader_key] = str(loader_version).strip()
+
+        root = Path(instance.instance_dir)
+        provenance = ModpackPackageManager._portable_mod_inventory(instance)
+        index_files: list[dict] = []
+        override_files: list[tuple[Path, str]] = []
+
+        for item in provenance:
+            relative = str(item.get("path") or f"mods/{item.get('fileName') or ''}").replace("\\", "/").strip("/")
+            safe = ModpackPackageManager._safe_relative(relative)
+            if safe is None or not safe.as_posix().casefold().startswith("mods/"):
+                continue
+            target = root.joinpath(*safe.parts)
+            enabled = bool(item.get("enabled", not safe.name.casefold().endswith(".disabled")))
+
+            download_urls: list[str] = []
+            if enabled and options.portable_mode != ModpackExportOptions.FULL:
+                for url in item.get("downloadUrls", []):
+                    clean_url = str(url or "").strip()
+                    if clean_url.startswith("https://"):
+                        download_urls.append(clean_url)
+                if not download_urls:
+                    for source in ModpackPackageManager._sources_for_provenance(item):
+                        if str(source.get("provider") or "").casefold() == "modrinth":
+                            for url in source.get("urls", []):
+                                if url.startswith("https://") and url not in download_urls:
+                                    download_urls.append(url)
+
+            sha1 = str(item.get("sha1") or "").strip().casefold()
+            sha512 = str(item.get("sha512") or "").strip().casefold()
+            if (not sha1 or not sha512) and target.is_file():
+                hashes = ModpackPackageManager._hash_file(target)
+                sha1 = hashes.get("sha1", "")
+                sha512 = hashes.get("sha512", "")
+
+            if enabled and download_urls and sha1 and sha512:
+                file_size = max(0, int(item.get("size", 0) or (target.stat().st_size if target.is_file() else 0)))
+                index_files.append({
+                    "path": safe.as_posix(),
+                    "hashes": {
+                        "sha1": sha1,
+                        "sha512": sha512,
+                    },
+                    "env": {
+                        "client": "required",
+                        "server": "required",
+                    },
+                    "downloads": download_urls,
+                    "fileSize": file_size,
+                })
+            else:
+                if target.is_file():
+                    override_files.append((target, safe.as_posix()))
+
+        other_overrides = ModpackPackageManager._portable_override_files(instance, options.include_saves)
+        override_files.extend(other_overrides)
+
+        try:
+            origin = ModpackPackageManager._provider_origin(instance)
+        except Exception:
+            origin = {}
+        pack_name = str(origin.get("packName") or instance.name).strip() or instance.name
+        pack_version = str(origin.get("packVersion") or "1.0.0").strip() or "1.0.0"
+        summary = str(origin.get("summary") or f"Modpack exported from MCW Launcher for {instance.name}").strip()
+
+        index = {
+            "formatVersion": 1,
+            "game": "minecraft",
+            "versionId": pack_version,
+            "name": pack_name,
+            "summary": summary,
+            "files": index_files,
+            "dependencies": dependencies,
+        }
+
+        icon_metadata, icon_source = ModpackPackageManager._instance_icon_export(instance)
+        total = len(override_files) + 1 + (1 if icon_source is not None else 0)
+        current = 0
+        reporter.files(ProgressStage.EXPORTING_INSTANCE, f"Exporting {output.name}...", current, total)
+
+        try:
+            temporary.unlink(missing_ok=True)
+            with ZipFile(temporary, "w", compression=ZIP_DEFLATED, allowZip64=True) as archive:
+                archive.writestr(ModrinthPackInstaller.INDEX_NAME, ModpackPackageManager._json_bytes(index))
+                current += 1
+                reporter.files(ProgressStage.EXPORTING_INSTANCE, f"Exporting {output.name}...", current, total)
+
+                if icon_source is not None and icon_source.is_file():
+                    archive.write(icon_source, "icon.png")
+                    current += 1
+                    reporter.files(ProgressStage.EXPORTING_INSTANCE, f"Exporting {output.name}...", current, total)
+
+                for source, relative in override_files:
+                    archive.write(source, f"overrides/{relative}")
+                    current += 1
+                    reporter.files(ProgressStage.EXPORTING_INSTANCE, f"Exporting {output.name}...", current, total)
+
+            with temporary.open("r+b") as stream:
+                os.fsync(stream.fileno())
+            temporary.replace(output)
+        except Exception:
+            temporary.unlink(missing_ok=True)
+            raise
+
+        reporter.succeeded(ProgressStage.EXPORTING_INSTANCE, f"Modrinth modpack exported to {output.name}.")
+        return ModpackExportResult(
+            output_path=output,
+            mode=options.mode,
+            referenced_files=len(index_files),
+            embedded_files=len(override_files),
+        )
 
     @staticmethod
     def _import_portable(path: Path, preview: ProviderModpackPreview, settings_override: dict | None, reporter: ProgressReporter) -> Instance:

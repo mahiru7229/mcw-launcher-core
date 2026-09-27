@@ -89,3 +89,4 @@ def same_file(first: Path | str, second: Path | str) -> bool:
         return os.path.samefile(native_filesystem_path(first), native_filesystem_path(second))
     except (FileNotFoundError, OSError):
         return False
+

@@ -7,6 +7,7 @@ import re
 from src.core.curseforge.curseforge_client import CurseForgeClient
 from src.core.curseforge.curseforge_downloader import CurseForgeDownloader, CurseForgeManualDownloadRequired
 from src.core.curseforge.curseforge_errors import CurseForgeManagedFilesRequired
+from src.core.curseforge.curseforge_links import is_numeric_project_placeholder, project_search_url
 from src.core.curseforge.curseforge_pack_registry import CurseForgePackRegistry
 from src.core.curseforge.curseforge_registry import CurseForgeRegistry
 from src.core.fs.paths import Paths
@@ -154,7 +155,10 @@ class CurseForgeContentManager:
             reporter.files(stage=ProgressStage.CHECKING_MODS, message=message, current=0, total=total)
         for index, item in enumerate(combined, start=1):
             path = Path(instance.instance_dir) / item["path"]
-            valid = path.is_file() and CurseForgeContentManager._verify(path, item["sha1"], item["size"])
+            valid = path.is_file() and (
+                CurseForgeContentManager._verify(path, item["sha1"], item["size"])
+                or (bool(item["entry"].get("manualImport")) and path.stat().st_size > 0)
+            )
             if valid and path.suffix.casefold() == ".jar" and item["entry"].get("expectedModIds"):
                 identity_warning = CurseForgeContentManager._expected_mod_identity_warning(instance, path, item["entry"])
                 if identity_warning:
@@ -383,7 +387,11 @@ class CurseForgeContentManager:
 
     @staticmethod
     def _manual_requirements(missing: list[dict], last_errors: dict[str, dict[str, object]]) -> tuple[CurseForgeManualDownload, ...]:
-        project_ids = {int(item["entry"].get("projectId") or 0) for item in missing if int(item["entry"].get("projectId") or 0) > 0}
+        project_ids = {
+            int(item["entry"].get("projectId") or item["entry"].get("projectID") or item["entry"].get("project_id") or 0)
+            for item in missing
+            if int(item["entry"].get("projectId") or item["entry"].get("projectID") or item["entry"].get("project_id") or 0) > 0
+        }
         try:
             projects = CurseForgeClient.get_projects_batch(project_ids) if project_ids else {}
         except Exception:
@@ -393,8 +401,8 @@ class CurseForgeContentManager:
         seen: set[tuple[int, int, str]] = set()
         for item in missing:
             entry = item["entry"]
-            project_id = int(entry.get("projectId") or 0)
-            file_id = int(entry.get("fileId") or 0)
+            project_id = int(entry.get("projectId") or entry.get("projectID") or entry.get("project_id") or 0)
+            file_id = int(entry.get("fileId") or entry.get("fileID") or entry.get("file_id") or 0)
             key = (project_id, file_id, str(item.get("path") or ""))
             if project_id <= 0 or file_id <= 0 or key in seen:
                 continue
@@ -402,13 +410,22 @@ class CurseForgeContentManager:
 
             error_payload = last_errors.get(item["key"], {})
             existing = error_payload.get("requirement")
+            existing_url = str(getattr(existing, "project_url", "") or "").rstrip("/")
             project = projects.get(project_id)
-            project_name = str(getattr(project, "name", "") or entry.get("displayName") or entry.get("fileName") or f"CurseForge project {project_id}").strip()
-            project_url = str(getattr(project, "project_url", "") or getattr(existing, "project_url", "") or "").rstrip("/")
-            if not project_url:
-                project_url = f"https://www.curseforge.com/minecraft/mc-mods/{project_id}"
+            if project is None and project_id > 0 and (not existing_url or is_numeric_project_placeholder(existing_url, project_id)):
+                try:
+                    project = CurseForgeClient.get_project(project_id)
+                except Exception:
+                    project = None
+            project_name = str(getattr(existing, "project_name", "") or getattr(project, "name", "") or entry.get("displayName") or entry.get("fileName") or f"CurseForge project {project_id}").strip()
+            if existing_url and not is_numeric_project_placeholder(existing_url, project_id):
+                project_url = existing_url
+            else:
+                project_url = str(getattr(project, "project_url", "") or "").rstrip("/")
+            if not project_url or is_numeric_project_placeholder(project_url, project_id):
+                project_url = project_search_url(project_id)
             version_url = str(getattr(existing, "version_url", "") or "").strip()
-            if not version_url and project_url and file_id > 0:
+            if not version_url and project_url and file_id > 0 and not is_numeric_project_placeholder(project_url, project_id):
                 version_url = f"{project_url}/files/{file_id}"
             raw_reason = str(error_payload.get("message") or entry.get("lastDownloadError") or "File is missing or invalid")
             reason = str(getattr(existing, "reason", "") or CurseForgeContentManager._normalized_error(raw_reason))

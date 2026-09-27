@@ -9,6 +9,7 @@ from src.core.network.download_manager import download_manager
 from src.core.network.download_pause import download_pause_controller
 from src.core.progress.file_batch_progress import FileBatchProgress
 from src.core.progress.progress_reporter import ProgressReporter
+from src.core.instance.instance_run_lock import InstanceRunLock
 from src.models.instance.instance import Instance
 from src.models.network.artifact import ArtifactRequest
 from src.models.progress.progress_stage import ProgressStage
@@ -28,7 +29,7 @@ class FTBContentManager:
         if not entries:
             return ()
 
-        missing = FTBContentManager._missing(instance, entries, reporter)
+        missing = FTBContentManager._missing(instance, entries, reporter, launch_lock_token=launch_lock_token)
         if not missing:
             return ()
 
@@ -46,6 +47,7 @@ class FTBContentManager:
         try:
             for entry in missing:
                 download_pause_controller.raise_if_requested()
+                InstanceRunLock.touch_lock(instance, launch_lock_token)
                 token = object()
                 child_reporter = batch.reporter_for(token)
                 target, relative = ArtifactDownloadService.safe_destination(Path(instance.instance_dir), str(entry.get("path") or entry.get("fileName") or ""))
@@ -89,7 +91,7 @@ class FTBContentManager:
         return ()
 
     @staticmethod
-    def _missing(instance: Instance, entries: list[dict], reporter: ProgressReporter | None) -> list[dict]:
+    def _missing(instance: Instance, entries: list[dict], reporter: ProgressReporter | None, launch_lock_token: str | None = None) -> list[dict]:
         total = len(entries)
         message = "Checking modpack mods..."
         if reporter is not None:
@@ -97,6 +99,8 @@ class FTBContentManager:
         missing: list[dict] = []
         root = Path(instance.instance_dir)
         for index, entry in enumerate(entries, start=1):
+            if index % 50 == 0:
+                InstanceRunLock.touch_lock(instance, launch_lock_token)
             target, relative = ArtifactDownloadService.safe_destination(root, str(entry.get("path") or entry.get("fileName") or ""))
             hashes = {"sha1": str(entry.get("sha1") or "").strip().casefold()} if str(entry.get("sha1") or "").strip() else {}
             valid = download_manager.verify(target, max(0, int(entry.get("size", 0) or 0)), hashes)

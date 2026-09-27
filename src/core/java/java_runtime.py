@@ -51,7 +51,8 @@ class JavaRuntime:
             settings = LauncherSettingsManager().load()
             prefer_dedicated_gpu = bool(settings.get("launch", {}).get("prefer_dedicated_gpu", False))
             GpuPreferenceManager.apply_to_java(java, prefer_dedicated_gpu)
-            process = cls._popen(java, launch_command, instance_dir, log_file, creation_flags)
+            launch_env = GpuPreferenceManager.get_launch_environment(prefer_dedicated_gpu)
+            process = cls._popen(java, launch_command, instance_dir, log_file, creation_flags, env=launch_env)
         except OSError as error:
             if not cls._is_windows_length_error(error):
                 log_file.close()
@@ -62,7 +63,7 @@ class JavaRuntime:
                 log_file.close()
                 raise cls._windows_length_error(instance_dir) from error
             try:
-                process = cls._popen(java, compacted, instance_dir, log_file, creation_flags)
+                process = cls._popen(java, compacted, instance_dir, log_file, creation_flags, env=launch_env)
             except OSError as retry_error:
                 log_file.close()
                 if cls._is_windows_length_error(retry_error):
@@ -94,7 +95,14 @@ class JavaRuntime:
         raise RuntimeError(f"Could not allocate a unique Minecraft log file in: {log_dir}")
 
     @staticmethod
-    def _popen(java: Path, command: list[str], instance_dir: Path, log_file: TextIO, creation_flags: int) -> subprocess.Popen:
+    def _popen(
+        java: Path,
+        command: list[str],
+        instance_dir: Path,
+        log_file: TextIO,
+        creation_flags: int,
+        env: dict[str, str] | None = None,
+    ) -> subprocess.Popen:
         options = {
             "cwd": instance_dir,
             "stdin": subprocess.DEVNULL,
@@ -102,6 +110,8 @@ class JavaRuntime:
             "stderr": subprocess.STDOUT,
             "creationflags": creation_flags,
         }
+        if env is not None:
+            options["env"] = env
         if not PlatformInfo.is_windows():
             # Give each Minecraft launch its own process group so the
             # supervisor can stop loader/Java descendants without touching

@@ -6,6 +6,7 @@ class MicrosoftAuthConfig:
     TENANT = "consumers"
 
     AUTHORIZE_URL = f"https://login.microsoftonline.com/{TENANT}/oauth2/v2.0/authorize"
+    DEVICE_CODE_URL = f"https://login.microsoftonline.com/{TENANT}/oauth2/v2.0/devicecode"
     TOKEN_URL = f"https://login.microsoftonline.com/{TENANT}/oauth2/v2.0/token"
 
     REDIRECT_URI = "http://localhost:8400"

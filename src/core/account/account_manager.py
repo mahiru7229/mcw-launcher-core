@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from threading import Event
+from typing import Callable
 import uuid
 
 from src.core.auth.offline_auth import OfflineAuthentication
@@ -6,6 +9,7 @@ from src.core.account.repository.account_repository import AccountRepository
 from src.core.account.account_skin_manager import AccountSkinManager
 from src.models.account.account import Account
 from src.models.account.account_source import AccountSource
+from src.models.auth.microsoft.device_code_response import DeviceCodeResponse
 from src.core.auth.microsoft.microsoft_account_authenticator import MicrosoftAccountAuthenticator
 
 
@@ -37,8 +41,19 @@ class AccountManager:
         return account
 
     @staticmethod
-    def create_microsoft_account(cancel_event: Event | None = None) -> Account:
-        authenticated_account = MicrosoftAccountAuthenticator.authenticate() if cancel_event is None else MicrosoftAccountAuthenticator.authenticate(cancel_event=cancel_event)
+    def create_microsoft_account(
+        cancel_event: Event | None = None,
+        on_device_code: Callable[[DeviceCodeResponse], None] | None = None,
+    ) -> Account:
+        if cancel_event is None and on_device_code is None:
+            authenticated_account = MicrosoftAccountAuthenticator.authenticate()
+        else:
+            kwargs: dict = {}
+            if cancel_event is not None:
+                kwargs["cancel_event"] = cancel_event
+            if on_device_code is not None:
+                kwargs["on_device_code"] = on_device_code
+            authenticated_account = MicrosoftAccountAuthenticator.authenticate(**kwargs)
         existing_account = AccountManager._find_microsoft_account_by_uuid(authenticated_account.uuid)
 
         if existing_account is not None:

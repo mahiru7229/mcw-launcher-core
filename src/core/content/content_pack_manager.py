@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
-from shutil import copy2
+from shutil import copy2, rmtree
 from urllib.parse import urlsplit, urlunsplit
 from uuid import uuid4
 from zipfile import BadZipFile, ZipFile, is_zipfile
@@ -130,7 +130,7 @@ class ContentPackManager:
         disabled_dir.mkdir(parents=True, exist_ok=True)
         source = (active_dir if entry.enabled else disabled_dir) / entry.file_name
         destination = (active_dir if enabled else disabled_dir) / entry.file_name
-        if not source.is_file():
+        if not source.exists():
             raise RuntimeError(f"Content file is missing: {source.name}")
         if destination.exists():
             raise RuntimeError(f"Cannot change content pack state because '{destination.name}' already exists in the destination folder.")
@@ -139,7 +139,7 @@ class ContentPackManager:
         try:
             ContentPackRegistry.upsert(instance, updated)
         except Exception:
-            if destination.is_file() and not source.exists():
+            if destination.exists() and not source.exists():
                 destination.replace(source)
             raise
         return updated
@@ -152,7 +152,10 @@ class ContentPackManager:
             raise RuntimeError("The selected content pack is no longer registered.")
         active_dir = cls.destination_dir(instance, entry.content_type)
         for path in (active_dir / entry.file_name, active_dir / ".disabled" / entry.file_name):
-            path.unlink(missing_ok=True)
+            if path.is_dir():
+                rmtree(path, ignore_errors=True)
+            else:
+                path.unlink(missing_ok=True)
         ContentPackRegistry.remove(instance, entry.entry_id)
         return entry
 

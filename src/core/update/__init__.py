@@ -1,5 +1,14 @@
 from src.core.update.automatic_update_installer import AutomaticUpdateInstaller
 from src.core.update.github_release_client import GitHubReleaseClient
+from src.core.update.hotfix_manager import (
+    HotfixEntry,
+    HotfixError,
+    HotfixManager,
+    HotfixNetworkError,
+    HotfixSecurityError,
+    HotfixState,
+    HotfixVerificationError,
+)
 from src.core.update.linux_update_installer import LinuxUpdateInstaller
 from src.core.update.update_manager import UpdateManager
 from src.core.update.versioning import LauncherVersion
@@ -10,8 +19,16 @@ __all__ = [
     "AutomaticUpdateInstaller",
     "AutomaticUpdateUnsupportedError",
     "GitHubReleaseClient",
+    "HotfixEntry",
+    "HotfixError",
+    "HotfixManager",
+    "HotfixNetworkError",
+    "HotfixSecurityError",
+    "HotfixState",
+    "HotfixVerificationError",
     "LauncherVersion",
     "LinuxUpdateInstaller",
     "UpdateManager",
     "WindowsUpdateInstaller",
 ]
+
