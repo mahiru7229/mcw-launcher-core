@@ -1,1 +1,1 @@
-"""Public API package for src.core.optifine.__init__."""
+from src.core.optifine import *  # noqa: F401,F403

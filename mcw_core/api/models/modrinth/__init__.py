@@ -1,1 +1,1 @@
-"""Public API models package for src.models.modrinth.__init__."""
+from src.models.modrinth import *  # noqa: F401,F403

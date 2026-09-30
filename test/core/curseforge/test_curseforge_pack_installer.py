@@ -77,6 +77,58 @@ def test_rejects_modpack_when_browser_loader_filter_does_not_match_manifest() ->
         CurseForgePackInstaller._validate_expected_loader("fabric", "forge")
 
 
+def test_parses_various_modpack_loader_id_formats() -> None:
+    # Strip game version prefix from Forge / NeoForge
+    assert CurseForgePackInstaller._parse_loader_id("forge-1.20.1-47.3.0", "1.20.1") == ("forge", "47.3.0")
+    assert CurseForgePackInstaller._parse_loader_id("forge-47.3.0", "1.20.1") == ("forge", "47.3.0")
+    assert CurseForgePackInstaller._parse_loader_id("neoforge-1.20.4-20.4.80", "1.20.4") == ("neoforge", "20.4.80")
+    assert CurseForgePackInstaller._parse_loader_id("neoforged-20.4.80", "1.20.4") == ("neoforge", "20.4.80")
+    assert CurseForgePackInstaller._parse_loader_id("neo-20.4.80", "1.20.4") == ("neoforge", "20.4.80")
+
+    # Strip loader- prefix from Fabric / Quilt
+    assert CurseForgePackInstaller._parse_loader_id("fabric-loader-0.16.0", "1.20.1") == ("fabric", "0.16.0")
+    assert CurseForgePackInstaller._parse_loader_id("quilt-loader-0.25.0", "1.20.1") == ("quilt", "0.25.0")
+    assert CurseForgePackInstaller._parse_loader_id("fabric-0.16.0") == ("fabric", "0.16.0")
+
+    # Bare loader names without version
+    assert CurseForgePackInstaller._parse_loader_id("forge") == ("forge", "auto")
+    assert CurseForgePackInstaller._parse_loader_id("fabric") == ("fabric", "auto")
+    assert CurseForgePackInstaller._parse_loader_id("neoforge") == ("neoforge", "auto")
+
+    # Invalid / empty
+    assert CurseForgePackInstaller._parse_loader_id("") is None
+    assert CurseForgePackInstaller._parse_loader_id("unknown-loader-1.0") is None
+
+
+def test_parses_flexible_manifest_loader_declarations() -> None:
+    # Singular modLoader dict
+    manifest_singular = {
+        "minecraft": {
+            "version": "1.20.1",
+            "modLoader": {"id": "forge-1.20.1-47.3.0"},
+        }
+    }
+    assert CurseForgePackInstaller._parse_loader(manifest_singular) == ("1.20.1", "forge", "47.3.0")
+
+    # Singular modLoader string
+    manifest_str = {
+        "minecraft": {
+            "version": "1.20.4",
+            "modLoader": "neoforged-20.4.80",
+        }
+    }
+    assert CurseForgePackInstaller._parse_loader(manifest_str) == ("1.20.4", "neoforge", "20.4.80")
+
+    # List of strings in modLoaders
+    manifest_list_str = {
+        "minecraft": {
+            "version": "1.20.1",
+            "modLoaders": ["fabric-loader-0.16.0"],
+        }
+    }
+    assert CurseForgePackInstaller._parse_loader(manifest_list_str) == ("1.20.1", "fabric", "0.16.0")
+
+
 def test_installs_fabric_modpack_as_fabric_instance(tmp_path: Path, monkeypatch) -> None:
     pack_path = tmp_path / "fabric-pack.zip"
     manifest = {

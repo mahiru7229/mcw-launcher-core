@@ -9,6 +9,7 @@ import json
 import pytest
 
 from src.core.mod.mod_provenance_registry import ModProvenanceRegistry
+from src.core.modrinth.modrinth_pack_installer import ModrinthPackInstaller
 from src.core.package.modpack_package_manager import ModpackPackageManager
 from src.core.package.provider_package_store import ProviderPackageStore
 from src.models.package.modpack_export import ModpackExportOptions
@@ -351,3 +352,107 @@ def test_safe_relative_rejects_windows_and_absolute_paths(value: str) -> None:
 
 def test_safe_relative_accepts_normal_package_path() -> None:
     assert ModpackPackageManager._safe_relative("overrides/config/options.txt").as_posix() == "overrides/config/options.txt"
+
+
+def test_mrpack_export_creates_valid_modrinth_index_and_overrides(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    instance = fake_instance(tmp_path / "mrpack-instance")
+    mods_dir = instance.instance_dir / "mods"
+    mods_dir.mkdir(parents=True)
+    config_dir = instance.instance_dir / "config"
+    config_dir.mkdir(parents=True)
+
+    # 1. Modrinth mod with CDN download URL
+    modrinth_jar = mods_dir / "modrinth-mod.jar"
+    modrinth_jar.write_bytes(b"modrinth-jar-content")
+
+    # 2. Local custom mod without download URL
+    custom_jar = mods_dir / "custom-mod.jar"
+    custom_jar.write_bytes(b"custom-jar-content")
+
+    # 3. Disabled mod
+    disabled_jar = mods_dir / "disabled-mod.jar.disabled"
+    disabled_jar.write_bytes(b"disabled-jar-content")
+
+    # 4. Config override file
+    config_file = config_dir / "settings.json"
+    config_file.write_text('{"key": "value"}', encoding="utf-8")
+
+    monkeypatch.setattr(ModProvenanceRegistry, "entries_by_file", lambda _instance: {
+        "modrinth-mod.jar": {
+            "fileName": "modrinth-mod.jar",
+            "provider": "modrinth",
+            "projectId": "mod-proj",
+            "versionId": "mod-ver",
+            "downloadUrls": ["https://cdn.modrinth.com/data/mod-proj/versions/mod-ver/modrinth-mod.jar"],
+        },
+        "custom-mod.jar": {
+            "fileName": "custom-mod.jar",
+            "provider": "local",
+        },
+    })
+
+    mrpack_target = tmp_path / "exported.mrpack"
+    result = ModpackPackageManager.export(
+        instance,
+        mrpack_target,
+        ModpackExportOptions(mode="mrpack"),
+    )
+
+    assert result.output_path == mrpack_target
+    assert result.mode == "mrpack"
+    assert result.referenced_files == 1
+    assert result.embedded_files >= 3
+
+    # Inspect zip contents directly
+    with ZipFile(result.output_path, "r") as archive:
+        names = archive.namelist()
+        assert "modrinth.index.json" in names
+        assert "overrides/mods/custom-mod.jar" in names
+        assert "overrides/mods/disabled-mod.jar.disabled" in names
+        assert "overrides/config/settings.json" in names
+        # Modrinth mod should NOT be embedded in overrides because it has CDN download URL
+        assert "overrides/mods/modrinth-mod.jar" not in names
+
+        index = json.loads(archive.read("modrinth.index.json").decode("utf-8"))
+        assert index["formatVersion"] == 1
+        assert index["game"] == "minecraft"
+        assert index["dependencies"] == {
+            "minecraft": "1.21.1",
+            "fabric-loader": "0.16.10",
+        }
+        assert len(index["files"]) == 1
+        file_entry = index["files"][0]
+        assert file_entry["path"] == "mods/modrinth-mod.jar"
+        assert file_entry["downloads"] == ["https://cdn.modrinth.com/data/mod-proj/versions/mod-ver/modrinth-mod.jar"]
+        assert len(file_entry["hashes"]["sha1"]) == 40
+        assert len(file_entry["hashes"]["sha512"]) == 128
+
+    # Verify compatibility with ModrinthPackInstaller parser
+    parsed = ModrinthPackInstaller.inspect(result.output_path)
+    assert parsed["minecraft"] == "1.21.1"
+    assert parsed["loader"] == "fabric"
+    assert parsed["loader_version"] == "0.16.10"
+    assert parsed["files"] == 1
+
+
+def test_mrpack_export_forge_loader_dependencies(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    instance = fake_instance(tmp_path / "forge-instance")
+    instance.version_id = "1.20.1"
+    instance.mod_loader = ("forge", "47.3.0")
+
+    monkeypatch.setattr(ModProvenanceRegistry, "entries_by_file", lambda _instance: {})
+    mrpack_target = tmp_path / "forge-pack.mrpack"
+
+    result = ModpackPackageManager.export(
+        instance,
+        mrpack_target,
+        ModpackExportOptions(mode="mrpack"),
+    )
+
+    with ZipFile(result.output_path, "r") as archive:
+        index = json.loads(archive.read("modrinth.index.json").decode("utf-8"))
+        assert index["dependencies"] == {
+            "minecraft": "1.20.1",
+            "forge": "47.3.0",
+        }
+

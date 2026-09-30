@@ -1,1 +1,1 @@
-"""Public API package for src.core.integrations.discord.__init__."""
+from src.core.integrations.discord import *  # noqa: F401,F403

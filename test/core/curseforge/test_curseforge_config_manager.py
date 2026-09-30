@@ -29,6 +29,7 @@ def clear_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(CurseForgeConfigManager.ENV_CLIENT_TOKEN, raising=False)
     for index in range(1, CurseForgeConfigManager.MAX_GATEWAYS + 1):
         monkeypatch.delenv(f"{CurseForgeConfigManager.ENV_GATEWAY_URL_PREFIX}{index}", raising=False)
+    monkeypatch.setattr(CurseForgeConfigManager, "DEFAULT_GATEWAY_URLS", ())
 
 
 def test_indexed_environment_gateways_and_token_have_priority(monkeypatch, tmp_path: Path) -> None:
@@ -138,3 +139,14 @@ def test_no_gateway_is_used_when_no_override_exists(monkeypatch, tmp_path: Path)
     assert CurseForgeConfigManager.is_configured() is False
     with pytest.raises(ValueError, match="At least one CurseForge gateway URL"):
         CurseForgeConfigManager.gateway_url()
+
+
+def test_default_gateway_url_is_used_when_no_local_config(monkeypatch, tmp_path: Path) -> None:
+    clear_environment(monkeypatch)
+    monkeypatch.setattr(CurseForgeConfigManager, "path", staticmethod(lambda: tmp_path / "private" / "curseforge_endpoints.json"))
+    monkeypatch.setattr(CurseForgeConfigManager, "legacy_path", staticmethod(lambda: tmp_path / "curseforge.json"))
+    monkeypatch.setattr(CurseForgeConfigManager, "DEFAULT_GATEWAY_URLS", ("https://gateway.example.com/api/curseforge",))
+
+    assert CurseForgeConfigManager.gateway_urls() == ("https://gateway.example.com/api/curseforge",)
+    assert CurseForgeConfigManager.is_configured() is True
+    assert CurseForgeConfigManager.gateway_url() == "https://gateway.example.com/api/curseforge"

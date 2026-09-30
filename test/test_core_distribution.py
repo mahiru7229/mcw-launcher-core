@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 def test_distribution_and_runtime_versions_match() -> None:
     project = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
     assert project["name"] == "mcw-core"
-    assert project["version"] == "1.6.1"
+    assert project["version"] == "1.8.0"
     assert VERSION_ID == project["version"]
     assert mcw_core.__version__ == project["version"]
     assert UPDATE_CHANNEL == "stable"
@@ -25,7 +25,7 @@ def test_installed_distribution_version_matches_source() -> None:
         installed = version("mcw-core")
     except PackageNotFoundError:
         return
-    assert installed in {"1.6.1"}
+    assert installed in {"1.8.0"}
 
 
 def test_source_distribution_excludes_launcher_gui() -> None:

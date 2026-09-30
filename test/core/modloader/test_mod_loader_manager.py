@@ -184,3 +184,28 @@ def test_forwards_preferred_java_to_forge_repair(monkeypatch):
 
     assert ModLoaderManager.repair(instance, preferred_java_path="C:/Java/custom/javaw.exe") is expected
     assert captured["path"] == "C:/Java/custom/javaw.exe"
+
+
+def test_resolve_strips_prefixed_loader_versions():
+    assert ModLoaderManager.resolve("1.12.2", "forge", "1.12.2-14.23.5.2858") == ("forge", "14.23.5.2858")
+    assert ModLoaderManager.resolve("1.12.2", "forge", "forge-14.23.5.2858") == ("forge", "14.23.5.2858")
+    assert ModLoaderManager.resolve("1.21.1", "fabric", "fabric-0.16.0") == ("fabric", "0.16.0")
+    assert ModLoaderManager.resolve("1.21.1", "fabric", "loader-0.16.0") == ("fabric", "0.16.0")
+    assert ModLoaderManager.resolve("1.21.1", "fabric", "1.21.1-0.16.0") == ("fabric", "0.16.0")
+
+
+def test_load_cleans_dirty_loader_version_and_forwards_to_forge(monkeypatch):
+    captured = {}
+
+    def mock_load(game_version, loader_version, reporter=None):
+        captured["game_version"] = game_version
+        captured["loader_version"] = loader_version
+        return "version_obj"
+
+    monkeypatch.setattr(ForgeVersionManager, "load", mock_load)
+    instance = SimpleNamespace(version_id="1.12.2", mod_loader=("forge", "1.12.2-14.23.5.2858"))
+
+    result = ModLoaderManager.load(instance)
+    assert result == "version_obj"
+    assert captured["game_version"] == "1.12.2"
+    assert captured["loader_version"] == "14.23.5.2858"

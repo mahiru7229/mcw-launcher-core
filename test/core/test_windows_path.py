@@ -82,3 +82,4 @@ def test_long_path_operations(tmp_path: Path) -> None:
 
     with open_file(dst_file, "r", encoding="utf-8") as f:
         assert f.read() == "deep file content"
+

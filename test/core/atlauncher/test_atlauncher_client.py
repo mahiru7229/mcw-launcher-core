@@ -6,6 +6,7 @@ from src.config import ATLAUNCHER_USER_AGENT
 from src.core.atlauncher.atlauncher_cache import ATLauncherCache
 from src.core.atlauncher.atlauncher_client import ATLauncherClient
 from src.core.network.httpx_downloader import HttpDownloader
+from src.models.atlauncher.version import ATLauncherFile
 
 
 def configure_client(monkeypatch, tmp_path: Path, handler) -> httpx.Client:
@@ -176,3 +177,136 @@ def test_graphql_failure_falls_back_to_v1_pack_list(monkeypatch, tmp_path: Path)
     assert result.projects[0].name == "Example Pack"
     assert calls[:2] == [("POST", "/v2/graphql"), ("GET", "/v1/packs/full/public")]
     client.close()
+
+
+def test_loader_parsing_prioritizes_clean_version_over_raw_version() -> None:
+    manifest = {
+        "minecraft": "1.12.2",
+        "loader": {
+            "type": "forge",
+            "metadata": {
+                "minecraft": "1.12.2",
+                "version": "14.23.5.2858",
+                "rawVersion": "1.12.2-14.23.5.2858",
+            },
+        },
+    }
+    loader_name, loader_version = ATLauncherClient._loader(manifest)
+    assert loader_name == "forge"
+    assert loader_version == "14.23.5.2858"
+
+
+def test_loader_parsing_strips_prefixes_from_raw_version_fallback() -> None:
+    manifest = {
+        "minecraft": "1.12.2",
+        "loader": {
+            "type": "forge",
+            "metadata": {
+                "minecraft": "1.12.2",
+                "rawVersion": "1.12.2-14.23.5.2858",
+            },
+        },
+    }
+    loader_name, loader_version = ATLauncherClient._loader(manifest)
+    assert loader_name == "forge"
+    assert loader_version == "14.23.5.2858"
+
+
+def test_unsupported_actions_ignores_server_only_extract_files() -> None:
+    server_file = ATLauncherFile(
+        file_id="1",
+        name="SF4 Server Configs",
+        path=".mcw/atlauncher/downloads/server-configs.zip",
+        urls=("https://example.invalid/server-configs.zip",),
+        md5="a" * 32,
+        server_only=True,
+        client_only=False,
+        extract_to="root",
+    )
+    unsupported = ATLauncherClient._unsupported_actions({}, [server_file])
+    assert unsupported == []
+
+
+def test_unsupported_actions_flags_client_extract_files() -> None:
+    client_file = ATLauncherFile(
+        file_id="1",
+        name="Client Configs",
+        path=".mcw/atlauncher/downloads/client-configs.zip",
+        urls=("https://example.invalid/client-configs.zip",),
+        md5="a" * 32,
+        server_only=False,
+        client_only=True,
+        extract_to="root",
+    )
+    unsupported = ATLauncherClient._unsupported_actions({}, [client_file])
+    assert unsupported == ["extract:Client Configs"]
+
+
+def test_unsupported_actions_accepts_standard_main_classes() -> None:
+    for standard in (
+        "net.minecraft.launchwrapper.Launch",
+        "cpw.mods.bootstraplauncher.BootstrapLauncher",
+        "net.minecraft.client.main.Main",
+        "net.fabricmc.loader.impl.launch.knot.KnotClient",
+        "org.quiltmc.loader.impl.launch.knot.KnotClient",
+    ):
+        assert ATLauncherClient._unsupported_actions({"mainClass": standard}, []) == []
+        assert ATLauncherClient._unsupported_actions({"mainClass": {"mainClass": standard}}, []) == []
+        assert ATLauncherClient._unsupported_actions({"mainClass": {"mainClass": standard, "depends": "Minecraft Forge"}}, []) == []
+
+
+def test_unsupported_actions_flags_custom_main_class() -> None:
+    assert ATLauncherClient._unsupported_actions({"mainClass": "com.custom.Launcher"}, []) == ["custom-main-class"]
+    assert ATLauncherClient._unsupported_actions({"mainClass": {"mainClass": "com.custom.Launcher"}}, []) == ["custom-main-class"]
+    assert ATLauncherClient._unsupported_actions({"mainClass": {"unknown": "data"}}, []) == ["custom-main-class"]
+
+
+def test_unsupported_actions_accepts_standard_forge_extra_arguments() -> None:
+    safe_manifests = [
+        {"extraArguments": {"arguments": "--tweakClass=net.minecraftforge.fml.common.launcher.FMLTweaker --versionType Forge"}},
+        {"extraArguments": {"arguments": "--tweakClass=cpw.mods.fml.common.launcher.FMLTweaker"}},
+        {"extraArguments": {"arguments": "--tweakClass=net.minecraftforge.fml.common.launcher.FMLTweaker --versionType Forge -Dfml.readTimeout=50000"}},
+        {"extraArguments": {"arguments": "--tweakClass cpw.mods.fml.common.launcher.FMLTweaker --tweakClass com.mumfrey.liteloader.launch.LiteLoaderTweaker"}},
+        {"extraArguments": "--tweakClass=net.minecraftforge.fml.common.launcher.FMLTweaker"},
+    ]
+    for manifest in safe_manifests:
+        assert ATLauncherClient._unsupported_actions(manifest, []) == []
+
+
+def test_unsupported_actions_flags_custom_extra_arguments() -> None:
+    assert ATLauncherClient._unsupported_actions({"extraArguments": "--customArg value"}, []) == ["custom-extra-arguments"]
+    assert ATLauncherClient._unsupported_actions({"extraArguments": {"arguments": "--tweakClass com.custom.MaliciousTweaker"}}, []) == ["custom-extra-arguments"]
+    assert ATLauncherClient._unsupported_actions({"extraArguments": {"unknown": "data"}}, []) == ["custom-extra-arguments"]
+
+
+def test_parse_version_skyfactory4_server_configs_not_blocked() -> None:
+    manifest = {
+        "minecraft": "1.12.2",
+        "version": "4.2.4",
+        "loader": {"type": "forge", "metadata": {"version": "14.23.5.2860"}},
+        "mods": [
+            {
+                "name": "SF4 Server Configs",
+                "file": "SF4-Server-Configs.zip",
+                "url": "packs/SkyFactory4/server-configs.zip",
+                "type": "extract",
+                "extractTo": "root",
+                "client": False,
+                "server": True,
+            },
+            {
+                "name": "JEI",
+                "file": "jei.jar",
+                "url": "https://cdn.example/jei.jar",
+                "type": "mods",
+                "client": True,
+                "server": True,
+                "md5": "b" * 32,
+            },
+        ],
+    }
+    version = ATLauncherClient._parse_version("SkyFactory4", {"version": "4.2.4", "rawJson": manifest})
+    assert version.unsupported_actions == ()
+    assert not version.warnings
+    assert len(version.files) == 2
+

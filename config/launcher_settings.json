@@ -9,7 +9,10 @@
     },
     "launch": {
         "debug_mode": false,
-        "prefer_dedicated_gpu": false
+        "prefer_dedicated_gpu": false,
+        "discord_rpc_enabled": true,
+        "discord_client_id": "",
+        "minimize_on_launch": true
     },
     "onboarding": {
         "completed": false,

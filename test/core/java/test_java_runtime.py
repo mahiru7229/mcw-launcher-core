@@ -615,6 +615,35 @@ def test_run_applies_saved_dedicated_gpu_preference(
     assert received == {"java": java, "enabled": True}
 
 
+def test_run_passes_gpu_environment_on_linux(
+    monkeypatch: pytest.MonkeyPatch,
+    instance,
+    instance_dir: Path,
+):
+    popen_kwargs = {}
+    monkeypatch.setattr("src.core.java.java_runtime.datetime", FixedDateTime)
+    monkeypatch.setattr("src.core.java.java_runtime.PlatformInfo.is_windows", lambda: False)
+    monkeypatch.setattr(
+        "src.core.java.java_runtime.LauncherSettingsManager.load",
+        lambda self: {"launch": {"prefer_dedicated_gpu": True}},
+    )
+    monkeypatch.setattr(
+        "src.core.java.java_runtime.GpuPreferenceManager.get_launch_environment",
+        lambda enabled: {"__NV_PRIME_RENDER_OFFLOAD": "1", "__GLX_VENDOR_LIBRARY_NAME": "nvidia"} if enabled else None,
+    )
+    monkeypatch.setattr(
+        "src.core.java.java_runtime.subprocess.Popen",
+        lambda *args, **kwargs: popen_kwargs.update(kwargs) or object(),
+    )
+
+    java = Path("/usr/bin/java")
+    JavaRuntime.run(java=java, command=[], instance=instance)
+
+    assert "env" in popen_kwargs
+    assert popen_kwargs["env"]["__NV_PRIME_RENDER_OFFLOAD"] == "1"
+    assert popen_kwargs["env"]["__GLX_VENDOR_LIBRARY_NAME"] == "nvidia"
+
+
 def test_java_runtime_failure_classifier_only_accepts_strong_java_signatures():
     assert JavaRuntime.is_java_runtime_failure(
         "java.lang.UnsupportedClassVersionError: compiled by a more recent version of the Java Runtime"

@@ -197,3 +197,44 @@ def test_reconcile_removes_stale_lock_and_reports_instance(monkeypatch: pytest.M
 
     assert InstanceRunLock.reconcile() == ("Stale Instance",)
     assert not lock_path.exists()
+
+
+def test_preparing_lock_timeout_is_ten_minutes():
+    assert InstanceRunLock.PREPARING_LOCK_TIMEOUT_SECONDS == 600.0
+
+
+def test_update_owned_lock_recreates_lock_file_if_deleted(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    instance = make_instance(tmp_path, "Recreate Lock Instance")
+    run_lock = InstanceRunLock.acquire(instance)
+
+    # Delete the lock file during preparation (e.g. simulated timeout deletion)
+    run_lock.lock_path.unlink()
+    assert not run_lock.lock_path.exists()
+
+    # Now game starts and updates owned lock to running
+    run_lock._update_owned_lock(state="running", minecraft_pid=98765)
+
+    assert run_lock.lock_path.exists()
+    payload = json.loads(run_lock.lock_path.read_text(encoding="utf-8"))
+    assert payload["token"] == run_lock.token
+    assert payload["state"] == "running"
+    assert payload["minecraft_pid"] == 98765
+
+    run_lock.release()
+
+
+def test_touch_and_touch_lock_refreshes_mtime_without_creating_stray_locks(tmp_path: Path):
+    instance = make_instance(tmp_path, "Touch Instance")
+    run_lock = InstanceRunLock.acquire(instance)
+
+    old_mtime = run_lock.lock_path.stat().st_mtime_ns
+    assert run_lock.touch() is True
+    assert InstanceRunLock.touch_lock(instance, run_lock.token) is True
+    assert InstanceRunLock.touch_lock(instance, "wrong-token") is False
+
+    # If file was unlinked, touch returns False and does not create a stray lock
+    run_lock.lock_path.unlink()
+    assert not run_lock.lock_path.exists()
+    assert run_lock.touch() is False
+    assert InstanceRunLock.touch_lock(instance, run_lock.token) is False
+    assert not run_lock.lock_path.exists()

@@ -181,6 +181,36 @@ def test_gateway_failure_returns_stale_cache_with_error_state(monkeypatch, tmp_p
     client.close()
 
 
+def test_curseforge_file_works_with_shared_instance_compatibility_flow() -> None:
+    from pathlib import Path
+
+    from src.gui.mod_instance_compatibility import compatible_instances
+    from src.models.instance.instance import Instance
+
+    file = CurseForgeClient._parse_file({
+        "id": 22,
+        "modId": 11,
+        "displayName": "Example Forge Build",
+        "fileName": "example.jar",
+        "releaseType": 1,
+        "fileLength": 123,
+        "downloadUrl": "https://example.invalid/example.jar",
+        "hashes": [{"algo": 1, "value": "a" * 40}],
+        "gameVersions": ["1.20.1", "Forge", "Java 17"],
+    })
+    instances = [
+        Instance(instance_id="match", name="Match", version_id="1.20.1", instance_dir=Path("Match"), mod_loader=("forge", "47.4.0")),
+        Instance(instance_id="loader", name="Wrong loader", version_id="1.20.1", instance_dir=Path("Wrong loader"), mod_loader=("fabric", "0.16.0")),
+        Instance(instance_id="game", name="Wrong game", version_id="1.21.1", instance_dir=Path("Wrong game"), mod_loader=("forge", "52.0.0")),
+    ]
+
+    result = compatible_instances(instances, file, "forge")
+
+    assert file.version_number == "Example Forge Build"
+    assert file.game_versions == ("1.20.1",)
+    assert [instance.name for instance in result] == ["Match", "Wrong game"]
+
+
 def test_catalog_search_filters_projects_by_latest_file_loader(monkeypatch, tmp_path: Path) -> None:
     payload = {
         "data": [
@@ -542,3 +572,20 @@ def test_latest_compatible_file_rejects_wrong_minecraft_version(monkeypatch) -> 
 
     with pytest.raises(RuntimeError, match="No compatible Forge file for Minecraft 1.20.1"):
         CurseForgeClient.latest_compatible_file(2, "1.20.1", loader="forge")
+
+
+def test_parse_file_extracts_loaders_from_sortable_game_versions() -> None:
+    # Older CurseForge packs only list Forge in sortableGameVersions, not in gameVersions
+    file = CurseForgeClient._parse_file({
+        "id": 100,
+        "modId": 200,
+        "fileName": "pack.zip",
+        "gameVersions": ["1.12.2"],
+        "sortableGameVersions": [
+            {"gameVersionName": "1.12.2", "gameVersionPadded": "0001.0012.0002"},
+            {"gameVersionName": "Forge", "gameVersionPadded": "Forge"},
+        ],
+    })
+
+    assert file.game_versions == ("1.12.2",)
+    assert file.loaders == ("forge",)

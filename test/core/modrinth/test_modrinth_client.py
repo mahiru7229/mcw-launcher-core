@@ -422,3 +422,43 @@ def test_search_supports_resource_pack_and_shader_project_types(monkeypatch):
 
     assert ["project_type:resourcepack"] in calls[0]
     assert ["project_type:shader"] in calls[1]
+
+
+def test_project_may_support_loader_respects_loaders_field():
+    from src.models.modrinth.project import ModrinthProject
+
+    quilt_only = ModrinthProject(
+        project_id="qvIfYCYJ",
+        slug="qsl",
+        title="Quilted Fabric API",
+        description="QSL",
+        project_type="mod",
+        categories=("library",),
+        loaders=("quilt",),
+    )
+    assert not ModrinthClient._project_may_support_loader(quilt_only, "fabric")
+    assert ModrinthClient._project_may_support_loader(quilt_only, "quilt")
+
+    fabric_only = ModrinthProject(
+        project_id="P7dR8mSH",
+        slug="fabric-api",
+        title="Fabric API",
+        description="FAPI",
+        project_type="mod",
+        categories=("library",),
+        loaders=("fabric",),
+    )
+    assert ModrinthClient._project_may_support_loader(fabric_only, "fabric")
+    assert ModrinthClient._project_may_support_loader(fabric_only, "quilt")  # quilt is compatible with fabric
+
+    generic = ModrinthProject(
+        project_id="123",
+        slug="no-loaders",
+        title="Resource Pack",
+        description="pack",
+        project_type="resourcepack",
+        categories=(),
+        loaders=(),
+    )
+    assert ModrinthClient._project_may_support_loader(generic, "fabric")
+

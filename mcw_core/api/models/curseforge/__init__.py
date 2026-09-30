@@ -1,1 +1,1 @@
-"""Public API models package for src.models.curseforge.__init__."""
+from src.models.curseforge import *  # noqa: F401,F403

@@ -1,1 +1,1 @@
-"""Public API models package for src.models.lan.__init__."""
+from src.models.lan import *  # noqa: F401,F403

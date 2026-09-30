@@ -68,3 +68,34 @@ def test_set_java_runtime_blocks_running_instance(monkeypatch: pytest.MonkeyPatc
 
     with pytest.raises(RuntimeError, match="Close Minecraft"):
         InstanceService.set_java_runtime("Test", "")
+
+
+def test_instance_service_create_applies_jvm_arguments(monkeypatch: pytest.MonkeyPatch) -> None:
+    from mcw_core.models import InstanceCreateRequest
+
+    created_kwargs = {}
+
+    monkeypatch.setattr("mcw_core.services.InstanceManager.validate_name", lambda name: name)
+    monkeypatch.setattr("mcw_core.services.VersionManager.load", lambda version_id: SimpleNamespace(id=version_id))
+    monkeypatch.setattr("mcw_core.services.ModLoaderManager.prepare", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "mcw_core.services.InstanceManager.create",
+        lambda **kwargs: created_kwargs.update(kwargs) or SimpleNamespace(name=kwargs["name"]),
+    )
+
+    service = InstanceService()
+    monkeypatch.setattr(service.loaders, "resolve", lambda vid, name, ver: (name, ver))
+
+    request = InstanceCreateRequest(
+        name="OptInstance",
+        version_id="1.21.1",
+        loader_name="fabric",
+        loader_version="0.16.0",
+        jvm_arguments=("-XX:+UseG1GC", "-XX:G1ReservePercent=20"),
+    )
+    service.create(request)
+
+    assert created_kwargs["name"] == "OptInstance"
+    assert created_kwargs["settings"] is not None
+    assert created_kwargs["settings"]["java"]["arguments"] == ["-XX:+UseG1GC", "-XX:G1ReservePercent=20"]
+

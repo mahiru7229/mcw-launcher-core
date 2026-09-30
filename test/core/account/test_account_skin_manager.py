@@ -57,6 +57,22 @@ def test_cache_texture_rejects_non_https(monkeypatch: pytest.MonkeyPatch, tmp_pa
         AccountSkinManager.cache_texture("123456781234123412341234567890ab", "http://example.invalid/skin.png")
 
 
+def test_cache_texture_upgrades_http_textures_minecraft_net(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(Paths, "ACCOUNTS_ROOT", tmp_path / "accounts")
+    requested_urls: list[str] = []
+
+    def fake_stream(_method: str, url: str, **_kwargs):
+        requested_urls.append(url)
+        return FakeResponse([PNG])
+
+    monkeypatch.setattr("src.core.account.account_skin_manager.httpx.stream", fake_stream)
+    path = AccountSkinManager.cache_texture("123456781234123412341234567890ab", "http://textures.minecraft.net/texture/example123")
+
+    assert requested_urls == ["https://textures.minecraft.net/texture/example123"]
+    assert path.is_file()
+    assert path.read_bytes() == PNG
+
+
 def test_repository_persists_skin_metadata(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     from src.core.account.database.account_database import AccountDatabase
     from src.core.account.repository.account_repository import AccountRepository

@@ -20,3 +20,10 @@ def test_installer_url_uses_official_maven_layout() -> None:
     assert ForgeMetadataClient.installer_url("1.20.1", "47.3.0").endswith(
         "/1.20.1-47.3.0/forge-1.20.1-47.3.0-installer.jar"
     )
+
+
+def test_installer_url_strips_duplicate_game_and_forge_prefixes() -> None:
+    expected = "https://maven.minecraftforge.net/net/minecraftforge/forge/1.12.2-14.23.5.2858/forge-1.12.2-14.23.5.2858-installer.jar"
+    assert ForgeMetadataClient.installer_url("1.12.2", "1.12.2-14.23.5.2858") == expected
+    assert ForgeMetadataClient.installer_url("1.12.2", "forge-14.23.5.2858") == expected
+    assert ForgeMetadataClient.installer_url("1.12.2", "forge-1.12.2-14.23.5.2858") == expected

@@ -493,3 +493,62 @@ def test_non_windows_release_gate_skips_windows_process_scan(tmp_path, monkeypat
     )
 
     applier._wait_for_launcher_release(timeout_seconds=0.0)
+
+
+def test_restore_backup_prunes_empty_directories(tmp_path) -> None:
+    request = make_request(tmp_path)
+    internal_sub = request.destination_directory / "_internal" / "nested" / "deep"
+    internal_sub.mkdir(parents=True, exist_ok=True)
+    new_file = internal_sub / "module.pyd"
+    new_file.write_bytes(b"data")
+
+    applier = UpdateApplier(request)
+    applier.new_files.append(new_file)
+    applier._restore_backup()
+
+    assert not new_file.exists()
+    assert not (request.destination_directory / "_internal").exists()
+
+
+def test_start_launcher_falls_back_to_shell_on_winerror_4551(tmp_path, monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    request = make_request(tmp_path)
+    exe = request.destination_directory / request.executable_name
+    exe.write_bytes(b"exe")
+
+    applier = UpdateApplier(request)
+    monkeypatch.setattr(
+        "src.core.update.update_applier.PlatformInfo.current",
+        lambda: SimpleNamespace(os_name="windows"),
+    )
+
+    err = OSError("An Application Control policy has blocked this file")
+    err.winerror = 4551
+
+    def failing_popen(*_args, **_kwargs):
+        raise err
+
+    shell_starts: list[Path] = []
+    monkeypatch.setattr("subprocess.Popen", failing_popen)
+    monkeypatch.setattr(applier, "_start_windows_launcher_shell", lambda path: shell_starts.append(path) or True)
+
+    applier._start_launcher()
+    assert shell_starts == [exe]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows MessageBox error display requires Windows")
+def test_show_error_includes_sac_notice_on_4551(tmp_path, monkeypatch) -> None:
+    request = make_request(tmp_path)
+    applier = UpdateApplier(request)
+    shown_boxes: list[str] = []
+
+    monkeypatch.setattr(
+        "ctypes.windll.user32.MessageBoxW",
+        lambda _hwnd, text, _title, _type: shown_boxes.append(text) or 1,
+    )
+
+    applier._show_error("[WinError 4551] An Application Control policy has blocked this file")
+    assert len(shown_boxes) == 1
+    assert "Smart App Control" in shown_boxes[0]
+

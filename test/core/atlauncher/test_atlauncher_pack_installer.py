@@ -118,3 +118,23 @@ def test_install_rejects_unsupported_pack_actions(monkeypatch) -> None:
 
     with pytest.raises(RuntimeError, match="not supported in this beta"):
         ATLauncherPackInstaller.install("ExamplePack", "2.0.0", "Example Pack")
+
+
+def test_runtime_strips_prefixed_loader_version() -> None:
+    version = ATLauncherVersion(
+        pack_id="25",
+        safe_name="SkyFactory4",
+        version_id="101",
+        version="4.2.3",
+        minecraft_version="1.12.2",
+        changelog="",
+        recommended=True,
+        development=False,
+        loader="forge",
+        loader_version="1.12.2-14.23.5.2858",
+        files=(),
+    )
+    mc_ver, loader, loader_ver = ATLauncherPackInstaller._runtime(version)
+    assert mc_ver == "1.12.2"
+    assert loader == "forge"
+    assert loader_ver == "14.23.5.2858"

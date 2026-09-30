@@ -1,1 +1,1 @@
-"""Public API models package for src.models.mod.__init__."""
+from src.models.mod import *  # noqa: F401,F403

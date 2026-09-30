@@ -506,3 +506,31 @@ def test_fabric_provides_alias_satisfies_dependency(tmp_path):
         issue.code.startswith("dependency-") and "cloth-config2" in issue.mod_ids
         for issue in report.issues
     )
+
+
+def test_dynamic_loader_libraries_discovered_from_manifest(tmp_path, monkeypatch):
+    from src.core.fs.paths import Paths
+    monkeypatch.setattr(Paths, "CACHE_ROOT", tmp_path / "cache")
+    instance = make_instance(tmp_path)
+
+    version_json_path = Paths.fabric_version_json(instance.version_id, "0.16.0")
+    version_json_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest = {
+        "id": "fabric-loader-0.16.0-1.20.1",
+        "inheritsFrom": "1.20.1",
+        "libraries": [
+            {"name": "org.ow2.asm:asm:9.6"},
+            {"name": "com.electronwill.night-config:core:3.6.4"},
+            {"name": "net.fabricmc:sponge-mixin:0.12.5+mixin.0.8.5"},
+        ],
+    }
+    version_json_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    mods = instance.instance_dir / "mods"
+    write_mod(mods / "mod_using_libs.jar", "loader_dependent_mod", depends={"asm": ">=9.0", "nightconfig": ">=3.6", "mixin": ">=0.8"})
+
+    report = ModCompatibilityManager.scan(instance)
+
+    missing = [issue for issue in report.issues if issue.code == "dependency-missing"]
+    assert not missing
+

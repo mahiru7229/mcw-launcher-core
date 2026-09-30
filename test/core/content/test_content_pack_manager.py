@@ -294,3 +294,38 @@ def test_local_content_pack_does_not_enter_shared_content_store(instance: Instan
     ContentPackManager.import_local(instance, "resourcepack", source)
 
     assert not (cache_root / "content-store").exists()
+
+
+def test_remove_directory_content_pack(instance: Instance) -> None:
+    folder_pack = instance.instance_dir / "shaderpacks" / "unpacked_shader"
+    folder_pack.mkdir(parents=True)
+    (folder_pack / "shaders").mkdir()
+    (folder_pack / "shaders" / "composite.vsh").write_text("void main() {}", encoding="utf-8")
+
+    from src.models.content.content_pack import ContentPackEntry
+    entry = ContentPackEntry(
+        entry_id="shader-dir",
+        content_type="shader",
+        provider="local",
+        project_id="",
+        version_id="",
+        file_id="",
+        project_name="Unpacked Shader",
+        version_number="",
+        pack_format=None,
+        pack_description="",
+        file_name="unpacked_shader",
+        target_path="shaderpacks/unpacked_shader",
+        sha1="",
+        sha512="",
+        size=0,
+        source_url="",
+        project_url="",
+        installed_at="2026-09-17T00:00:00Z",
+    )
+    ContentPackRegistry.upsert(instance, entry)
+    assert folder_pack.exists()
+
+    removed = ContentPackManager.remove(instance, "shader-dir")
+    assert removed.entry_id == "shader-dir"
+    assert not folder_pack.exists()

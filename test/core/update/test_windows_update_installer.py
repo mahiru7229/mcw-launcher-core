@@ -116,3 +116,39 @@ def test_installer_keeps_launcher_open_when_updater_exits_early(tmp_path, monkey
         WindowsUpdateInstaller.launch(prepared, install_directory=destination, executable_path=executable, parent_pid=456)
 
     assert not any(updater_root.iterdir())
+
+
+def test_installer_falls_back_to_shell_execute_on_application_control_block(tmp_path, monkeypatch) -> None:
+    prepared, destination, executable = make_prepared(tmp_path)
+    updater_root = tmp_path / "temp"
+    updater_root.mkdir()
+    monkeypatch.setattr(WindowsUpdateInstaller, "is_supported", staticmethod(lambda: True))
+    monkeypatch.setattr("src.core.update.windows_update_installer.tempfile.gettempdir", lambda: str(updater_root))
+
+    def fake_popen(*args, **kwargs):
+        error = OSError("[WinError 4551] An Application Control policy has blocked this file")
+        error.winerror = 4551
+        raise error
+
+    shell_called = []
+    fake_shell_proc = FakeProcess()
+
+    def fake_shell(cls, updater_executable, request_path, target):
+        shell_called.append((updater_executable, request_path, target))
+        return fake_shell_proc
+
+    monkeypatch.setattr("subprocess.Popen", fake_popen)
+    monkeypatch.setattr(WindowsUpdateInstaller, "_start_windows_updater_shell", classmethod(fake_shell))
+    monkeypatch.setattr(WindowsUpdateInstaller, "STARTUP_GRACE_SECONDS", 0)
+    monkeypatch.setattr(WindowsUpdateInstaller, "_wait_for_ready", classmethod(lambda cls, process, ready_path, timeout_seconds: True))
+
+    request_path = WindowsUpdateInstaller.launch(
+        prepared,
+        install_directory=destination,
+        executable_path=executable,
+        parent_pid=456,
+    )
+
+    assert request_path.is_file()
+    assert len(shell_called) == 1
+
