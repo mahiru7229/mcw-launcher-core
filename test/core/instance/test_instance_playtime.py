@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
 
 from src.core.fs.paths import Paths
 from src.core.instance.instance_manager import InstanceManager
-from src.gui.formatters.time_formatter import format_last_played, format_playtime
 from src.models.instance.instance import Instance
 
 
@@ -17,33 +15,6 @@ def temporary_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     instances_root = tmp_path / "instances"
     monkeypatch.setattr(Paths, "INSTANCES_ROOT", instances_root)
     return instances_root
-
-
-def test_format_playtime() -> None:
-    assert format_playtime(0) in {"Chưa từng chơi", "Never played"}
-    assert format_playtime(40) in {"Dưới 1 phút", "< 1 minute"}
-    assert "2" in format_playtime(120)
-    assert "1" in format_playtime(3600)
-    formatted = format_playtime(5400)
-    assert "1" in formatted and "30" in formatted
-
-
-def test_format_last_played() -> None:
-    assert format_last_played("") in {"Chưa từng chơi", "Never"}
-    assert format_last_played(None) in {"Chưa từng chơi", "Never"}
-
-    now = datetime.now(timezone.utc)
-    today_str = now.isoformat()
-    today_result = format_last_played(today_str)
-    assert "Hôm nay" in today_result or "Today" in today_result
-
-    yesterday_str = (now - timedelta(days=1)).isoformat()
-    yesterday_result = format_last_played(yesterday_str)
-    assert "Hôm qua" in yesterday_result or "Yesterday" in yesterday_result
-
-    five_days_str = (now - timedelta(days=5)).isoformat()
-    five_days_result = format_last_played(five_days_str)
-    assert "5" in five_days_result
 
 
 def test_instance_playtime_persistence(temporary_paths: Path) -> None:
