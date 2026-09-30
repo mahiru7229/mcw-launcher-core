@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.8.0 - 2026-09-30
+
+- **100% Core & GUI Decoupling via JSON-RPC 2.0 (`mcw_core.rpc`)**:
+  - Added `CoreRpcDispatcher` mapping all Core subsystems (`system.*`, `instances.*`, `java.*`, `content.*`, `catalog.*`, `worlds.*`, `screenshots.*`, `diagnostics.*`, `operations.*`) to a standardized JSON-RPC 2.0 protocol.
+  - Added `StdioRpcServer` (`mcw-core-rpc --stdio`) for out-of-process Sidecar execution over `stdin`/`stdout`.
+  - Added `HttpRpcServer` (`mcw-core-rpc --http`) on `127.0.0.1` with `GET /health`, `POST /rpc`, and `GET /events` (Server-Sent Events real-time stream).
+  - Added `CoreRpcClient` supporting `direct`, `http`, and `stdio` sidecar transports.
+- **Complete Public API & Models Re-exports (`mcw_core/api/` & `mcw_core/api/models/`)**:
+  - Exported all remaining `src/core/**` modules under `mcw_core.api.*` and all `src/models/**` modules under `mcw_core.api.models.*`.
+  - Added `CorePaths.instances_root` helper property.
+- **Merged `1.7.0` – `1.7.1.1` Hotfix Engine & Hardware GPU Caching**:
+  - Added `HotfixManager` and `HotfixMetaPathFinder` (`mcw_core.api.update.hotfix_manager`) for SHA-256 verified runtime patching from Cloudflare Edge CDN (`mcw-download.pages.dev`) with atomic directory swaps and automatic cleanup on upgrade.
+  - Added persistent hardware GPU detection caching in `GpuPreferenceManager` (`mcw_core.api.hardware.gpu_preference_manager`).
+
 ## 1.6.1 - 2026-09-23
 
 - Modloader metadata retries: Added `HttpDownloader.get_with_retry` with at least 5 attempts and exponential backoff for Forge, NeoForge, Fabric, and Quilt metadata clients to survive transient network issues.
