@@ -7,7 +7,12 @@ import re
 from src.core.curseforge.curseforge_client import CurseForgeClient
 from src.core.curseforge.curseforge_downloader import CurseForgeDownloader, CurseForgeManualDownloadRequired
 from src.core.curseforge.curseforge_errors import CurseForgeManagedFilesRequired
-from src.core.curseforge.curseforge_links import is_numeric_project_placeholder, project_search_url
+from src.core.curseforge.curseforge_links import (
+    file_download_url,
+    is_numeric_project_placeholder,
+    project_search_url,
+    resolve_curseforge_project_slug,
+)
 from src.core.curseforge.curseforge_pack_registry import CurseForgePackRegistry
 from src.core.curseforge.curseforge_registry import CurseForgeRegistry
 from src.core.fs.paths import Paths
@@ -423,7 +428,8 @@ class CurseForgeContentManager:
             else:
                 project_url = str(getattr(project, "project_url", "") or "").rstrip("/")
             if not project_url or is_numeric_project_placeholder(project_url, project_id):
-                project_url = project_search_url(project_id)
+                resolved_slug = resolve_curseforge_project_slug(project_id)
+                project_url = resolved_slug or project_search_url(project_id)
             version_url = str(getattr(existing, "version_url", "") or "").strip()
             if not version_url and project_url and file_id > 0 and not is_numeric_project_placeholder(project_url, project_id):
                 version_url = f"{project_url}/files/{file_id}"

@@ -23,7 +23,7 @@ def test_legacy_settings_without_failure_choice_inherit_launcher_defaults(tmp_pa
 
     assert settings.modrinth_failure_policy == "inherit"
     assert settings.curseforge_failure_policy == "inherit"
-    assert settings.forge_preflight_failure_policy == "inherit"
+    assert settings.forge_preflight_failure_policy == "allow"
 
 
 def test_failure_policies_are_saved_per_instance(tmp_path: Path) -> None:
@@ -31,14 +31,13 @@ def test_failure_policies_are_saved_per_instance(tmp_path: Path) -> None:
     settings = SettingsManager.load(instance)
     settings.modrinth_failure_policy = "allow"
     settings.curseforge_failure_policy = "block"
-    settings.forge_preflight_failure_policy = "allow"
 
     SettingsManager.save(instance, settings)
 
     saved = json.loads((instance.instance_dir / "settings.json").read_text(encoding="utf-8"))
     assert saved["launch"]["modrinth_failure_policy"] == "allow"
     assert saved["launch"]["curseforge_failure_policy"] == "block"
-    assert saved["launch"]["forge_preflight_failure_policy"] == "allow"
+    assert "forge_preflight_failure_policy" not in saved["launch"]
     reloaded = SettingsManager.load(instance)
     assert reloaded.modrinth_failure_policy == "allow"
     assert reloaded.curseforge_failure_policy == "block"
@@ -182,7 +181,7 @@ def test_legacy_modrinth_boolean_does_not_change_forge_preflight_policy(tmp_path
 
     settings = SettingsManager.load(instance)
 
-    assert settings.forge_preflight_failure_policy == "inherit"
+    assert settings.forge_preflight_failure_policy == "allow"
 
 
 def test_public_dict_codec_returns_canonical_independent_data(monkeypatch) -> None:

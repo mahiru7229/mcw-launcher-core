@@ -100,12 +100,15 @@ def test_curseforge_manual_link_resolves_file_id_by_filename(monkeypatch) -> Non
 
 
 def test_curseforge_manual_link_falls_back_to_search_when_numeric_unresolvable(monkeypatch) -> None:
+    import src.core.curseforge.curseforge_links as cf_links
     from mcw_core.api.curseforge.curseforge_client import CurseForgeClient
+    cf_links._PROJECT_SLUG_CACHE.clear()
     monkeypatch.setattr(
         CurseForgeClient,
         "get_project",
         staticmethod(lambda _id: (_ for _ in ()).throw(RuntimeError("offline"))),
     )
+    monkeypatch.setattr(cf_links, "_resolve_from_cflookup", lambda _id: "")
     requirement = SimpleNamespace(
         provider="curseforge",
         project_id=348025,
@@ -113,4 +116,40 @@ def test_curseforge_manual_link_falls_back_to_search_when_numeric_unresolvable(m
         file_id=4436467,
     )
     assert best_manual_download_url(requirement) == "https://www.curseforge.com/minecraft/search?search=348025"
+
+
+def test_curseforge_manual_link_resolves_via_cflookup_when_gateway_fails(monkeypatch) -> None:
+    import src.core.curseforge.curseforge_links as cf_links
+    from mcw_core.api.curseforge.curseforge_client import CurseForgeClient
+    cf_links._PROJECT_SLUG_CACHE.clear()
+    monkeypatch.setattr(
+        CurseForgeClient,
+        "get_project",
+        staticmethod(lambda _id: (_ for _ in ()).throw(RuntimeError("offline"))),
+    )
+    monkeypatch.setattr(
+        cf_links,
+        "_resolve_from_cflookup",
+        lambda _id: "https://www.curseforge.com/minecraft/mc-mods/scape-and-run-parasites",
+    )
+    requirement = SimpleNamespace(
+        provider="curseforge",
+        project_id=348025,
+        project_url="https://www.curseforge.com/minecraft/mc-mods/348025",
+        file_id=4436467,
+    )
+    assert best_manual_download_url(requirement) == "https://www.curseforge.com/minecraft/mc-mods/scape-and-run-parasites/download/4436467"
+
+
+def test_resolve_curseforge_project_slug(monkeypatch) -> None:
+    import src.core.curseforge.curseforge_links as cf_links
+    cf_links._PROJECT_SLUG_CACHE.clear()
+    monkeypatch.setattr(
+        cf_links,
+        "_resolve_from_cflookup",
+        lambda pid: "https://www.curseforge.com/minecraft/mc-mods/jei" if pid == 238222 else "",
+    )
+    assert cf_links.resolve_curseforge_project_slug(238222) == "https://www.curseforge.com/minecraft/mc-mods/jei"
+    assert cf_links.resolve_curseforge_project_slug(999999) == ""
+
 

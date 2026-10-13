@@ -12,6 +12,7 @@ from mcw_core.rpc import (
     RpcEvent,
     StdioRpcServer,
 )
+from src.config import VERSION, VERSION_ID
 
 
 def test_core_rpc_direct_and_event_subscription(tmp_path: Path) -> None:
@@ -21,7 +22,7 @@ def test_core_rpc_direct_and_event_subscription(tmp_path: Path) -> None:
 
     ping = client.call("system.ping")
     assert ping["ok"] is True
-    assert ping["version_id"] == "1.8.0"
+    assert ping["version_id"] == VERSION_ID
     assert ping["protocol"] == "jsonrpc-2.0"
 
     # Test sensitive data redaction via JSON-RPC
@@ -56,7 +57,7 @@ def test_core_rpc_http_server_and_client(tmp_path: Path) -> None:
         client = CoreRpcClient(mode="http", http_url=base_url)
         ping = client.call("system.ping")
         assert ping["ok"] is True
-        assert ping["version"] == "v1.8.0"
+        assert ping["version"] == VERSION
 
         hotfix = client.call("system.hotfix_status")
         assert "cdn_label" in hotfix
@@ -81,7 +82,7 @@ def test_core_rpc_stdio_server_stream(tmp_path: Path) -> None:
     assert len(lines) == 1
     parsed = json.loads(lines[0])
     assert parsed["id"] == 42
-    assert parsed["result"]["version_id"] == "1.8.0"
+    assert parsed["result"]["version_id"] == VERSION_ID
 
 
 def test_core_rpc_stdio_sidecar_subprocess(tmp_path: Path) -> None:
@@ -93,6 +94,6 @@ def test_core_rpc_stdio_sidecar_subprocess(tmp_path: Path) -> None:
     try:
         res = client.call("system.ping")
         assert res["ok"] is True
-        assert res["version_id"] == "1.8.0"
+        assert res["version_id"] == VERSION_ID
     finally:
         client.close()

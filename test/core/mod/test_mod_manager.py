@@ -970,3 +970,52 @@ def test_fabric_provides_aliases_are_exposed_as_capabilities(tmp_path):
 
     assert mod.mod_id == "cloth-config"
     assert mod.provided_mods == (("cloth-config2", "15.0.140+fabric"),)
+
+
+def test_forge_mods_toml_salvages_identity_when_strings_contain_unescaped_newlines(tmp_path):
+    jar = tmp_path / "twilightforest-4.0.870.jar"
+    raw = b'''modLoader="javafml"
+loaderVersion="[36,)"
+
+[[mods]]
+modId="twilightforest"
+version="4.0.870"
+displayName="The Twilight Forest"
+authors="Benimatic, AtomicBlom, Drullkus, Killer_Demon, quadraxis, Tamaized, williewillus, GizmoTheMoonPig
+" #optional
+description="An enchanted forest dimension.
+With lots of adventures."
+'''
+    with zipfile.ZipFile(jar, "w") as archive:
+        archive.writestr("META-INF/mods.toml", raw)
+
+    mod = ModManager.read_mod(jar, preferred_loader="forge")
+
+    assert mod.status == "Ready"
+    assert mod.mod_id == "twilightforest"
+    assert mod.version == "4.0.870"
+    assert mod.metadata_format == "mods.toml (tolerant)"
+    assert "Benimatic" in mod.authors
+    assert "An enchanted forest dimension." in mod.description
+    assert mod.error == ""
+
+
+def test_forge_mods_toml_salvages_embedded_mods_with_unescaped_newlines(tmp_path):
+    jar = tmp_path / "container.jar"
+    raw = b'''modLoader="javafml"
+loaderVersion="[36,)"
+
+[[mods]]
+modId="embeddedmod"
+version="1.0.0"
+displayName="Embedded Mod"
+description="Line 1
+Line 2"
+'''
+    with zipfile.ZipFile(jar, "w") as archive:
+        archive.writestr("META-INF/mods.toml", raw)
+
+    with zipfile.ZipFile(jar, "r") as zf:
+        declared = ModManager._declared_mods(zf)
+    assert ("embeddedmod", "1.0.0") in declared
+

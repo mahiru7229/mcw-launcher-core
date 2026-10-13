@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.8.1 - 2026-10-14
+
+- **Direct CurseForge Countdown Download URL Resolution & Slug Resolver**:
+  - Added direct countdown URL generator `resolve_download_page_url` (`https://www.curseforge.com/minecraft/{category}/{slug}/download/{file_id}`) in `CurseForgeLinks`.
+  - Added slug resolution via fallback service `cflookup.com/{project_id}` and in-memory cache when project slug is unknown without an API key.
+- **Maven Library Deduplication on Classpath**:
+  - Implemented version-aware deduplication in `ClasspathBuilder` (`deduplicate_maven_libraries`), keeping the latest version of libraries (e.g. Log4j 2.15.0+, lwjgl) while preserving classpath order.
+- **Prism Launcher Direct Launch Execution**:
+  - Aligned preflight checks with Prism Launcher behavior: non-blocking mod dependency resolution warnings delegating final checks to the ModLoader runtime.
+- **Hotfix Manager & Mod Manager Enhancements**:
+  - Hardened runtime hotfix reload and multi-mod manual installation pipeline.
+
 ## 1.8.0 - 2026-09-30
 
 - **100% Core & GUI Decoupling via JSON-RPC 2.0 (`mcw_core.rpc`)**:

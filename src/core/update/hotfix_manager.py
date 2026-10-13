@@ -264,8 +264,47 @@ class HotfixManager:
         if live_str not in sys.path:
             sys.path.insert(0, live_str)
         cls._install_meta_path_finder(manager.live_dir)
+        cls._evict_cached_hotfix_modules(manager.live_dir)
         logger.info("Hotfix %s injected into sys.path[0] and sys.meta_path: %s", state.target_version, live_str)
         return True
+
+    @classmethod
+    def _evict_cached_hotfix_modules(cls, live_dir: Path) -> None:
+        """Evict and reload any modules from sys.modules that exist in live_dir."""
+        if not live_dir.is_dir():
+            return
+        reloaded = []
+        for py_file in live_dir.rglob("*.py"):
+            rel_path = py_file.relative_to(live_dir)
+            parts = list(rel_path.parts)
+            if parts[-1].endswith(".py"):
+                parts[-1] = parts[-1][:-3]
+            if parts[-1] == "__init__":
+                parts.pop()
+            mod_name = ".".join(parts)
+            if mod_name in sys.modules and mod_name != __name__:
+                del sys.modules[mod_name]
+                try:
+                    importlib.import_module(mod_name)
+                    reloaded.append(mod_name)
+                except Exception:
+                    pass
+        if "mcw_core.facade" in sys.modules:
+            try:
+                import mcw_core.facade
+
+                importlib.reload(mcw_core.facade)
+            except Exception:
+                pass
+        if "mcw_core" in sys.modules:
+            try:
+                import mcw_core
+
+                importlib.reload(mcw_core)
+            except Exception:
+                pass
+        if reloaded:
+            logger.info("Evicted and refreshed %d cached hotfix modules: %s", len(reloaded), reloaded)
 
     # -------------------------------------------------------------------------
     # Manifest & Discovery

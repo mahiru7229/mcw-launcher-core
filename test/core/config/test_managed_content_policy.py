@@ -41,14 +41,8 @@ def test_invalid_provider_is_rejected() -> None:
         ManagedContentPolicy.resolve(SimpleNamespace(), launcher_settings(), "unknown")
 
 
-def test_forge_preflight_instance_policy_overrides_launcher_default() -> None:
-    settings = SimpleNamespace(forge_preflight_failure_policy="allow")
-
+def test_forge_preflight_always_allows_launch() -> None:
+    settings = SimpleNamespace(forge_preflight_failure_policy="block")
     assert ManagedContentPolicy.blocks_launch(settings, launcher_settings(forge_preflight="block"), "forge_preflight") is False
+    assert ManagedContentPolicy.resolve(settings, launcher_settings(forge_preflight="block"), "forge_preflight") == ManagedContentPolicy.ALLOW
 
-
-def test_forge_preflight_inherit_uses_launcher_default() -> None:
-    settings = SimpleNamespace(forge_preflight_failure_policy="inherit")
-
-    assert ManagedContentPolicy.blocks_launch(settings, launcher_settings(forge_preflight="allow"), "forge_preflight") is False
-    assert ManagedContentPolicy.blocks_launch(settings, launcher_settings(forge_preflight="block"), "forge_preflight") is True

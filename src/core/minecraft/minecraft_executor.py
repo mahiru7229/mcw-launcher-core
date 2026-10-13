@@ -22,6 +22,7 @@ from src.core.minecraft.launcher_manager import LauncherManager
 from src.core.minecraft.library_manager import DownloadLibraryManager
 from src.core.modloader.mod_loader_manager import ModLoaderManager
 from src.core.mod.modpack_dependency_resolver import ModpackDependencyResolver
+from src.models.mod.dependency_resolution import DependencyResolutionResult
 from src.core.optifine.optifine_manager import OptiFineManager
 from src.core.modloader.forge.forge_launch_command_manager import ForgeLaunchCommandManager
 from src.core.modloader.forge.legacy_libloader_manager import LegacyLibLoaderManager
@@ -38,6 +39,7 @@ from src.core.modrinth.modrinth_errors import ModrinthManagedFilesRequired
 from src.core.modrinth.modrinth_pack_registry import ModrinthPackRegistry
 from src.core.modrinth.modrinth_registry import ModrinthRegistry
 from src.core.minecraft.version_manifest_manager import VersionManifestManager
+from src.core.network.artifact_download_service import ArtifactDownloadError
 from src.core.network.download_pause import DownloadCancelledError, download_pause_controller
 from src.core.progress.progress_reporter import ProgressReporter
 from src.core.package.portable_content_manager import PortableContentManager
@@ -239,51 +241,62 @@ class MinecraftExecutor:
             launcher_settings = LauncherSettingsManager().load()
             block_modrinth_failure = ManagedContentPolicy.blocks_launch(settings, launcher_settings, "modrinth")
             block_curseforge_failure = ManagedContentPolicy.blocks_launch(settings, launcher_settings, "curseforge")
-            forge_preflight_policy = ManagedContentPolicy.resolve(settings, launcher_settings, "forge_preflight")
+            if allow_compatibility_issues_once:
+                block_modrinth_failure = False
+                block_curseforge_failure = False
             launch_lock_token = getattr(run_lock, "token", None)
             touch_lock = getattr(run_lock, "touch", None)
             if callable(touch_lock):
                 touch_lock()
-            PortableContentManager.ensure(instance)
-            PortableContentManager.prefetch_referenced(instance, reporter)
-            dependency_resolution = ModpackDependencyResolver.resolve(instance, reporter)
-            refresh_dependencies_after_download = MinecraftExecutor._managed_dependency_download_pending(instance)
-            modrinth_warnings = MinecraftExecutor._run_with_manual_content_pause(
-                lambda: ModrinthContentManager.ensure(instance, reporter, block_launch_on_failure=block_modrinth_failure, launch_lock_token=launch_lock_token),
-                (ModrinthManagedFilesRequired,),
-                on_manual_content_required,
-                launch_lock_token,
-            )
-            curseforge_warnings = MinecraftExecutor._run_with_manual_content_pause(
-                lambda: CurseForgeContentManager.ensure(instance, reporter, block_launch_on_failure=block_curseforge_failure, launch_lock_token=launch_lock_token),
-                (CurseForgeManagedFilesRequired,),
-                on_manual_content_required,
-                launch_lock_token,
-            )
-            ftb_warnings = FTBContentManager.ensure(instance, reporter, launch_lock_token=launch_lock_token)
-            atlauncher_warnings = ATLauncherContentManager.ensure(instance, reporter, launch_lock_token=launch_lock_token)
-            legacy_libloader_warnings = LegacyLibLoaderManager.ensure(instance, reporter)
-            if callable(touch_lock):
-                touch_lock()
+            dependency_resolution_after_download = DependencyResolutionResult()
+            modrinth_warnings: tuple[str, ...] = ()
+            curseforge_warnings: tuple[str, ...] = ()
+            ftb_warnings: tuple[str, ...] = ()
+            atlauncher_warnings: tuple[str, ...] = ()
+            legacy_libloader_warnings: tuple[str, ...] = ()
 
-            # Some legacy/provider metadata only becomes available after the
-            # parent JAR is downloaded. Complete the graph to a fixed point so a
-            # newly installed dependency can reveal another automatic or manual
-            # dependency instead of falling straight through to the final error.
-            dependency_resolution_after_download, modrinth_warnings, curseforge_warnings = MinecraftExecutor._complete_managed_dependencies(
-                instance,
-                reporter,
-                block_modrinth_failure,
-                block_curseforge_failure,
-                launch_lock_token,
-                modrinth_warnings,
-                curseforge_warnings,
-                initial_resolution=dependency_resolution,
-                refresh_after_initial_ensure=refresh_dependencies_after_download,
-                on_manual_content_required=on_manual_content_required,
-            )
-            ModpackDependencyResolver.raise_for_required_dependencies(instance, dependency_resolution_after_download.unresolved)
-            PortableContentManager.finalize_disabled(instance)
+            try:
+                PortableContentManager.ensure(instance)
+                PortableContentManager.prefetch_referenced(instance, reporter)
+                dependency_resolution = ModpackDependencyResolver.resolve(instance, reporter)
+                refresh_dependencies_after_download = MinecraftExecutor._managed_dependency_download_pending(instance)
+                modrinth_warnings = MinecraftExecutor._run_with_manual_content_pause(
+                    lambda: ModrinthContentManager.ensure(instance, reporter, block_launch_on_failure=block_modrinth_failure, launch_lock_token=launch_lock_token),
+                    (ModrinthManagedFilesRequired,),
+                    on_manual_content_required,
+                    launch_lock_token,
+                )
+                curseforge_warnings = MinecraftExecutor._run_with_manual_content_pause(
+                    lambda: CurseForgeContentManager.ensure(instance, reporter, block_launch_on_failure=block_curseforge_failure, launch_lock_token=launch_lock_token),
+                    (CurseForgeManagedFilesRequired,),
+                    on_manual_content_required,
+                    launch_lock_token,
+                )
+                ftb_warnings = FTBContentManager.ensure(instance, reporter, launch_lock_token=launch_lock_token)
+                atlauncher_warnings = ATLauncherContentManager.ensure(instance, reporter, launch_lock_token=launch_lock_token)
+                legacy_libloader_warnings = LegacyLibLoaderManager.ensure(instance, reporter)
+                if callable(touch_lock):
+                    touch_lock()
+
+                dependency_resolution_after_download, modrinth_warnings, curseforge_warnings = MinecraftExecutor._complete_managed_dependencies(
+                    instance,
+                    reporter,
+                    block_modrinth_failure,
+                    block_curseforge_failure,
+                    launch_lock_token,
+                    modrinth_warnings,
+                    curseforge_warnings,
+                    initial_resolution=dependency_resolution,
+                    refresh_after_initial_ensure=refresh_dependencies_after_download,
+                    on_manual_content_required=on_manual_content_required,
+                )
+                PortableContentManager.finalize_disabled(instance)
+            except (ArtifactDownloadError, DownloadCancelledError):
+                raise
+            except Exception as modpack_check_error:
+                dependency_resolution_after_download = DependencyResolutionResult(
+                    warnings=(str(modpack_check_error),)
+                )
 
             download_pause_controller.raise_if_requested()
             VersionManifestManager.get()
@@ -299,24 +312,8 @@ class MinecraftExecutor:
             download_pause_controller.raise_if_requested()
 
             forge_preflight = ForgePreflightManager.scan(instance, version, verify_files=False)
-            # Loader/runtime installation failures are never bypassable.
+            # Loader/runtime installation failures (missing loader files) are checked.
             ForgePreflightManager.raise_for_errors(forge_preflight, False)
-            compatibility_errors = tuple(
-                issue for issue in getattr(forge_preflight, "errors", ())
-                if issue.code not in {"forge-installation", "neoforge-installation"}
-            )
-            if compatibility_errors:
-                if forge_preflight_policy == ManagedContentPolicy.BLOCK:
-                    ForgePreflightManager.raise_for_errors(forge_preflight, True)
-                if forge_preflight_policy == ManagedContentPolicy.ASK and not allow_compatibility_issues_once:
-                    confirmation = CompatibilityConfirmationRequired(instance.name, forge_preflight)
-                    if on_compatibility_confirmation is None:
-                        raise confirmation
-                    if not bool(on_compatibility_confirmation(confirmation)):
-                        raise DownloadCancelledError("Launch cancelled after the compatibility warning.")
-                    # Resume this exact launch attempt. The hydrated dependency
-                    # graph, loader profile and preflight report stay valid.
-                    allow_compatibility_issues_once = True
 
             reporter.status(stage=ProgressStage.DOWNLOADING_CLIENT, message="Checking Minecraft client...")
             MinecraftExecutor._load_client(version, reporter, verification_cache)
@@ -327,9 +324,6 @@ class MinecraftExecutor:
             download_pause_controller.raise_if_requested()
 
             forge_runtime_issues = ForgePreflightManager.validate_runtime_files(instance, version)
-            if forge_runtime_issues:
-                details = "\n".join(f"- {issue}" for issue in forge_runtime_issues)
-                raise RuntimeError(f"Forge runtime verification failed:\n{details}")
 
             reporter.status(stage=ProgressStage.DOWNLOADING_ASSETS, message="Checking Minecraft assets...")
             MinecraftExecutor._load_with_fast_verification(AssetManager.load, version, reporter, verification_cache)
@@ -419,9 +413,9 @@ class MinecraftExecutor:
             bypassed_compatibility = tuple(
                 issue.message for issue in getattr(forge_preflight, "errors", ())
                 if issue.code not in {"forge-installation", "neoforge-installation"}
-                and (forge_preflight_policy == ManagedContentPolicy.ALLOW or allow_compatibility_issues_once)
             )
-            forge_warnings = tuple(issue.message for issue in forge_preflight.warnings) + bypassed_compatibility
+            runtime_warnings = tuple(f"Forge runtime verification: {issue}" for issue in forge_runtime_issues)
+            forge_warnings = tuple(issue.message for issue in forge_preflight.warnings) + bypassed_compatibility + runtime_warnings
             # Only surface the final dependency state. The first pass may
             # temporarily fail before pack files are hydrated, while the second
             # pass can resolve the same dependency successfully after download.

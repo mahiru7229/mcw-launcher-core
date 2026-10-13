@@ -10,16 +10,46 @@ class ClasspathBuilder:
 
     @staticmethod
     def build(version: Version, client_path: Path, libraries_dir: Path) -> str:
-        classpath: list[str] = []
+        entries: list[tuple[tuple[str, str, str] | None, str]] = []
+        key_indices: dict[tuple[str, str, str], int] = {}
+
         for library in version.libraries:
             if not LibraryRuleManager.is_allowed(library) or library.get("clientreq") is False:
                 continue
             artifact_path = ClasspathBuilder._artifact_path(library, libraries_dir)
             if artifact_path is None:
                 continue
-            classpath.append(str(libraries_dir / artifact_path))
+
+            full_path = str(libraries_dir / artifact_path)
+            key = ClasspathBuilder._maven_key(library)
+
+            if key is not None and key in key_indices:
+                idx = key_indices[key]
+                entries[idx] = (key, full_path)
+            else:
+                if key is not None:
+                    key_indices[key] = len(entries)
+                entries.append((key, full_path))
+
+        classpath = [path for _, path in entries]
         classpath.append(str(client_path))
         return os.pathsep.join(classpath)
+
+    @staticmethod
+    def _maven_key(library: dict) -> tuple[str, str, str] | None:
+        raw = str(library.get("name") or "").strip()
+        if not raw:
+            return None
+        if "@" in raw:
+            raw, _ = raw.rsplit("@", 1)
+        parts = [part.strip() for part in raw.split(":")]
+        if len(parts) < 3:
+            return None
+        group, artifact = parts[0], parts[1]
+        classifier = parts[3] if len(parts) > 3 else ""
+        if not group or not artifact:
+            return None
+        return (group, artifact, classifier)
 
     @staticmethod
     def _artifact_path(library: dict, libraries_dir: Path) -> Path | None:

@@ -37,7 +37,6 @@ class SettingsManager:
             "lan_connection_provider": "manual",
             "modrinth_failure_policy": "inherit",
             "curseforge_failure_policy": "inherit",
-            "forge_preflight_failure_policy": "inherit",
         },
     }
 
@@ -169,7 +168,7 @@ class SettingsManager:
             lan_connection_provider=lan_connection_provider,
             modrinth_failure_policy=SettingsManager._failure_policy(launch, "modrinth"),
             curseforge_failure_policy=SettingsManager._failure_policy(launch, "curseforge"),
-            forge_preflight_failure_policy=SettingsManager._failure_policy(launch, "forge_preflight"),
+            forge_preflight_failure_policy=SettingsManager._failure_policy(launch, "forge_preflight") if "forge_preflight_failure_policy" in launch else "allow",
         )
 
     @staticmethod
@@ -193,7 +192,6 @@ class SettingsManager:
                 "lan_connection_provider": SettingsManager._as_choice(settings.lan_connection_provider, {"manual", "e4mc"}, "manual"),
                 "modrinth_failure_policy": ManagedContentPolicy.normalize_instance(settings.modrinth_failure_policy),
                 "curseforge_failure_policy": ManagedContentPolicy.normalize_instance(settings.curseforge_failure_policy),
-                "forge_preflight_failure_policy": ManagedContentPolicy.normalize_instance(settings.forge_preflight_failure_policy),
             },
         }
 

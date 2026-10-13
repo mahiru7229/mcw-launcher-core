@@ -17,7 +17,7 @@ class InstanceSettings:
     lan_connection_provider: str = "manual"
     modrinth_failure_policy: str = "inherit"
     curseforge_failure_policy: str = "inherit"
-    forge_preflight_failure_policy: str = "inherit"
+    forge_preflight_failure_policy: str = "allow"
 
     width: int = 854
     height: int = 480

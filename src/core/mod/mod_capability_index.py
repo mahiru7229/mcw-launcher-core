@@ -182,7 +182,7 @@ class ModCapabilityIndex:
             if metadata_path not in names:
                 continue
             try:
-                data = tomllib.loads(archive.read(metadata_path).decode("utf-8-sig"))
+                data, _ = ModManager._parse_forge_metadata(archive.read(metadata_path), default_format=PurePosixPath(metadata_path).name)
             except (KeyError, UnicodeError, tomllib.TOMLDecodeError):
                 continue
             mods = data.get("mods") if isinstance(data.get("mods"), list) else []

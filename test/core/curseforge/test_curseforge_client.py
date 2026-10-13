@@ -542,3 +542,20 @@ def test_latest_compatible_file_rejects_wrong_minecraft_version(monkeypatch) -> 
 
     with pytest.raises(RuntimeError, match="No compatible Forge file for Minecraft 1.20.1"):
         CurseForgeClient.latest_compatible_file(2, "1.20.1", loader="forge")
+
+
+def test_parse_file_extracts_loaders_from_sortable_game_versions() -> None:
+    # Older CurseForge packs only list Forge in sortableGameVersions, not in gameVersions
+    file = CurseForgeClient._parse_file({
+        "id": 100,
+        "modId": 200,
+        "fileName": "pack.zip",
+        "gameVersions": ["1.12.2"],
+        "sortableGameVersions": [
+            {"gameVersionName": "1.12.2", "gameVersionPadded": "0001.0012.0002"},
+            {"gameVersionName": "Forge", "gameVersionPadded": "Forge"},
+        ],
+    })
+
+    assert file.game_versions == ("1.12.2",)
+    assert file.loaders == ("forge",)

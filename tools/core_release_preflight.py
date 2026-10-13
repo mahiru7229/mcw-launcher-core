@@ -3,13 +3,17 @@ from __future__ import annotations
 import ast
 import json
 from pathlib import Path
+import sys
 import tomllib
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 import mcw_core
 from src.config import CURSEFORGE_DEFAULT_GATEWAY_URL, UPDATE_CHANNEL, VERSION_ID
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
 FORBIDDEN_ROOTS = ("accounts", "backups", "cache", "instances", "logs", "runtimes")
 
 
@@ -31,8 +35,8 @@ def validate() -> list[str]:
         errors.append("Distribution name must be mcw-core.")
     if project.get("version") != VERSION_ID or mcw_core.__version__ != VERSION_ID:
         errors.append("pyproject, src.config and mcw_core runtime versions must match.")
-    if VERSION_ID != "1.5.1" or UPDATE_CHANNEL != "stable":
-        errors.append("This source package must be Stable v1.5.1.")
+    if VERSION_ID != "1.8.1" or UPDATE_CHANNEL != "stable":
+        errors.append("This source package must be Stable v1.8.1.")
     if CURSEFORGE_DEFAULT_GATEWAY_URL:
         errors.append("A default CurseForge gateway URL must not be bundled.")
     if (PROJECT_ROOT / "src" / "gui").exists():

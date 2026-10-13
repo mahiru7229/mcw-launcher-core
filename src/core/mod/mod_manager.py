@@ -517,9 +517,130 @@ class ModManager:
         return buckets["depends"], buckets["recommends"], buckets["suggests"], buckets["conflicts"], buckets["breaks"]
 
     @staticmethod
+    def _normalize_lenient_toml(text: str) -> str:
+        out: list[str] = []
+        i = 0
+        n = len(text)
+        state = "NORMAL"
+
+        while i < n:
+            if state == "NORMAL":
+                if text[i:i+3] == '"""':
+                    out.append('"""')
+                    i += 3
+                    state = "TRIPLE_DOUBLE"
+                elif text[i:i+3] == "'''":
+                    out.append("'''")
+                    i += 3
+                    state = "TRIPLE_SINGLE"
+                elif text[i] == '"':
+                    out.append('"')
+                    i += 1
+                    state = "SINGLE_DOUBLE"
+                elif text[i] == "'":
+                    out.append("'")
+                    i += 1
+                    state = "SINGLE_SINGLE"
+                elif text[i] == '#':
+                    out.append('#')
+                    i += 1
+                    state = "COMMENT"
+                else:
+                    out.append(text[i])
+                    i += 1
+            elif state == "COMMENT":
+                if text[i] == '\n':
+                    out.append('\n')
+                    i += 1
+                    state = "NORMAL"
+                else:
+                    out.append(text[i])
+                    i += 1
+            elif state == "TRIPLE_DOUBLE":
+                if text[i] == '\\' and i + 1 < n:
+                    out.append(text[i:i+2])
+                    i += 2
+                elif text[i:i+3] == '"""':
+                    out.append('"""')
+                    i += 3
+                    state = "NORMAL"
+                else:
+                    out.append(text[i])
+                    i += 1
+            elif state == "TRIPLE_SINGLE":
+                if text[i:i+3] == "'''":
+                    out.append("'''")
+                    i += 3
+                    state = "NORMAL"
+                else:
+                    out.append(text[i])
+                    i += 1
+            elif state == "SINGLE_DOUBLE":
+                if text[i] == '\\' and i + 1 < n:
+                    next_c = text[i+1]
+                    if next_c in '"\\btnfr':
+                        out.append(text[i:i+2])
+                        i += 2
+                    elif next_c == 'u' and i + 5 < n and all(c in "0123456789abcdefABCDEF" for c in text[i+2:i+6]):
+                        out.append(text[i:i+6])
+                        i += 6
+                    elif next_c == 'U' and i + 9 < n and all(c in "0123456789abcdefABCDEF" for c in text[i+2:i+10]):
+                        out.append(text[i:i+10])
+                        i += 10
+                    elif text[i+1:i+3] == '\r\n':
+                        out.append('\\n')
+                        i += 3
+                    elif next_c == '\n':
+                        out.append('\\n')
+                        i += 2
+                    else:
+                        out.append('\\\\')
+                        i += 1
+                elif text[i] == '"':
+                    out.append('"')
+                    i += 1
+                    state = "NORMAL"
+                elif text[i:i+2] == '\r\n':
+                    out.append('\\n')
+                    i += 2
+                elif text[i] == '\n':
+                    out.append('\\n')
+                    i += 1
+                elif text[i] == '\r':
+                    out.append('\\r')
+                    i += 1
+                else:
+                    out.append(text[i])
+                    i += 1
+            elif state == "SINGLE_SINGLE":
+                if text[i] == "'":
+                    out.append("'")
+                    i += 1
+                    state = "NORMAL"
+                elif text[i:i+2] == '\r\n':
+                    out.append('\r\n')
+                    i += 2
+                elif text[i] == '\n':
+                    out.append('\n')
+                    i += 1
+                else:
+                    out.append(text[i])
+                    i += 1
+        return "".join(out)
+
+    @staticmethod
+    def _parse_forge_metadata(raw_metadata: bytes, default_format: str = "mods.toml") -> tuple[dict, str]:
+        text = raw_metadata.decode("utf-8-sig")
+        try:
+            return tomllib.loads(text), default_format
+        except tomllib.TOMLDecodeError:
+            normalized = ModManager._normalize_lenient_toml(text)
+            return tomllib.loads(normalized), f"{default_format} (tolerant)"
+
+    @staticmethod
     def _read_forge_mod(path: Path, file_name: str, enabled: bool, raw_metadata: bytes, loader: str, metadata_format: str, manifest: dict[str, str] | None = None, provider_version: str = "") -> ModInfo:
         try:
-            data = tomllib.loads(raw_metadata.decode("utf-8-sig"))
+            data, metadata_format = ModManager._parse_forge_metadata(raw_metadata, default_format=metadata_format)
         except (UnicodeError, tomllib.TOMLDecodeError) as error:
             return ModManager._invalid_mod(path, file_name, enabled, "Broken JAR", f"Invalid Forge mods.toml: {error}", loader=loader, metadata_format=metadata_format)
 
@@ -780,7 +901,7 @@ class ModManager:
             if metadata_name not in names:
                 continue
             try:
-                data = tomllib.loads(archive.read(metadata_name).decode("utf-8-sig"))
+                data, _ = ModManager._parse_forge_metadata(archive.read(metadata_name), default_format=Path(metadata_name).name)
             except (UnicodeError, tomllib.TOMLDecodeError):
                 continue
             mods = data.get("mods") if isinstance(data, dict) and isinstance(data.get("mods"), list) else []

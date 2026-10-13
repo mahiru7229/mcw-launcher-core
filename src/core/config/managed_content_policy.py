@@ -31,6 +31,8 @@ class ManagedContentPolicy:
     @classmethod
     def resolve(cls, instance_settings: object, launcher_settings: dict[str, Any], provider: str) -> str:
         normalized_provider = str(provider or "").strip().lower()
+        if normalized_provider == "forge_preflight":
+            return cls.ALLOW
         if normalized_provider not in cls.PROVIDERS:
             raise ValueError(f"Unsupported managed-content provider: {provider}")
 

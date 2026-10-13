@@ -6,6 +6,7 @@ from src.core.curseforge.curseforge_links import (
     file_page_url,
     normalize_project_page,
     project_search_url,
+    resolve_curseforge_project_slug,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "file_page_url",
     "normalize_project_page",
     "project_search_url",
+    "resolve_curseforge_project_slug",
 ]

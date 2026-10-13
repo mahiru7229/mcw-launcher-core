@@ -1180,10 +1180,9 @@ def test_run_stops_started_process_when_supervision_registration_fails(monkeypat
     assert aborted and aborted[0][0] == "session-id"
 
 
-def test_run_asks_before_bypassing_forge_compatibility_errors(monkeypatch: pytest.MonkeyPatch):
-    patch_pipeline(monkeypatch)
+def test_run_does_not_block_on_forge_compatibility_errors(monkeypatch: pytest.MonkeyPatch):
+    pipeline = patch_pipeline(monkeypatch)
     settings = SimpleNamespace(
-        forge_preflight_failure_policy="ask",
         modrinth_failure_policy="inherit",
         curseforge_failure_policy="inherit",
     )
@@ -1191,18 +1190,17 @@ def test_run_asks_before_bypassing_forge_compatibility_errors(monkeypatch: pytes
     report = SimpleNamespace(errors=(issue,), warnings=(), warning_count=0, loader="forge")
     monkeypatch.setattr(SettingsManager, "load", lambda instance: settings)
     monkeypatch.setattr(ForgePreflightManager, "scan", lambda instance, version, verify_files=False: report)
+    monkeypatch.setattr(ForgePreflightManager, "validate_runtime_files", lambda instance, version: ())
 
-    with pytest.raises(CompatibilityConfirmationRequired) as raised:
-        MinecraftExecutor.run(instance=make_instance(), authentication=object(), account=object())
+    result = MinecraftExecutor.run(instance=make_instance(), authentication=object(), account=object())
 
-    assert raised.value.instance_name == "Test Instance"
-    assert raised.value.issues == (issue,)
+    assert result["minecraftVersion"] == pipeline["version"].id
+    assert "Create requires Flywheel." in result["warnings"]
 
 
 def test_run_can_bypass_compatibility_errors_once_without_changing_policy(monkeypatch: pytest.MonkeyPatch):
     pipeline = patch_pipeline(monkeypatch)
     settings = SimpleNamespace(
-        forge_preflight_failure_policy="ask",
         modrinth_failure_policy="inherit",
         curseforge_failure_policy="inherit",
     )
@@ -1218,10 +1216,9 @@ def test_run_can_bypass_compatibility_errors_once_without_changing_policy(monkey
     assert "A dependency version may be incompatible." in result["warnings"]
 
 
-def test_run_resumes_same_pipeline_after_compatibility_confirmation(monkeypatch: pytest.MonkeyPatch):
+def test_run_bypasses_confirmation_callback(monkeypatch: pytest.MonkeyPatch):
     pipeline = patch_pipeline(monkeypatch)
     settings = SimpleNamespace(
-        forge_preflight_failure_policy="ask",
         modrinth_failure_policy="inherit",
         curseforge_failure_policy="inherit",
     )
@@ -1245,15 +1242,14 @@ def test_run_resumes_same_pipeline_after_compatibility_confirmation(monkeypatch:
     )
 
     assert result["minecraftVersion"] == pipeline["version"].id
-    assert len(confirmations) == 1
+    assert len(confirmations) == 0
     assert len(scans) == 1
     assert "Duplicate enabled mod ID." in result["warnings"]
 
 
-def test_run_cancels_same_pipeline_when_compatibility_is_declined(monkeypatch: pytest.MonkeyPatch):
-    patch_pipeline(monkeypatch)
+def test_run_does_not_cancel_on_declined_compatibility_confirmation(monkeypatch: pytest.MonkeyPatch):
+    pipeline = patch_pipeline(monkeypatch)
     settings = SimpleNamespace(
-        forge_preflight_failure_policy="ask",
         modrinth_failure_policy="inherit",
         curseforge_failure_policy="inherit",
     )
@@ -1261,14 +1257,17 @@ def test_run_cancels_same_pipeline_when_compatibility_is_declined(monkeypatch: p
     report = SimpleNamespace(errors=(issue,), warnings=(), warning_count=0, loader="forge")
     monkeypatch.setattr(SettingsManager, "load", lambda instance: settings)
     monkeypatch.setattr(ForgePreflightManager, "scan", lambda instance, version, verify_files=False: report)
+    monkeypatch.setattr(ForgePreflightManager, "validate_runtime_files", lambda instance, version: ())
 
-    with pytest.raises(DownloadCancelledError, match="compatibility warning"):
-        MinecraftExecutor.run(
-            instance=make_instance(),
-            authentication=object(),
-            account=object(),
-            on_compatibility_confirmation=lambda request: False,
-        )
+    result = MinecraftExecutor.run(
+        instance=make_instance(),
+        authentication=object(),
+        account=object(),
+        on_compatibility_confirmation=lambda request: False,
+    )
+
+    assert result["minecraftVersion"] == pipeline["version"].id
+    assert "Duplicate enabled mod ID." in result["warnings"]
 
 
 def test_hard_loader_installation_errors_cannot_be_bypassed(monkeypatch: pytest.MonkeyPatch):
@@ -1345,3 +1344,55 @@ def test_complete_managed_dependencies_reuses_initial_resolution_when_no_downloa
     assert result is initial
     assert modrinth_warnings == ("m",)
     assert curseforge_warnings == ("c",)
+
+
+def test_run_bypasses_unresolved_modpack_dependencies_when_forge_policy_allows(monkeypatch: pytest.MonkeyPatch):
+    pipeline = patch_pipeline(monkeypatch)
+    settings = SimpleNamespace(
+        forge_preflight_failure_policy="allow",
+        modrinth_failure_policy="inherit",
+        curseforge_failure_policy="inherit",
+    )
+    monkeypatch.setattr(SettingsManager, "load", lambda instance: settings)
+    unresolved_res = DependencyResolutionResult(unresolved=("Dependency 'twilightforest' has 3 blocking requirements",))
+    monkeypatch.setattr(ModpackDependencyResolver, "resolve", lambda instance, reporter=None: unresolved_res)
+    monkeypatch.setattr(ForgePreflightManager, "validate_runtime_files", lambda instance, version: ())
+
+    result = MinecraftExecutor.run(instance=make_instance(), authentication=object(), account=object())
+
+    assert result["minecraftVersion"] == pipeline["version"].id
+    assert any("twilightforest" in warning for warning in result.get("warnings", ()))
+
+
+def test_run_does_not_block_on_unresolved_modpack_dependencies(monkeypatch: pytest.MonkeyPatch):
+    pipeline = patch_pipeline(monkeypatch)
+    settings = SimpleNamespace(
+        modrinth_failure_policy="inherit",
+        curseforge_failure_policy="inherit",
+    )
+    monkeypatch.setattr(SettingsManager, "load", lambda instance: settings)
+    unresolved_res = DependencyResolutionResult(unresolved=("Dependency 'twilightforest' missing",))
+    monkeypatch.setattr(ModpackDependencyResolver, "resolve", lambda instance, reporter=None: unresolved_res)
+    monkeypatch.setattr(ForgePreflightManager, "validate_runtime_files", lambda instance, version: ())
+
+    result = MinecraftExecutor.run(instance=make_instance(), authentication=object(), account=object())
+
+    assert result["minecraftVersion"] == pipeline["version"].id
+    assert any("twilightforest" in warning for warning in result.get("warnings", ()))
+
+
+def test_run_bypasses_forge_runtime_verification_when_policy_allows(monkeypatch: pytest.MonkeyPatch):
+    pipeline = patch_pipeline(monkeypatch)
+    settings = SimpleNamespace(
+        forge_preflight_failure_policy="allow",
+        modrinth_failure_policy="inherit",
+        curseforge_failure_policy="inherit",
+    )
+    monkeypatch.setattr(SettingsManager, "load", lambda instance: settings)
+    monkeypatch.setattr(ForgePreflightManager, "validate_runtime_files", lambda instance, version: ("Missing required library: test.jar",))
+
+    result = MinecraftExecutor.run(instance=make_instance(), authentication=object(), account=object())
+
+    assert result["minecraftVersion"] == pipeline["version"].id
+    assert any("test.jar" in warning for warning in result.get("warnings", ()))
+

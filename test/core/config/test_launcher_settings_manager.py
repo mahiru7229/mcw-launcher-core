@@ -224,7 +224,6 @@ def test_managed_content_failure_defaults_are_source_specific_and_persisted(tmp_
     assert manager.load()["managed_content"] == {
         "modrinth_failure_policy": "block",
         "curseforge_failure_policy": "block",
-        "forge_preflight_failure_policy": "ask",
     }
 
     manager.update_section("managed_content", {
@@ -236,7 +235,6 @@ def test_managed_content_failure_defaults_are_source_specific_and_persisted(tmp_
     assert manager.load()["managed_content"] == {
         "modrinth_failure_policy": "allow",
         "curseforge_failure_policy": "block",
-        "forge_preflight_failure_policy": "allow",
     }
 
 
@@ -304,3 +302,21 @@ def test_unused_version_retention_days_defaults_and_are_clamped(tmp_path: Path) 
 
     manager.update_section("storage", {"unused_version_retention_days": 9999})
     assert manager.load()["storage"]["unused_version_retention_days"] == 365
+
+
+def test_schema_version_20_removes_forge_preflight_failure_policy(tmp_path: Path) -> None:
+    path = tmp_path / "launcher_settings.json"
+    path.write_text(json.dumps({
+        "schema_version": 19,
+        "managed_content": {
+            "modrinth_failure_policy": "block",
+            "curseforge_failure_policy": "block",
+            "forge_preflight_failure_policy": "ask",
+        },
+    }), encoding="utf-8")
+    manager = LauncherSettingsManager(path)
+    data = manager.load()
+
+    assert data["schema_version"] == 20
+    assert "forge_preflight_failure_policy" not in data["managed_content"]
+

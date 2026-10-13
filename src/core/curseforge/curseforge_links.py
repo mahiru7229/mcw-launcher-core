@@ -4,7 +4,8 @@ import re
 from urllib.parse import quote_plus, urlparse, urlunparse
 
 _ALLOWED_HOSTS = {"curseforge.com", "www.curseforge.com", "legacy.curseforge.com"}
-_PROJECT_CATEGORIES = {"mc-mods", "modpacks", "texture-packs", "shaders"}
+_PROJECT_CATEGORIES = {"mc-mods", "modpacks", "texture-packs", "shaders", "worlds", "data-packs"}
+_PROJECT_SLUG_CACHE: dict[int, str] = {}
 
 
 def normalize_project_page(url: object) -> str:
@@ -31,7 +32,65 @@ def is_numeric_project_placeholder(url: object, project_id: int | str) -> bool:
     normalized = normalize_project_page(url)
     if not normalized:
         return False
-    return normalized.rstrip("/").rsplit("/", 1)[-1] == str(project_id).strip()
+    last = normalized.rstrip("/").rsplit("/", 1)[-1]
+    return last == str(project_id).strip() or last.isdigit()
+
+
+def _resolve_from_client(project_id: int) -> str:
+    try:
+        from mcw_core.api.curseforge.curseforge_client import CurseForgeClient
+        proj = CurseForgeClient.get_project(project_id)
+        candidate = normalize_project_page(getattr(proj, "project_url", ""))
+        if candidate and not is_numeric_project_placeholder(candidate, project_id):
+            return candidate
+    except Exception:
+        pass
+    return ""
+
+
+def _resolve_from_cflookup(project_id: int) -> str:
+    try:
+        from src.core.network.httpx_downloader import HttpDownloader
+        client = HttpDownloader.get_client()
+        resp = client.get(f"https://cflookup.com/{project_id}", timeout=5.0, follow_redirects=True)
+        if resp.status_code == 200:
+            match = re.search(
+                r'<meta\s+property=["\']og:url["\']\s+content=["\'](https://(?:www\.)?curseforge\.com/minecraft/[^"\']+)["\']',
+                resp.text,
+                re.IGNORECASE,
+            )
+            candidate = match.group(1) if match else ""
+            if not candidate:
+                pattern = re.compile(
+                    r'https://(?:www\.)?curseforge\.com/minecraft/(?:' + "|".join(_PROJECT_CATEGORIES) + r')/[a-zA-Z0-9_\-]+',
+                    re.IGNORECASE,
+                )
+                match2 = pattern.search(resp.text)
+                if match2:
+                    candidate = match2.group(0)
+            if candidate:
+                norm = normalize_project_page(candidate)
+                if norm and not is_numeric_project_placeholder(norm, project_id):
+                    return norm
+    except Exception:
+        pass
+    return ""
+
+
+def resolve_curseforge_project_slug(project_id: int | str) -> str:
+    pid = int(project_id or 0) if str(project_id).strip().isdigit() else 0
+    if pid <= 0:
+        return ""
+    if pid in _PROJECT_SLUG_CACHE:
+        return _PROJECT_SLUG_CACHE[pid]
+
+    resolved = _resolve_from_client(pid)
+    if not resolved:
+        resolved = _resolve_from_cflookup(pid)
+
+    if resolved:
+        _PROJECT_SLUG_CACHE[pid] = resolved
+    return resolved
 
 
 def project_search_url(project_id: int | str) -> str:
@@ -74,14 +133,9 @@ def best_manual_download_url(requirement: object) -> str:
 
         # Check if candidate_project is a numeric placeholder (e.g. /mc-mods/348025) which returns 404
         if (not candidate_project or (project_id > 0 and is_numeric_project_placeholder(candidate_project, project_id))) and project_id > 0:
-            try:
-                from mcw_core.api.curseforge.curseforge_client import CurseForgeClient
-                proj = CurseForgeClient.get_project(project_id)
-                resolved_proj = normalize_project_page(proj.project_url)
-                if resolved_proj and not is_numeric_project_placeholder(resolved_proj, project_id):
-                    candidate_project = resolved_proj
-            except Exception:
-                pass
+            resolved_proj = resolve_curseforge_project_slug(project_id)
+            if resolved_proj:
+                candidate_project = resolved_proj
 
         if not file_id_str:
             for source_url in (version_url, direct_url):
@@ -103,7 +157,7 @@ def best_manual_download_url(requirement: object) -> str:
             except Exception:
                 pass
 
-        is_numeric = project_id > 0 and is_numeric_project_placeholder(candidate_project, project_id)
+        is_numeric = (project_id > 0 and is_numeric_project_placeholder(candidate_project, project_id)) or (candidate_project.rstrip("/").rsplit("/", 1)[-1].isdigit() if candidate_project else False)
         if candidate_project and not is_numeric and file_id_str and file_id_str.isdigit() and int(file_id_str) > 0:
             return file_download_url(candidate_project, file_id_str)
 
@@ -113,7 +167,8 @@ def best_manual_download_url(requirement: object) -> str:
         if version_url and not (project_id > 0 and is_numeric_project_placeholder(version_url, project_id)):
             if file_id_str and file_id_str.isdigit() and int(file_id_str) > 0:
                 return re.sub(r"/files/(\d+)", r"/download/\1", version_url)
-            return version_url
+            if "/search?search=" not in version_url:
+                return version_url
 
         if project_id > 0:
             return project_search_url(project_id)

@@ -16,7 +16,7 @@ from src.core.theme.theme_palette import normalize_hex_color
 
 
 class LauncherSettingsManager:
-    SCHEMA_VERSION = 19
+    SCHEMA_VERSION = 20
     UPDATE_CHANNEL_POLICY_VERSION = 2
     DEFAULT_SETTINGS = {
         "schema_version": SCHEMA_VERSION,
@@ -58,7 +58,6 @@ class LauncherSettingsManager:
         "managed_content": {
             "modrinth_failure_policy": "block",
             "curseforge_failure_policy": "block",
-            "forge_preflight_failure_policy": "ask",
         },
         "network": {
             "download_limit_mbps": 0.0,
@@ -239,7 +238,7 @@ class LauncherSettingsManager:
         managed_content = normalized.setdefault("managed_content", {})
         managed_content["modrinth_failure_policy"] = ManagedContentPolicy.normalize_global(managed_content.get("modrinth_failure_policy"))
         managed_content["curseforge_failure_policy"] = ManagedContentPolicy.normalize_global(managed_content.get("curseforge_failure_policy"))
-        managed_content["forge_preflight_failure_policy"] = ManagedContentPolicy.normalize_global(managed_content.get("forge_preflight_failure_policy"), ManagedContentPolicy.ASK)
+        managed_content.pop("forge_preflight_failure_policy", None)
 
         network = normalized.setdefault("network", {})
         network["download_limit_mbps"] = self._as_download_limit(network.get("download_limit_mbps"))

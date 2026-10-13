@@ -498,3 +498,78 @@ def test_build_returns_string_paths(
         isinstance(entry, str)
         for entry in result.split(os.pathsep)
     )
+
+
+def test_build_deduplicates_maven_libraries_keeping_later_version(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    monkeypatch.setattr(
+        LibraryRuleManager,
+        "is_allowed",
+        lambda library: True,
+    )
+
+    client_path = tmp_path / "client.jar"
+    libraries_dir = tmp_path / "libraries"
+
+    lib_v1 = {
+        "name": "org.apache.logging.log4j:log4j-core:2.8.1",
+        "downloads": {"artifact": {"path": "org/apache/logging/log4j/log4j-core/2.8.1/log4j-core-2.8.1.jar"}},
+    }
+    lib_other = {
+        "name": "com.example:other:1.0",
+        "downloads": {"artifact": {"path": "com/example/other/1.0/other-1.0.jar"}},
+    }
+    lib_v2 = {
+        "name": "org.apache.logging.log4j:log4j-core:2.15.0",
+        "downloads": {"artifact": {"path": "org/apache/logging/log4j/log4j-core/2.15.0/log4j-core-2.15.0.jar"}},
+    }
+
+    result = ClasspathBuilder.build(
+        version=make_version([lib_v1, lib_other, lib_v2]),
+        client_path=client_path,
+        libraries_dir=libraries_dir,
+    )
+
+    entries = result.split(os.pathsep)
+    expected_v2 = str(libraries_dir / "org/apache/logging/log4j/log4j-core/2.15.0/log4j-core-2.15.0.jar")
+    expected_other = str(libraries_dir / "com/example/other/1.0/other-1.0.jar")
+
+    assert entries == [expected_v2, expected_other, str(client_path)]
+    assert str(libraries_dir / "org/apache/logging/log4j/log4j-core/2.8.1/log4j-core-2.8.1.jar") not in entries
+
+
+def test_build_preserves_libraries_with_different_classifiers(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    monkeypatch.setattr(
+        LibraryRuleManager,
+        "is_allowed",
+        lambda library: True,
+    )
+
+    client_path = tmp_path / "client.jar"
+    libraries_dir = tmp_path / "libraries"
+
+    lib_main = {
+        "name": "org.lwjgl:lwjgl:3.2.2",
+        "downloads": {"artifact": {"path": "org/lwjgl/lwjgl/3.2.2/lwjgl-3.2.2.jar"}},
+    }
+    lib_classified = {
+        "name": "org.lwjgl:lwjgl:3.2.2:extra",
+        "downloads": {"artifact": {"path": "org/lwjgl/lwjgl/3.2.2/lwjgl-3.2.2-extra.jar"}},
+    }
+
+    result = ClasspathBuilder.build(
+        version=make_version([lib_main, lib_classified]),
+        client_path=client_path,
+        libraries_dir=libraries_dir,
+    )
+
+    entries = result.split(os.pathsep)
+    assert len(entries) == 3
+    assert str(libraries_dir / "org/lwjgl/lwjgl/3.2.2/lwjgl-3.2.2.jar") in entries
+    assert str(libraries_dir / "org/lwjgl/lwjgl/3.2.2/lwjgl-3.2.2-extra.jar") in entries
+    assert entries[-1] == str(client_path)

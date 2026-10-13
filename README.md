@@ -1,8 +1,20 @@
-# MCW Core 1.8.0
+# MCW Core 1.8.1
 
-MCW Core is the headless engine runtime shipped with MCW Launcher `v1.8.0`. This source distribution contains the complete public API, JSON-RPC 2.0 server (`mcw_core.rpc`), implementation, data models, tests, documentation, examples, and LAN Agent resource. The separate CurseForge gateway source archive is intentionally not bundled with MCW Core.
+MCW Core is the headless engine runtime shipped with MCW Launcher `v1.8.1`. This source distribution contains the complete public API, JSON-RPC 2.0 server (`mcw_core.rpc`), implementation, data models, tests, documentation, examples, and LAN Agent resource. The separate CurseForge gateway source archive is intentionally not bundled with MCW Core.
 
 PySide6 and the launcher GUI are intentionally not part of the Core distribution.
+
+## What changed in 1.8.1
+
+- **Direct CurseForge Countdown Download URL Resolution & Slug Resolver**:
+  - Added direct countdown URL generator `resolve_download_page_url` (`https://www.curseforge.com/minecraft/{category}/{slug}/download/{file_id}`) in `CurseForgeLinks`.
+  - Added slug resolution via fallback service `cflookup.com/{project_id}` and in-memory cache when project slug is unknown without an API key.
+- **Maven Library Deduplication on Classpath**:
+  - Implemented version-aware deduplication in `ClasspathBuilder` (`deduplicate_maven_libraries`), keeping the latest version of libraries (e.g. Log4j 2.15.0+, lwjgl) while preserving classpath order.
+- **Prism Launcher Direct Launch Execution**:
+  - Aligned preflight checks with Prism Launcher behavior: non-blocking mod dependency resolution warnings delegating final checks to the ModLoader runtime.
+- **Hotfix Manager & Mod Manager Enhancements**:
+  - Hardened runtime hotfix reload and multi-mod manual installation pipeline.
 
 ## What changed in 1.8.0
 
@@ -17,19 +29,12 @@ PySide6 and the launcher GUI are intentionally not part of the Core distribution
   - Added `HotfixManager` and `HotfixMetaPathFinder` (`mcw_core.api.update.hotfix_manager`) for SHA-256 verified runtime hotfix patching from Cloudflare Edge CDN (`mcw-download.pages.dev`) with atomic directory swaps and automatic cleanup on base version upgrades.
   - Added hardware GPU detection caching in `GpuPreferenceManager` (`mcw_core.api.hardware.gpu_preference_manager`) for fast startup.
 
-## What changed in 1.6.1
-
-- **Modloader metadata network retries**: Added `HttpDownloader.get_with_retry` with at least 5 attempts and exponential backoff for Forge, NeoForge, Fabric, and Quilt metadata clients to survive transient network timeouts or connection drops.
-- **Extended Windows path support (`\\?\`)**: Extended `src/core/fs/windows_path.py` with `to_extended_windows_path()` and `native_filesystem_path()`, adding support in `copy_file()`, `link_file()`, `same_file()`, `open_file()`, and `is_file()` to handle paths exceeding 260 characters (`MAX_PATH`).
-- **Long-path protection in Java & Loader managers**: `JavaProvisioner`, `NeoForgeVersionManager`, and `ForgeVersionManager` safely handle deep nested library extractions, chunked streaming copy fallbacks, and runtime markers (fixes Issue #32).
-- **Staging publishing optimization**: Shortened temporary publishing artifact filenames in `SharedFileMaterializer` (`.tmp_<hex>.pub`), saving up to 90 path characters.
-
 ## Installation
 
 ### From prebuilt Wheel (`.whl`)
 
 ```bash
-pip install mcw_core-1.8.0-py3-none-any.whl
+pip install mcw_core-1.8.1-py3-none-any.whl
 ```
 
 ### Install for development
