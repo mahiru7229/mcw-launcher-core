@@ -38,6 +38,43 @@ class ArgumentBuilder:
         "is_quick_play_realms": False,
     }
 
+    OFFLINE_SERVICES_HOST_ARGUMENT = "-Dminecraft.api.services.host=https://nope.invalid"
+
+    @staticmethod
+    def extract_game_version(version: object) -> str:
+        if version is None:
+            return ""
+        raw_json = getattr(version, "raw_json", None)
+        if isinstance(raw_json, dict):
+            inherited = raw_json.get("inheritsFrom")
+            if inherited and isinstance(inherited, str):
+                return inherited.strip()
+            for key in ("forge", "neoforge", "quilt", "fabric"):
+                mod_meta = raw_json.get(key)
+                if isinstance(mod_meta, dict) and mod_meta.get("gameVersion"):
+                    return str(mod_meta["gameVersion"]).strip()
+        version_id = getattr(version, "id", None)
+        if isinstance(version_id, str):
+            return version_id.strip()
+        return ""
+
+    @staticmethod
+    def is_offline_multiplayer_fix_required(version: object) -> bool:
+        game_version = ArgumentBuilder.extract_game_version(version)
+        if not game_version:
+            return False
+        if game_version in ("1.16.4", "1.16.5"):
+            return True
+        if game_version.startswith("1.16."):
+            parts = game_version.split(".")
+            if len(parts) >= 3:
+                sub = parts[2].split("-")[0]
+                if sub.isdigit() and int(sub) >= 4:
+                    return True
+        if "1.16.4" in game_version or "1.16.5" in game_version:
+            return True
+        return False
+
     @staticmethod
     def build(version: Version, context: dict, settings: InstanceSettings, account: Account) -> tuple[list[str], list[str]]:
         user_jvm_arguments = LanAgentManager.sanitize_user_jvm_arguments(settings.jvm_arguments)
@@ -74,6 +111,8 @@ class ArgumentBuilder:
 
         if account.account_type == AccountSource.OFFLINE:
             jvm_args = ArgumentBuilder._remove_unsafe_offline_auth_overrides(jvm_args)
+            if ArgumentBuilder.is_offline_multiplayer_fix_required(version):
+                jvm_args.append(ArgumentBuilder.OFFLINE_SERVICES_HOST_ARGUMENT)
             game_args = ArgumentBuilder._normalize_offline_identity_arguments(game_args, context)
 
         return jvm_args, game_args

@@ -717,3 +717,65 @@ def test_build_removes_user_overrides_for_mcw_lan_agent():
     assert "-javaagent:C:/cache/mcw-lan-agent.jar" not in jvm_args
     assert "-javaagent:C:/tools/other-agent.jar" in jvm_args
     assert "-Dexample=true" in jvm_args
+
+
+def test_offline_account_applies_multiplayer_fix_for_1_16_5():
+    version = make_version()
+    version.id = "1.16.5"
+    jvm_args, _ = ArgumentBuilder.build(
+        version=version,
+        context={},
+        settings=make_settings(),
+        account=make_account(AccountSource.OFFLINE),
+    )
+    assert "-Dminecraft.api.services.host=https://nope.invalid" in jvm_args
+
+
+def test_offline_account_applies_multiplayer_fix_for_1_16_4():
+    version = make_version()
+    version.id = "1.16.4"
+    jvm_args, _ = ArgumentBuilder.build(
+        version=version,
+        context={},
+        settings=make_settings(),
+        account=make_account(AccountSource.OFFLINE),
+    )
+    assert "-Dminecraft.api.services.host=https://nope.invalid" in jvm_args
+
+
+def test_offline_account_applies_multiplayer_fix_for_forge_1_16_5():
+    version = make_version()
+    version.id = "forge-1.16.5-36.2.39"
+    version.raw_json = {"inheritsFrom": "1.16.5"}
+    jvm_args, _ = ArgumentBuilder.build(
+        version=version,
+        context={},
+        settings=make_settings(),
+        account=make_account(AccountSource.OFFLINE),
+    )
+    assert "-Dminecraft.api.services.host=https://nope.invalid" in jvm_args
+
+
+def test_offline_account_does_not_apply_multiplayer_fix_for_1_20_1():
+    version = make_version()
+    version.id = "1.20.1"
+    jvm_args, _ = ArgumentBuilder.build(
+        version=version,
+        context={},
+        settings=make_settings(),
+        account=make_account(AccountSource.OFFLINE),
+    )
+    assert "-Dminecraft.api.services.host=https://nope.invalid" not in jvm_args
+
+
+def test_microsoft_account_does_not_apply_multiplayer_fix_for_1_16_5():
+    version = make_version()
+    version.id = "1.16.5"
+    jvm_args, _ = ArgumentBuilder.build(
+        version=version,
+        context={},
+        settings=make_settings(),
+        account=make_account(AccountSource.MICROSOFT),
+    )
+    assert "-Dminecraft.api.services.host=https://nope.invalid" not in jvm_args
+
