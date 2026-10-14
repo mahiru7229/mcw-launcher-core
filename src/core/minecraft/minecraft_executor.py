@@ -334,6 +334,8 @@ class MinecraftExecutor:
             download_pause_controller.raise_if_requested()
 
             reporter.status(stage=ProgressStage.BUILDING_COMMAND, message="Building launch command...")
+            from src.core.minecraft.launcher_manager import LauncherManager
+
             lan_runtime_arguments = LanAgentManager.runtime_arguments(version, lan_auth_mode, instance, reporter)
             build_kwargs: dict[str, object] = {}
             if lan_runtime_arguments:

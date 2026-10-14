@@ -21,6 +21,8 @@ class LauncherManager:
         quick_play_singleplayer: str | None = None,
         quick_play_multiplayer: str | None = None,
     ) -> list[str]:
+        from src.core.minecraft.argument_builder import ArgumentBuilder
+
         classpath = ClasspathBuilder.build(
             version,
             Paths.client(version),

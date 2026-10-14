@@ -39,6 +39,12 @@ class ArgumentBuilder:
     }
 
     OFFLINE_SERVICES_HOST_ARGUMENT = "-Dminecraft.api.services.host=https://nope.invalid"
+    OFFLINE_MULTIPLAYER_HOST_ARGUMENTS = (
+        "-Dminecraft.api.auth.host=https://nope.invalid",
+        "-Dminecraft.api.account.host=https://nope.invalid",
+        "-Dminecraft.api.session.host=https://nope.invalid",
+        "-Dminecraft.api.services.host=https://nope.invalid",
+    )
 
     @staticmethod
     def extract_game_version(version: object) -> str:
@@ -112,7 +118,7 @@ class ArgumentBuilder:
         if account.account_type == AccountSource.OFFLINE:
             jvm_args = ArgumentBuilder._remove_unsafe_offline_auth_overrides(jvm_args)
             if ArgumentBuilder.is_offline_multiplayer_fix_required(version):
-                jvm_args.append(ArgumentBuilder.OFFLINE_SERVICES_HOST_ARGUMENT)
+                jvm_args.extend(ArgumentBuilder.OFFLINE_MULTIPLAYER_HOST_ARGUMENTS)
             game_args = ArgumentBuilder._normalize_offline_identity_arguments(game_args, context)
 
         return jvm_args, game_args

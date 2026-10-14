@@ -728,7 +728,8 @@ def test_offline_account_applies_multiplayer_fix_for_1_16_5():
         settings=make_settings(),
         account=make_account(AccountSource.OFFLINE),
     )
-    assert "-Dminecraft.api.services.host=https://nope.invalid" in jvm_args
+    for arg in ArgumentBuilder.OFFLINE_MULTIPLAYER_HOST_ARGUMENTS:
+        assert arg in jvm_args
 
 
 def test_offline_account_applies_multiplayer_fix_for_1_16_4():
@@ -740,7 +741,8 @@ def test_offline_account_applies_multiplayer_fix_for_1_16_4():
         settings=make_settings(),
         account=make_account(AccountSource.OFFLINE),
     )
-    assert "-Dminecraft.api.services.host=https://nope.invalid" in jvm_args
+    for arg in ArgumentBuilder.OFFLINE_MULTIPLAYER_HOST_ARGUMENTS:
+        assert arg in jvm_args
 
 
 def test_offline_account_applies_multiplayer_fix_for_forge_1_16_5():
@@ -753,7 +755,8 @@ def test_offline_account_applies_multiplayer_fix_for_forge_1_16_5():
         settings=make_settings(),
         account=make_account(AccountSource.OFFLINE),
     )
-    assert "-Dminecraft.api.services.host=https://nope.invalid" in jvm_args
+    for arg in ArgumentBuilder.OFFLINE_MULTIPLAYER_HOST_ARGUMENTS:
+        assert arg in jvm_args
 
 
 def test_offline_account_does_not_apply_multiplayer_fix_for_1_20_1():
@@ -765,7 +768,8 @@ def test_offline_account_does_not_apply_multiplayer_fix_for_1_20_1():
         settings=make_settings(),
         account=make_account(AccountSource.OFFLINE),
     )
-    assert "-Dminecraft.api.services.host=https://nope.invalid" not in jvm_args
+    for arg in ArgumentBuilder.OFFLINE_MULTIPLAYER_HOST_ARGUMENTS:
+        assert arg not in jvm_args
 
 
 def test_microsoft_account_does_not_apply_multiplayer_fix_for_1_16_5():
@@ -777,5 +781,6 @@ def test_microsoft_account_does_not_apply_multiplayer_fix_for_1_16_5():
         settings=make_settings(),
         account=make_account(AccountSource.MICROSOFT),
     )
-    assert "-Dminecraft.api.services.host=https://nope.invalid" not in jvm_args
+    for arg in ArgumentBuilder.OFFLINE_MULTIPLAYER_HOST_ARGUMENTS:
+        assert arg not in jvm_args
 
