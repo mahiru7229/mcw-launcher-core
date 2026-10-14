@@ -40,9 +40,9 @@ class ArgumentBuilder:
 
     OFFLINE_SERVICES_HOST_ARGUMENT = "-Dminecraft.api.services.host=https://nope.invalid"
     OFFLINE_MULTIPLAYER_HOST_ARGUMENTS = (
-        "-Dminecraft.api.auth.host=https://nope.invalid",
-        "-Dminecraft.api.account.host=https://nope.invalid",
-        "-Dminecraft.api.session.host=https://nope.invalid",
+        "-Dminecraft.api.auth.host=https://authserver.mojang.com",
+        "-Dminecraft.api.account.host=https://api.mojang.com",
+        "-Dminecraft.api.session.host=https://sessionserver.mojang.com",
         "-Dminecraft.api.services.host=https://nope.invalid",
     )
 
