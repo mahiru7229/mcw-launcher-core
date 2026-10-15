@@ -10,6 +10,9 @@
   - Added `sync_timeout` parameter to `HotfixManager.bootstrap_sys_path`.
   - Added callback observer pattern (`register_apply_callback` / `unregister_apply_callback`) to `HotfixManager.apply_hotfix`.
   - Automatically evicts cached modules from `sys.modules` (`_evict_cached_hotfix_modules`) upon applying patches in memory.
+- **Offline Account Steve / Alex Default Models Without Online Skin Lookups**:
+  - Offline accounts automatically determine Steve (`classic`) or Alex (`slim`) models locally using Minecraft's official `DefaultPlayerSkin` UUID hash algorithm (`OfflineAuthentication.default_skin_variant`).
+  - Completely bypasses external skin network calls (Minotar/Mojang), preventing accidental skin leakage even when an offline username matches a licensed player.
 
 ## 1.8.1 - 2026-10-14
 

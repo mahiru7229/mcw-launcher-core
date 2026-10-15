@@ -1,8 +1,20 @@
-# MCW Core 1.8.1
+# MCW Core 1.8.2-beta.1
 
-MCW Core is the headless engine runtime shipped with MCW Launcher `v1.8.1`. This source distribution contains the complete public API, JSON-RPC 2.0 server (`mcw_core.rpc`), implementation, data models, tests, documentation, examples, and LAN Agent resource. The separate CurseForge gateway source archive is intentionally not bundled with MCW Core.
+MCW Core is the headless engine runtime shipped with MCW Launcher `v1.8.2-beta.1`. This source distribution contains the complete public API, JSON-RPC 2.0 server (`mcw_core.rpc`), implementation, data models, tests, documentation, examples, and LAN Agent resource. The separate CurseForge gateway source archive is intentionally not bundled with MCW Core.
 
 PySide6 and the launcher GUI are intentionally not part of the Core distribution.
+
+## What changed in 1.8.2-beta.1
+
+- **Extended MCW LAN Agent Support to Lower Minecraft Versions (Down to 1.14+)**:
+  - `LanAgentTargetResolver` extended from 1.17+ to 1.14.0+ (supports Minecraft 1.14, 1.15, 1.16.5+).
+  - Automatically identifies Forge SRG (`func_71229_d`), Fabric Intermediary (`method_3864`/`method_3782`), and Mojang official mapping targets to eliminate "Invalid session" disconnects when playing over offline LAN.
+- **Hotfix Manager Pre-bootstrap Auto-Sync & Memory Eviction**:
+  - Added fast fail-open auto-sync (`auto_sync=True`, timeout 2.0s) for newly downloaded or unpatched installations before UI modules are cached in RAM.
+  - Automatically evicts stale in-memory modules (`sys.modules`) upon applying patches, paired with observer notification callbacks.
+- **Offline Account Steve / Alex Default Models Without Online Skin Lookups**:
+  - Offline accounts automatically determine Steve (`classic`) or Alex (`slim`) models locally using Minecraft's official `DefaultPlayerSkin` UUID hash algorithm (`OfflineAuthentication.default_skin_variant`).
+  - Completely bypasses external skin network calls (Minotar/Mojang), preventing accidental skin leakage even when an offline username matches a licensed player.
 
 ## What changed in 1.8.1
 
@@ -34,7 +46,7 @@ PySide6 and the launcher GUI are intentionally not part of the Core distribution
 ### From prebuilt Wheel (`.whl`)
 
 ```bash
-pip install mcw_core-1.8.1-py3-none-any.whl
+pip install mcw_core-1.8.2b1-py3-none-any.whl
 ```
 
 ### Install for development
