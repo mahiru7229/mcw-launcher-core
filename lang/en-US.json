@@ -2301,7 +2301,9 @@
     "account.microsoft.device_code.copied": "Copied!",
     "account.microsoft.device_code.open_link": "Open Link",
     "hotfix.update_title": "Hotfix Update",
-    "hotfix.applied_restart_prompt": "Hotfix v{version} applied. Please restart launcher to take full effect."
+    "hotfix.applied_restart_prompt": "Hotfix v{version} applied. Please restart launcher to take full effect.",
+    "restart.failed_title": "Restart failed",
+    "restart.failed_message": "Could not restart launcher."
   },
   "aliases": {
     "MCW Launcher": "app.name",
