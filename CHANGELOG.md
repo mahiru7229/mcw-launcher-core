@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.8.2-beta.1 - 2026-10-15
+
+- **Extended MCW LAN Agent Support to Lower Minecraft Versions (Down to 1.14+)**:
+  - Lowered `LanAgentTargetResolver.MIN_SUPPORTED_VERSION` from 1.17 to 1.14.0.
+  - Automatically resolves Forge SRG (`func_71229_d`), Fabric Intermediary, and Mojang Official mapping targets for Minecraft 1.14 through 1.16.5+.
+  - Fixes "Invalid session" disconnect for LAN players connecting via IP/port under offline LAN mode.
+- **Hotfix Manager Startup Synchronization & Dynamic Module Invalidation**:
+  - Added `sync_timeout` parameter to `HotfixManager.bootstrap_sys_path`.
+  - Added callback observer pattern (`register_apply_callback` / `unregister_apply_callback`) to `HotfixManager.apply_hotfix`.
+  - Automatically evicts cached modules from `sys.modules` (`_evict_cached_hotfix_modules`) upon applying patches in memory.
+
 ## 1.8.1 - 2026-10-14
 
 - **Direct CurseForge Countdown Download URL Resolution & Slug Resolver**:

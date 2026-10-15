@@ -42,13 +42,13 @@ class LanAgentTargetResolution:
 class LanAgentTargetResolver:
     """Resolve the LAN authentication setter across modern Minecraft mappings.
 
-    Minecraft 1.17 through 25.x is obfuscated in production. Fabric remaps the
+    Minecraft 1.14 through 25.x is obfuscated in production. Fabric remaps the
     game to intermediary names, Forge runs the SRG-remapped client artifact,
     and Vanilla uses the official namespace. Minecraft 26.1+ exposes named
     runtime classes, so named aliases remain candidates for every version.
     """
 
-    MIN_SUPPORTED_VERSION = (1, 17, 0)
+    MIN_SUPPORTED_VERSION = (1, 14, 0)
     NAMED_CLASS = "net/minecraft/server/MinecraftServer"
     NAMED_METHODS = ("setUsesAuthentication", "setOnlineMode")
     TARGET_DESCRIPTOR = "(Z)V"
@@ -64,7 +64,7 @@ class LanAgentTargetResolver:
                 game_version=game_version,
                 loader=loader,
                 targets=(),
-                warnings=("MCW LAN Agent supports Minecraft 1.17 or newer.",),
+                warnings=("MCW LAN Agent supports Minecraft 1.14 or newer.",),
             )
 
         preferred_named_methods = cls.NAMED_METHODS if parsed_version is None or parsed_version >= (26, 1, 0) else tuple(reversed(cls.NAMED_METHODS))

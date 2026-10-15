@@ -203,14 +203,34 @@ def test_find_forge_runtime_jars_uses_mcp_version_from_game_arguments(tmp_path: 
     assert artifacts == (slim_jar, srg_jar)
 
 
-def test_resolve_versions_before_117_returns_no_targets(tmp_path: Path) -> None:
+def test_resolve_versions_before_114_returns_no_targets(tmp_path: Path) -> None:
     version = make_version()
-    instance = make_instance(tmp_path, version_id="1.16.5")
+    instance = make_instance(tmp_path, version_id="1.12.2")
 
     resolution = LanAgentTargetResolver.resolve(version, instance)
 
     assert resolution.targets == ()
-    assert "1.17 or newer" in resolution.warnings[0]
+    assert "1.14 or newer" in resolution.warnings[0]
+
+
+def test_resolve_forge_1165_emits_srg_official_and_named_candidates(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    mapping_path = tmp_path / "client.txt"
+    write_mojang_mappings(mapping_path)
+    version = make_version(mapping_path, game_arguments=["--fml.mcpVersion", "20210115.111550"])
+    instance = make_instance(tmp_path, version_id="1.16.5", loader="forge")
+    monkeypatch.setattr(LanAgentTargetResolver, "_ensure_client_mappings", classmethod(lambda cls, _version, _game_version, _reporter: mapping_path))
+    monkeypatch.setattr(
+        LanAgentTargetResolver,
+        "_resolve_forge_srg_target",
+        classmethod(lambda cls, _version, _game_version, _official: LanAgentTarget("forge-srg", "net/minecraft/server/MinecraftServer", "func_71229_d")),
+    )
+
+    resolution = LanAgentTargetResolver.resolve(version, instance)
+
+    assert resolution.targets[0] == LanAgentTarget("forge-srg", "net/minecraft/server/MinecraftServer", "func_71229_d")
+    assert LanAgentTarget("official", "net/minecraft/server/MinecraftServer", "d") in resolution.targets
+    assert LanAgentTarget("named", "net/minecraft/server/MinecraftServer", "setOnlineMode") in resolution.targets
+    assert resolution.warnings == ()
 
 
 def test_resolve_neoforge_emits_neoforge_srg_candidate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

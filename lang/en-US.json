@@ -2299,7 +2299,9 @@
     "account.microsoft.device_code.waiting": "Waiting for you to complete sign-in in your browser...",
     "account.microsoft.device_code.copy": "Copy Code",
     "account.microsoft.device_code.copied": "Copied!",
-    "account.microsoft.device_code.open_link": "Open Link"
+    "account.microsoft.device_code.open_link": "Open Link",
+    "hotfix.update_title": "Hotfix Update",
+    "hotfix.applied_restart_prompt": "Hotfix v{version} applied. Please restart launcher to take full effect."
   },
   "aliases": {
     "MCW Launcher": "app.name",

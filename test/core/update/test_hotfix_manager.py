@@ -363,3 +363,54 @@ def test_meta_path_finder_submodule_interception(tmp_path: Path) -> None:
     assert not any(isinstance(f, HotfixMetaPathFinder) for f in sys.meta_path)
 
 
+def test_apply_hotfix_invokes_registered_callback(tmp_path: Path) -> None:
+    zip_bytes, sha256 = _create_zip_bytes({"testpkg/mod.py": b"X = 42\n"})
+    entry = HotfixEntry(
+        base_version="1.8.2",
+        target_version="1.8.2.1",
+        hotfix_id=1,
+        release_tag="v1.8.2.1",
+        description="Patch",
+        enabled=True,
+        download_url="https://example.com/p.zip",
+        sha256=sha256,
+        size_bytes=len(zip_bytes),
+    )
+
+    received: list[HotfixState] = []
+
+    def on_applied(state: HotfixState) -> None:
+        received.append(state)
+
+    HotfixManager.register_apply_callback(on_applied)
+    try:
+        client = httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, content=zip_bytes)))
+        manager = HotfixManager(root_directory=tmp_path, client=client)
+        manager.apply_hotfix(entry)
+
+        assert len(received) == 1
+        assert received[0].target_version == "1.8.2.1"
+    finally:
+        HotfixManager.unregister_apply_callback(on_applied)
+        manager.rollback()
+
+
+def test_bootstrap_sys_path_with_auto_sync_timeout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    called_timeout: list[float] = []
+
+    def mock_sync(self, current_base_version: str, timeout: float = 3.0):
+        called_timeout.append(timeout)
+        return None
+
+    monkeypatch.setattr(HotfixManager, "sync_active_hotfix", mock_sync)
+    HotfixManager.bootstrap_sys_path(
+        root_directory=tmp_path,
+        current_base_version="1.8.2",
+        auto_sync=True,
+        sync_timeout=1.5,
+    )
+
+    assert called_timeout == [1.5]
+
+
+

@@ -2299,7 +2299,9 @@
     "account.microsoft.device_code.waiting": "Đang chờ bạn hoàn tất đăng nhập trên trình duyệt web...",
     "account.microsoft.device_code.copy": "Sao chép mã",
     "account.microsoft.device_code.copied": "Đã sao chép!",
-    "account.microsoft.device_code.open_link": "Mở liên kết"
+    "account.microsoft.device_code.open_link": "Mở liên kết",
+    "hotfix.update_title": "Cập nhật Hotfix",
+    "hotfix.applied_restart_prompt": "Đã áp dụng bản vá hotfix v{version}. Vui lòng khởi động lại launcher để áp dụng đầy đủ."
   },
   "aliases": {
     "Show static text over themed controls": "launcher_settings.theme.show_static_text",

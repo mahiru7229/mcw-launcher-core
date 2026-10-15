@@ -121,6 +121,18 @@ class HotfixManager:
     MAX_EXTRACTED_BYTES: int = 100 * 1024 * 1024  # 100 MB
     MAX_ARCHIVE_ENTRIES: int = 1_000
 
+    _on_applied_callbacks: list[Callable[[HotfixState], None]] = []
+
+    @classmethod
+    def register_apply_callback(cls, callback: Callable[[HotfixState], None]) -> None:
+        if callback not in cls._on_applied_callbacks:
+            cls._on_applied_callbacks.append(callback)
+
+    @classmethod
+    def unregister_apply_callback(cls, callback: Callable[[HotfixState], None]) -> None:
+        if callback in cls._on_applied_callbacks:
+            cls._on_applied_callbacks.remove(callback)
+
     def __init__(
         self,
         root_directory: Path | None = None,
@@ -237,6 +249,7 @@ class HotfixManager:
         root_directory: Path | None = None,
         current_base_version: str | None = None,
         auto_sync: bool = False,
+        sync_timeout: float = 2.0,
     ) -> bool:
         """Inject hotfixes/live directory to the front of sys.path and sys.meta_path if active.
 
@@ -248,7 +261,7 @@ class HotfixManager:
         if current_base_version is not None:
             manager.cleanup_on_upgrade(current_base_version)
             if auto_sync:
-                manager.sync_active_hotfix(current_base_version)
+                manager.sync_active_hotfix(current_base_version, timeout=sync_timeout)
 
         state = manager.load_state()
         if state is None:
@@ -534,6 +547,13 @@ class HotfixManager:
             if live_str not in sys.path:
                 sys.path.insert(0, live_str)
             self._install_meta_path_finder(self.live_dir)
+            self._evict_cached_hotfix_modules(self.live_dir)
+
+            for cb in list(self._on_applied_callbacks):
+                try:
+                    cb(state)
+                except Exception as exc:
+                    logger.debug("Error in hotfix apply callback: %s", exc)
 
             if progress_callback:
                 progress_callback(100, f"Hotfix {entry.target_version} successfully applied.")

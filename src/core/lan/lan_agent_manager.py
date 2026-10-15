@@ -93,7 +93,7 @@ class LanAgentManager:
             if not resolution.targets:
                 cls.append_log_path(
                     path,
-                    "Agent was not attached because this Minecraft version is outside the supported 1.17+ range. Minecraft will launch unchanged.",
+                    "Agent was not attached because this Minecraft version is outside the supported 1.14+ range. Minecraft will launch unchanged.",
                 )
                 return []
 

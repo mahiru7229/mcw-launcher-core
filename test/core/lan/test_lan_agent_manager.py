@@ -70,12 +70,12 @@ def test_runtime_arguments_are_emitted_only_for_private_offline(tmp_path: Path, 
 
 def test_runtime_arguments_skip_unsupported_legacy_version_without_blocking_launch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     agent_log = tmp_path / "logs" / LanAgentManager.AGENT_LOG_FILENAME
-    instance = make_instance(tmp_path, "1.16.5")
+    instance = make_instance(tmp_path, "1.12.2")
     resolution = LanAgentTargetResolution(
-        game_version="1.16.5",
+        game_version="1.12.2",
         loader="fabric",
         targets=(),
-        warnings=("MCW LAN Agent supports Minecraft 1.17 or newer.",),
+        warnings=("MCW LAN Agent supports Minecraft 1.14 or newer.",),
     )
     install_called = False
 
@@ -89,9 +89,9 @@ def test_runtime_arguments_skip_unsupported_legacy_version_without_blocking_laun
     monkeypatch.setattr(LanAgentManager, "prepare_log", classmethod(lambda cls, _instance, _auth_mode=None: agent_log))
     monkeypatch.setattr(LanAgentTargetResolver, "resolve", classmethod(lambda cls, _version, _instance, _reporter=None: resolution))
 
-    assert LanAgentManager.runtime_arguments(make_version("1.16.5"), "private_offline", instance) == []
+    assert LanAgentManager.runtime_arguments(make_version("1.12.2"), "private_offline", instance) == []
     assert install_called is False
-    assert "outside the supported 1.17+ range" in agent_log.read_text(encoding="utf-8")
+    assert "outside the supported 1.14+ range" in agent_log.read_text(encoding="utf-8")
 
 
 def test_prepare_log_replaces_previous_run_and_read_log_returns_content(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
