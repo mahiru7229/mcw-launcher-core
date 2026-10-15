@@ -218,3 +218,22 @@ def test_authentication_model_uses_slots():
 
     with pytest.raises(AttributeError):
         authentication.extra_field = "not allowed"
+
+
+@pytest.mark.parametrize(
+    ("username", "expected_variant"),
+    [
+        ("Steve", "slim"),     # UUID 5627dd98-e6be-3c21-b8a8-e92344183641 -> hash bit 1 -> slim (Alex)
+        ("Alex", "classic"),   # UUID 36532b5e-c442-3dbb-a24c-c7e55d0f979a -> hash bit 0 -> classic (Steve)
+        ("Notch", "classic"),  # UUID b50ad385-829d-3141-a216-7e7d7539ba7f -> hash bit 0 -> classic (Steve)
+    ],
+)
+def test_default_skin_variant_matches_minecraft(username: str, expected_variant: str) -> None:
+    player_uuid = OfflineAuthentication.uuid_generator(username)
+    assert OfflineAuthentication.default_skin_variant(player_uuid) == expected_variant
+
+
+def test_default_skin_variant_handles_invalid_or_empty_uuid() -> None:
+    assert OfflineAuthentication.default_skin_variant("") == "classic"
+    assert OfflineAuthentication.default_skin_variant("not-a-valid-uuid") == "classic"
+    assert OfflineAuthentication.default_skin_variant(None) == "classic"

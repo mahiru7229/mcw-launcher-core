@@ -26,11 +26,15 @@ class AccountManager:
                 f"Account '{username}' already exists."
             )
 
+        account_uuid = OfflineAuthentication.uuid_generator(username)
+        skin_variant = OfflineAuthentication.default_skin_variant(account_uuid)
+
         account = Account(
             account_id=str(uuid.uuid4()),
             account_type=AccountSource.OFFLINE,
             username=username,
-            uuid=OfflineAuthentication.uuid_generator(username)
+            uuid=account_uuid,
+            skin_variant=skin_variant,
         )
 
         AccountRepository.save(account)

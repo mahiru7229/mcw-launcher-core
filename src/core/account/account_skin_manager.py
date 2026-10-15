@@ -27,6 +27,9 @@ class AccountSkinManager:
 
     @classmethod
     def cache_account(cls, account: Account) -> Path | None:
+        account_type = getattr(getattr(account, "account_type", None), "value", None) or getattr(account, "account_type", None)
+        if str(account_type).lower() == "offline":
+            return None
         skin_url = str(account.skin_url or "").strip()
         if not skin_url:
             return None
@@ -34,14 +37,8 @@ class AccountSkinManager:
 
     @classmethod
     def cache_offline_account(cls, account: Account) -> Path | None:
-        username = str(getattr(account, "username", "") or "").strip()
-        if not username:
-            return None
-        url = f"https://minotar.net/skin/{username}"
-        try:
-            return cls.cache_texture(account.uuid, url)
-        except Exception:
-            return None
+        """Offline accounts only use default local Steve/Alex models without online skin lookups."""
+        return None
 
     @classmethod
     def cache_texture(cls, profile_uuid: str, skin_url: str) -> Path:
@@ -81,6 +78,10 @@ class AccountSkinManager:
 
     @classmethod
     def cached_texture(cls, account_or_uuid: Account | str) -> Path | None:
+        if isinstance(account_or_uuid, Account):
+            account_type = getattr(getattr(account_or_uuid, "account_type", None), "value", None) or getattr(account_or_uuid, "account_type", None)
+            if str(account_type).lower() == "offline":
+                return None
         profile_uuid = account_or_uuid.uuid if isinstance(account_or_uuid, Account) else str(account_or_uuid)
         try:
             path = cls.texture_path(profile_uuid)
@@ -90,9 +91,13 @@ class AccountSkinManager:
 
     @classmethod
     def remove_cached_texture(cls, account_or_uuid: Account | str) -> None:
-        path = cls.cached_texture(account_or_uuid)
-        if path is not None:
-            path.unlink(missing_ok=True)
+        profile_uuid = account_or_uuid.uuid if isinstance(account_or_uuid, Account) else str(account_or_uuid)
+        try:
+            path = cls.texture_path(profile_uuid)
+            if path.is_file():
+                path.unlink(missing_ok=True)
+        except ValueError:
+            pass
 
     @staticmethod
     def texture_path(profile_uuid: str) -> Path:

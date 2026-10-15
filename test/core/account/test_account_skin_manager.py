@@ -97,3 +97,26 @@ def test_repository_persists_skin_metadata(monkeypatch: pytest.MonkeyPatch, tmp_
     assert loaded is not None
     assert loaded.skin_url == account.skin_url
     assert loaded.skin_variant == "slim"
+
+
+def test_offline_accounts_do_not_cache_or_use_online_skins(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(Paths, "ACCOUNTS_ROOT", tmp_path / "accounts")
+    account = Account(
+        "offline-id",
+        AccountSource.OFFLINE,
+        "OfflinePlayer",
+        "123456781234123412341234567890ab",
+        skin_variant="classic",
+    )
+
+    # offline accounts should never fetch online textures
+    assert AccountSkinManager.cache_offline_account(account) is None
+    assert AccountSkinManager.cache_account(account) is None
+
+    # even if an old cached file exists on disk, cached_texture must return None for offline accounts
+    path = AccountSkinManager.texture_path(account.uuid)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(PNG)
+
+    assert AccountSkinManager.cached_texture(account) is None
+

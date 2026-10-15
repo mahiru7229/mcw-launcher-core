@@ -30,6 +30,24 @@ class OfflineAuthentication:
         )
 
     @staticmethod
+    def default_skin_variant(player_uuid: str | uuid.UUID) -> str:
+        """Determine whether an offline player uses classic (Steve) or slim (Alex) model.
+
+        Matches Minecraft's DefaultPlayerSkin algorithm based on the UUID hash bit.
+        """
+        try:
+            if not isinstance(player_uuid, uuid.UUID):
+                player_uuid = uuid.UUID(str(player_uuid).strip())
+            int_val = player_uuid.int
+            most = (int_val >> 64) & 0xFFFFFFFFFFFFFFFF
+            least = int_val & 0xFFFFFFFFFFFFFFFF
+            hilo = most ^ least
+            hash_code = ((hilo >> 32) ^ hilo) & 0xFFFFFFFF
+            return "slim" if (hash_code & 1) == 1 else "classic"
+        except (ValueError, TypeError, AttributeError):
+            return "classic"
+
+    @staticmethod
     def uuid_generator(player_name: str) -> str:
         data = f"OfflinePlayer:{player_name}".encode("utf-8")
         md5 = bytearray(hashlib.md5(data, usedforsecurity=False).digest())
@@ -43,3 +61,4 @@ class OfflineAuthentication:
         md5[8] |= 0x80
 
         return str(uuid.UUID(bytes=bytes(md5)))
+
