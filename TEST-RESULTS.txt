@@ -1,18 +1,20 @@
 MCW Launcher release verification
-Version: 1.8.1
-Channel: stable
+Version: 1.8.2-beta.1
+Channel: beta
 
-Stable checks in this build workspace:
-- MCW Core & GUI regression suite: 2117 passed, 10 skipped
+Beta checks in this build workspace:
+- MCW Core & GUI regression suite: 2145 passed, 10 skipped
 - 100% Core & GUI AST boundary & JSON-RPC 2.0 checks (direct, HTTP/SSE, Stdio Sidecar): passed
-- update/mod/Modrinth/package/hotfix regression (including v1.7.1.1 GPU cache & UI hotfix display): passed
+- update/mod/Modrinth/package/hotfix regression (including v1.8.2 startup hotfix auto-sync & memory eviction): passed
+- MCW LAN Agent 1.14+ target resolver (Forge SRG func_71229_d, Fabric Intermediary, Mojang mappings): passed
 - release_preflight: PASS
 - Windows schema-2 package smoke: PASS
 - Linux schema-2 package smoke: PASS
 
 Release-critical coverage:
 - 100% Core & GUI decoupling via JSON-RPC 2.0 (mcw_core.rpc) and mcw_core/api public boundary
-- Hotfix CDN runtime patch distribution with SHA-256 verification, atomic swap, and GPU caching
+- LAN Agent Offline Mode (private_offline) extended down to Minecraft 1.14+
+- Hotfix CDN runtime patch distribution with pre-bootstrap auto-sync, in-memory module eviction, and restart prompt
 - Modloader version refresh and retry mechanism
 - Windows long path and package isolation
 
