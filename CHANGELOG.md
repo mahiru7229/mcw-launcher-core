@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.8.2-beta.1 - 2026-10-15
+## 1.8.2 - 2026-10-15
 
 - **Extended MCW LAN Agent Support to Lower Minecraft Versions (Down to 1.14+)**:
   - Lowered `LanAgentTargetResolver.MIN_SUPPORTED_VERSION` from 1.17 to 1.14.0.

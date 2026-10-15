@@ -1,6 +1,6 @@
 MCW Launcher release verification
-Version: 1.8.2-beta.1
-Channel: beta
+Version: 1.8.2
+Channel: stable
 
 Beta checks in this build workspace:
 - MCW Core & GUI regression suite: 2145 passed, 10 skipped

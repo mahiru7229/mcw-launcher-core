@@ -35,8 +35,8 @@ def validate() -> list[str]:
         errors.append("Distribution name must be mcw-core.")
     if project.get("version") != VERSION_ID or mcw_core.__version__ != VERSION_ID:
         errors.append("pyproject, src.config and mcw_core runtime versions must match.")
-    if VERSION_ID != "1.8.2-beta.1" or UPDATE_CHANNEL != "beta":
-        errors.append(f"This source package must be v1.8.2-beta.1 (beta), got {VERSION_ID} ({UPDATE_CHANNEL}).")
+    if VERSION_ID != "1.8.2" or UPDATE_CHANNEL != "stable":
+        errors.append(f"This source package must be Stable v1.8.2, got {VERSION_ID} ({UPDATE_CHANNEL}).")
     if CURSEFORGE_DEFAULT_GATEWAY_URL:
         errors.append("A default CurseForge gateway URL must not be bundled.")
     if (PROJECT_ROOT / "src" / "gui").exists():

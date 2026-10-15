@@ -1,6 +1,6 @@
-# MCW Core v1.8.2-beta.1
+# MCW Core v1.8.2
 
-MCW Core `1.8.2-beta.1` is the headless runtime and JSON-RPC 2.0 server shipped with MCW Launcher `v1.8.2-beta.1`.
+MCW Core `1.8.2` is the Stable headless runtime and JSON-RPC 2.0 server shipped with MCW Launcher `v1.8.2`.
 
 ## Highlights
 
@@ -16,8 +16,8 @@ MCW Core `1.8.2-beta.1` is the headless runtime and JSON-RPC 2.0 server shipped 
 
 ## Distribution contract
 
-- Distribution: `mcw-core 1.8.2-beta.1` (`mcw_core-1.8.2b1-py3-none-any.whl`)
-- Runtime: `mcw_core.__version__ == "1.8.2-beta.1"`
+- Distribution: `mcw-core 1.8.2` (`mcw_core-1.8.2-py3-none-any.whl`)
+- Runtime: `mcw_core.__version__ == "1.8.2"`
 - Python: `>=3.12`
 - GUI dependency: none
 - Public imports: `mcw_core`, `mcw_core.rpc`, `mcw_core.api.*`, and `mcw_core.api.models.*`

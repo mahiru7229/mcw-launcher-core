@@ -1,10 +1,10 @@
-# MCW Core 1.8.2-beta.1
+# MCW Core 1.8.2
 
-MCW Core is the headless engine runtime shipped with MCW Launcher `v1.8.2-beta.1`. This source distribution contains the complete public API, JSON-RPC 2.0 server (`mcw_core.rpc`), implementation, data models, tests, documentation, examples, and LAN Agent resource. The separate CurseForge gateway source archive is intentionally not bundled with MCW Core.
+MCW Core is the headless engine runtime shipped with MCW Launcher `v1.8.2`. This source distribution contains the complete public API, JSON-RPC 2.0 server (`mcw_core.rpc`), implementation, data models, tests, documentation, examples, and LAN Agent resource. The separate CurseForge gateway source archive is intentionally not bundled with MCW Core.
 
 PySide6 and the launcher GUI are intentionally not part of the Core distribution.
 
-## What changed in 1.8.2-beta.1
+## What changed in 1.8.2
 
 - **Extended MCW LAN Agent Support to Lower Minecraft Versions (Down to 1.14+)**:
   - `LanAgentTargetResolver` extended from 1.17+ to 1.14.0+ (supports Minecraft 1.14, 1.15, 1.16.5+).
@@ -46,7 +46,7 @@ PySide6 and the launcher GUI are intentionally not part of the Core distribution
 ### From prebuilt Wheel (`.whl`)
 
 ```bash
-pip install mcw_core-1.8.2b1-py3-none-any.whl
+pip install mcw_core-1.8.2-py3-none-any.whl
 ```
 
 ### Install for development
